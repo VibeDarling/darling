@@ -329,6 +329,12 @@ int __darling_thread_terminate(void* stackaddr,
 {
 	int checkout_result = 0;
 
+	// Block all signals on this thread so no signal handlers or async interrupts
+	// attempt to execute Mach traps or RPC calls while the thread is tearing down.
+	sigset_t all_signals;
+	sigfillset(&all_signals);
+	pthread_sigmask(SIG_BLOCK, &all_signals, NULL);
+
 	if (t_server_socket != -1) {
 		checkout_result = dserver_rpc_explicit_checkout(t_server_socket, -1, false);
 	} else {
@@ -349,7 +355,9 @@ int __darling_thread_terminate(void* stackaddr,
 	// close the RPC FD (if necessary)
 	// it should already have been unguarded by our caller
 	if (t_server_socket != -1) {
-		__mldr_close_rpc_socket(t_server_socket);
+		int old_socket = t_server_socket;
+		t_server_socket = -1;
+		__mldr_close_rpc_socket(old_socket);
 	}
 
 	if (getpid() == syscall(SYS_gettid))
