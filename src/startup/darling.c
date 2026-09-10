@@ -248,6 +248,21 @@ static void ensureProcSymlink(const char* prefixPath)
 
 void createDir(const char* path);
 
+static void ensureShSymlink(const char* prefixPath)
+{
+	char binDir[4096];
+	snprintf(binDir, sizeof(binDir), "%s/bin", prefixPath);
+	createDir(binDir);
+
+	char shPath[4096];
+	struct stat st;
+	snprintf(shPath, sizeof(shPath), "%s/bin/sh", prefixPath);
+	if (lstat(shPath, &st) != 0)
+	{
+		symlink("bash", shPath);
+	}
+}
+
 static const char* findHostCaBundle(void)
 {
 	static const char* cached_bundle = NULL;
@@ -732,6 +747,7 @@ int main(int argc, char ** argv)
 
 	if (g_nonroot)
 		ensureProcSymlink(prefix);
+	ensureShSymlink(prefix);
 	ensureKeychains(prefix);
 
 	int c;
@@ -1860,6 +1876,7 @@ void setupPrefix()
 
 	if (g_nonroot)
 		ensureProcSymlink(prefix);
+	ensureShSymlink(prefix);
 	ensureKeychains(prefix);
 
 	// create passwd, master.passwd, and group
