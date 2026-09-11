@@ -196,72 +196,55 @@ no_slide:
 				int initprot = native_prot(seg->initprot);
 				int useprot = (initprot & PROT_EXEC) ? maxprot : initprot;
 
-				if (seg->filesize < seg->vmsize)
+				// Skip __PAGEZERO or any unmapped zero-address segment
+				if (strcmp(seg->segname, "__PAGEZERO") == 0 || (seg->vmaddr == 0 && useprot == 0))
 				{
-					unsigned long map_addr;
-					if (slide != 0)
+					if (seg->vmaddr + slide + seg->vmsize > lr->vm_addr_max)
+						lr->vm_addr_max = seg->vmaddr + slide + seg->vmsize;
+					break;
+				}
+
+				uintptr_t seg_addr = seg->vmaddr;
+				if (seg_addr != 0)
+					seg_addr += slide;
+
+				// 1. Map the file-backed portion of the segment
+				if (seg->filesize > 0)
+				{
+					rv = compatible_mmap((void*)seg_addr, seg->filesize, useprot,
+							MAP_FIXED_NOREPLACE | MAP_PRIVATE, fd, seg->fileoff + fat_offset);
+					if (rv == (void*)MAP_FAILED)
 					{
-						unsigned long addr = seg->vmaddr;
-
-						if (addr != 0)
-							addr += slide;
-
-						// Some segments' filesize != vmsize, thus this mprotect().
-						rv = compatible_mmap((void*)addr, seg->vmsize, useprot, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE, -1, 0);
-						if (rv == (void*)MAP_FAILED)
-						{
-							if (seg->vmaddr == 0 && useprot == 0) {
-								// this is the PAGEZERO segment;
-								// if we can't map it, assume everything is fine and the system has already made that area inaccessible
-								rv = 0;
-							} else {
-								fprintf(stderr, "Cannot mmap segment %s at %p: %s\n", seg->segname, (void*)(uintptr_t)seg->vmaddr, strerror(errno));
-								exit(1);
-							}
-						}
+						fprintf(stderr, "Cannot mmap segment %s at %p: %s\n", seg->segname, (void*)seg_addr, strerror(errno));
+						exit(1);
 					}
-					else
+
+					if (seg->fileoff == 0)
+						mappedHeader = (struct MACH_HEADER_STRUCT*) seg_addr;
+
+					// Mach-O ABI: zero-fill the remainder of the last file-backed page for writable segments
+					if (seg->filesize < seg->vmsize && (useprot & PROT_WRITE))
 					{
-						size_t size = seg->vmsize - seg->filesize;
-						rv = compatible_mmap((void*) PAGE_ALIGN(seg->vmaddr + seg->vmsize - size), PAGE_ROUNDUP(size), useprot,
-								MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE, -1, 0);
-						if (rv == (void*)MAP_FAILED)
-						{
-							if (seg->vmaddr == 0 && useprot == 0) {
-								// this is the PAGEZERO segment;
-								// if we can't map it, assume everything is fine and the system has already made that area inaccessible
-								rv = 0;
-							} else {
-								fprintf(stderr, "Cannot mmap segment %s at %p: %s\n", seg->segname, (void*)(uintptr_t)seg->vmaddr, strerror(errno));
-								exit(1);
-							}
+						size_t page_rem = PAGE_ROUNDUP(seg->filesize) - seg->filesize;
+						if (page_rem > 0 && page_rem < PAGE_SIZE) {
+							memset((char*)seg_addr + seg->filesize, 0, page_rem);
 						}
 					}
 				}
 
-				if (seg->filesize > 0)
+				// 2. Map the remaining BSS/anonymous pages (if any) beyond the file-backed pages
+				if (PAGE_ROUNDUP(seg->vmsize) > PAGE_ROUNDUP(seg->filesize))
 				{
-					unsigned long addr = seg->vmaddr + slide;
-					int flag = MAP_FIXED_NOREPLACE;
-					if (seg->filesize < seg->vmsize) {
-						flag = MAP_FIXED;
-					}
-					rv = compatible_mmap((void*)addr, seg->filesize, useprot,
-							flag | MAP_PRIVATE, fd, seg->fileoff + fat_offset);
+					uintptr_t bss_addr = seg_addr + PAGE_ROUNDUP(seg->filesize);
+					size_t bss_size = PAGE_ROUNDUP(seg->vmsize) - PAGE_ROUNDUP(seg->filesize);
+
+					rv = compatible_mmap((void*)bss_addr, bss_size, useprot,
+							MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE, -1, 0);
 					if (rv == (void*)MAP_FAILED)
 					{
-						if (seg->vmaddr == 0 && useprot == 0) {
-							// this is the PAGEZERO segment;
-							// if we can't map it, assume everything is fine and the system has already made that area inaccessible
-							rv = 0;
-						} else {
-							fprintf(stderr, "Cannot mmap segment %s at %p: %s\n", seg->segname, (void*)(uintptr_t)seg->vmaddr, strerror(errno));
-							exit(1);
-						}
+						fprintf(stderr, "Cannot mmap bss for segment %s at %p: %s\n", seg->segname, (void*)bss_addr, strerror(errno));
+						exit(1);
 					}
-
-					if (seg->fileoff == 0)
-						mappedHeader = (struct MACH_HEADER_STRUCT*) (seg->vmaddr + slide);
 				}
 
 				if (seg->vmaddr + slide + seg->vmsize > lr->vm_addr_max)
