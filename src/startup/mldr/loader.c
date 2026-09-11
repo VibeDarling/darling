@@ -16,11 +16,9 @@ static void load(const char* path, cpu_type_t cpu, bool expect_dylinker, char** 
 static void setup_space(struct load_results* lr, bool is_64_bit);
 static void* compatible_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 
-#ifndef PAGE_SIZE
-#	define PAGE_SIZE	4096
+#ifndef PAGE_ROUNDUP
+#	define PAGE_ROUNDUP(x) (((x) + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1))
 #endif
-#define PAGE_ALIGN(x) (x & ~(PAGE_SIZE-1))
-#define PAGE_ROUNDUP(x) (((((x)-1) / PAGE_SIZE)+1) * PAGE_SIZE)
 
 // Definitions:
 // FUNCTION_NAME (load32/load64)
@@ -222,21 +220,29 @@ no_slide:
 					if (seg->fileoff == 0)
 						mappedHeader = (struct MACH_HEADER_STRUCT*) seg_addr;
 
-					// Mach-O ABI: zero-fill the remainder of the last file-backed page for writable segments
-					if (seg->filesize < seg->vmsize && (useprot & PROT_WRITE))
+					// Mach-O ABI: zero-fill the remainder of the last file-backed page
+					if (seg->filesize < seg->vmsize)
 					{
 						size_t page_rem = PAGE_ROUNDUP(seg->filesize) - seg->filesize;
 						if (page_rem > 0 && page_rem < PAGE_SIZE) {
-							memset((char*)seg_addr + seg->filesize, 0, page_rem);
+							if (useprot & PROT_WRITE) {
+								memset((char*)seg_addr + seg->filesize, 0, page_rem);
+							} else {
+								void* page_start = (void*)(seg_addr + seg->filesize - (seg->filesize % PAGE_SIZE));
+								mprotect(page_start, PAGE_SIZE, PROT_READ | PROT_WRITE);
+								memset((char*)seg_addr + seg->filesize, 0, page_rem);
+								mprotect(page_start, PAGE_SIZE, useprot);
+							}
 						}
 					}
 				}
 
 				// 2. Map the remaining BSS/anonymous pages (if any) beyond the file-backed pages
-				if (PAGE_ROUNDUP(seg->vmsize) > PAGE_ROUNDUP(seg->filesize))
+				size_t file_pages = seg->filesize > 0 ? PAGE_ROUNDUP(seg->filesize) : 0;
+				if (PAGE_ROUNDUP(seg->vmsize) > file_pages)
 				{
-					uintptr_t bss_addr = seg_addr + PAGE_ROUNDUP(seg->filesize);
-					size_t bss_size = PAGE_ROUNDUP(seg->vmsize) - PAGE_ROUNDUP(seg->filesize);
+					uintptr_t bss_addr = seg_addr + file_pages;
+					size_t bss_size = PAGE_ROUNDUP(seg->vmsize) - file_pages;
 
 					rv = compatible_mmap((void*)bss_addr, bss_size, useprot,
 							MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE, -1, 0);
