@@ -8,8 +8,6 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/../CoreAudioUtilityClasses/CoreAudio/PublicUtility
 )
 
-add_definitions(-U__DARWIN_UNIX03 -D__DARWIN_UNIX03=0)
-
 set(sources
 	PublicUtility/CAChannelMapper.cpp
 	PublicUtility/CAChannelMappingPlayer.cpp
