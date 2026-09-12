@@ -247,6 +247,10 @@ int main(int argc, char** argv, char** envp)
 		if (strncmp(entry, "__mldr_", sizeof("__mldr_") - 1) == 0)
 			continue;
 
+		// Don't pass host LD_LIBRARY_PATH down to Darwin userland
+		if (strncmp(entry, "LD_LIBRARY_PATH=", sizeof("LD_LIBRARY_PATH=") - 1) == 0)
+			continue;
+
 		// Must be a valid KEY=VALUE variable
 		if (strchr(entry, '=') == NULL)
 			continue;
