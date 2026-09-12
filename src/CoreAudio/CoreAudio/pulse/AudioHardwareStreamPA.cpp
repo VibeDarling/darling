@@ -43,15 +43,24 @@ AudioHardwareStreamPA::AudioHardwareStreamPA(AudioHardwareImplPA* hw, AudioDevic
 
 		m_stream = pa_stream_new(context, "CoreAudio", &spec, nullptr);
 
-		//pa_stream_set_state_callback(m_stream, [](pa_stream *s, void *userdata) {
-			//std::cout << "Stream state: " << pa_stream_get_state(s) << std::endl;
-			/*if (pa_stream_get_state(s) == 2)
-				pa_stream_trigger(s, [](pa_stream *s, int success, void *userdata){}, nullptr);*/
-		//}, this);
-		
-		//pa_stream_set_underflow_callback(m_stream, [](pa_stream *s, void *userdata) {
-		//	std::cerr << "Underflow!\n";
-		//}, nullptr);
+		pa_stream_set_state_callback(m_stream, [](pa_stream *s, void *userdata) {
+			if (pa_stream_get_state(s) == PA_STREAM_FAILED)
+			{
+				std::cerr << "PulseAudio stream failed: " << pa_strerror(pa_context_errno(pa_stream_get_context(s))) << std::endl;
+			}
+		}, this);
+
+		pa_stream_set_underflow_callback(m_stream, [](pa_stream *s, void *userdata) {
+			std::cerr << "[CoreAudio PA] Underflow! Corked: " << pa_stream_is_corked(s) << std::endl;
+		}, nullptr);
+
+		pa_stream_set_overflow_callback(m_stream, [](pa_stream *s, void *userdata) {
+			std::cerr << "[CoreAudio PA] Overflow!\n";
+		}, nullptr);
+
+		pa_stream_set_suspended_callback(m_stream, [](pa_stream *s, void *userdata) {
+			std::cerr << "[CoreAudio PA] Stream suspended: " << pa_stream_is_suspended(s) << std::endl;
+		}, nullptr);
 
 		start();
 	});
@@ -70,9 +79,11 @@ void AudioHardwareStreamPA::start()
 
 void AudioHardwareStreamPA::stop()
 {
-	std::unique_lock<std::mutex> l(m_stopMutex);
+	{
+		std::unique_lock<std::mutex> l(m_stopMutex);
+		m_running = false;
+	}
 	pa_stream_disconnect(m_stream);
-	m_running = false;
 }
 
 // This function seems to only convert unsigned to signed, but it works both ways in practice

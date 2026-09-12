@@ -55,36 +55,48 @@ void AudioHardwareStreamPAOutput::paStreamWriteCB(pa_stream* s, size_t length, v
 
 		// std::cout << "AudioHardwareStreamPAOutput() length req=" << length << ", done=" << done << std::endl;
 		size_t rqsize = std::min<UInt32>(This->m_bufferSize, length-done);
-		pa_stream_begin_write(This->m_stream, (void**) &abl->mBuffers[0].mData, &rqsize);
+		void* pdata = nullptr;
+		int err = pa_stream_begin_write(This->m_stream, &pdata, &rqsize);
+		if (err < 0 || !pdata || rqsize == 0)
+		{
+			if (err < 0)
+			{
+				std::cerr << "pa_stream_begin_write failed: " << err << std::endl;
+				pa_stream_cork(This->m_stream, true, [](pa_stream*, int, void*) {}, nullptr);
+			}
+			break;
+		}
 
+		abl->mBuffers[0].mData = pdata;
 		abl->mBuffers[0].mDataByteSize = rqsize;
 
 		// Call the client for more data
 		OSStatus status = This->m_callback(This->m_hw->id(), &fake, nullptr, nullptr, abl, &fake, This->m_clientData);
 		if (status != noErr || !abl->mBuffers[0].mDataByteSize)
 		{
-			// std::cerr << "AudioDeviceIOProc returned " << status << ", corking...\n";
-
+			pa_stream_cancel_write(This->m_stream);
 			pa_stream_cork(This->m_stream, true, [](pa_stream*, int, void*) {}, nullptr);
 			break;
 		}
 		else
 		{
+			if (abl->mBuffers[0].mDataByteSize < rqsize)
+			{
+				memset((uint8_t*)pdata + abl->mBuffers[0].mDataByteSize, 0, rqsize - abl->mBuffers[0].mDataByteSize);
+			}
+
 			if (This->m_convertSignedUnsigned)
 				This->transformSignedUnsigned(abl);
 				
-			// std::cout << "AudioHardwareStreamPAOutput::paStreamWriteCB(): got " << abl->mBuffers[0].mDataByteSize << " bytes\n";
-			int rv = pa_stream_write(This->m_stream, abl->mBuffers[0].mData, abl->mBuffers[0].mDataByteSize, nullptr, 0, PA_SEEK_RELATIVE);
+			int rv = pa_stream_write(This->m_stream, pdata, rqsize, nullptr, 0, PA_SEEK_RELATIVE);
 			if (rv != 0)
 			{
-				// std::cerr << "pa_stream_write() failed\n";
+				std::cerr << "[CoreAudio PA] pa_stream_write failed: " << rv << std::endl;
 				break;
 			}
-			//else
-			//	std::cout << "pa_stream_write() OK\n";
 		}
 
-		done += abl->mBuffers[0].mDataByteSize;
+		done += rqsize;
 	}
 }
 
@@ -93,9 +105,9 @@ void AudioHardwareStreamPAOutput::start()
 	struct pa_buffer_attr battr;
 
 	battr.fragsize = uint32_t(-1);
-	battr.maxlength = uint32_t(m_bufferSize);
+	battr.maxlength = uint32_t(-1);
 	battr.minreq = uint32_t(-1);
-	battr.prebuf = battr.maxlength;
+	battr.prebuf = uint32_t(-1);
 	battr.tlength = uint32_t(-1);
 
 	pa_stream_set_write_callback(m_stream, paStreamWriteCB, this);

@@ -27,6 +27,13 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <mutex>
 #include <thread>
 
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+
 AudioHardwareImplPA::AudioHardwareImplPA(AudioObjectID myId, const char* paRole)
 : AudioHardwareImpl(myId), m_paRole(paRole)
 {
@@ -38,7 +45,12 @@ AudioHardwareImplPA::AudioHardwareImplPA(AudioObjectID myId, const char* paRole)
 AudioHardwareImplPA::~AudioHardwareImplPA()
 {
 	if (m_context)
+	{
+		pa_context_disconnect(m_context);
 		pa_context_unref(m_context);
+		m_context = nullptr;
+	}
+	m_loop.reset();
 }
 
 OSStatus AudioHardwareImplPA::getPropertyData(const AudioObjectPropertyAddress* inAddress, UInt32 inQualifierDataSize,
@@ -70,12 +82,19 @@ OSStatus AudioHardwareImplPA::getPropertyData(const AudioObjectPropertyAddress* 
 			return kAudioHardwareNoError;
 		case kAudioHardwarePropertyDevices:
 		{
-			if (AudioDeviceID* devId = static_cast<AudioDeviceID*>(outData); devId && *ioDataSize >= 2*sizeof(AudioDeviceID))
+			UInt32 maxCount = *ioDataSize / sizeof(AudioDeviceID);
+			if (AudioDeviceID* devId = static_cast<AudioDeviceID*>(outData); devId && maxCount > 0)
 			{
-				devId[0] = kAudioObjectSystemObject + 1; // output
-				devId[1] = kAudioObjectSystemObject + 2; // input
+				AudioDeviceID ids[] = {
+					kAudioObjectSystemObject + 1, // output
+					kAudioObjectSystemObject + 2, // input
+					kAudioObjectSystemObject + 3  // system output ("event")
+				};
+				UInt32 count = std::min<UInt32>(maxCount, 3);
+				for (UInt32 i = 0; i < count; i++)
+					devId[i] = ids[i];
 			}
-			*ioDataSize = sizeof(AudioDeviceID) * 2;
+			*ioDataSize = sizeof(AudioDeviceID) * 3;
 			return kAudioHardwareNoError;
 		}
 		case kAudioDevicePropertyVolumeDecibelsToScalar:
@@ -132,7 +151,7 @@ static void paContextStateCB(pa_context* c, void* priv)
 	}
 	else if (state == PA_CONTEXT_FAILED)
 	{
-		std::cerr << "PulseAudio error: PA_CONTEXT_FAILED\n";
+		std::cerr << "PulseAudio error: PA_CONTEXT_FAILED: " << pa_strerror(pa_context_errno(c)) << "\n";
 
 		cb(nullptr);
 		Block_release(cb);
@@ -208,9 +227,74 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 
 			pa_context_set_state_callback(m_context, paContextStateCB, Block_copy(cb));
 
-			if (pa_context_connect(m_context, nullptr, PA_CONTEXT_NOFLAGS, nullptr) < 0)
+			const char* server = getenv("PULSE_SERVER");
+			char serverBuf[512] = {0};
+			if (!server)
 			{
-				std::cerr << "pa_context_connect() returned an error\n";
+				uid_t uid = getuid();
+				char hostSocketPath[512];
+
+				// 1. Standard Linux desktop (PipeWire / PulseAudio via systemd /run/user/<UID>)
+				snprintf(hostSocketPath, sizeof(hostSocketPath), "/Volumes/SystemRoot/run/user/%u/pulse/native", uid);
+				if (access(hostSocketPath, R_OK | W_OK) == 0)
+				{
+					snprintf(serverBuf, sizeof(serverBuf), "/run/user/%u/pulse/native", uid);
+					server = serverBuf;
+				}
+
+				// 2. Termux UNIX socket paths ($PREFIX/var/run/pulse/native or standard static path)
+				if (!server)
+				{
+					const char* termuxPrefix = getenv("PREFIX");
+					if (!termuxPrefix || !termuxPrefix[0])
+						termuxPrefix = getenv("TERMUX_PREFIX");
+					if (!termuxPrefix || !termuxPrefix[0])
+						termuxPrefix = "/data/data/com.termux/files/usr";
+
+					snprintf(hostSocketPath, sizeof(hostSocketPath), "/Volumes/SystemRoot%s/var/run/pulse/native", termuxPrefix);
+					if (access(hostSocketPath, R_OK | W_OK) == 0)
+					{
+						snprintf(serverBuf, sizeof(serverBuf), "%s/var/run/pulse/native", termuxPrefix);
+						server = serverBuf;
+					}
+				}
+
+				// 3. Local /run fallback
+				if (!server)
+				{
+					snprintf(serverBuf, sizeof(serverBuf), "/run/user/%u/pulse/native", uid);
+					if (access(serverBuf, R_OK | W_OK) == 0)
+					{
+						server = serverBuf;
+					}
+				}
+
+				// 4. TCP fallback (standard in Termux, WSL, Docker, where PulseAudio listens on 127.0.0.1:4713)
+				if (!server)
+				{
+					int fd = socket(AF_INET, SOCK_STREAM, 0);
+					if (fd >= 0)
+					{
+						struct timeval tv = {0, 50000}; // 50ms timeout
+						setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+						setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+						struct sockaddr_in sa;
+						memset(&sa, 0, sizeof(sa));
+						sa.sin_family = AF_INET;
+						sa.sin_port = htons(4713);
+						sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+						if (connect(fd, (struct sockaddr*)&sa, sizeof(sa)) == 0)
+						{
+							server = "tcp:127.0.0.1:4713";
+						}
+						close(fd);
+					}
+				}
+			}
+
+			if (pa_context_connect(m_context, server, PA_CONTEXT_NOFLAGS, nullptr) < 0)
+			{
+				std::cerr << "pa_context_connect() returned an error: " << pa_strerror(pa_context_errno(m_context)) << "\n";
 				pa_context_set_state_callback(m_context, nullptr, nullptr);
 				cb(nullptr);
 				return;

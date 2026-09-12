@@ -13,12 +13,12 @@ typedef UInt32 AudioObjectPropertySelector;
 typedef UInt32 AudioObjectPropertyScope;
 typedef UInt32 AudioObjectPropertyElement;
 
-struct AudioObjectPropertyAddress
+typedef struct AudioObjectPropertyAddress
 {
 	AudioObjectPropertySelector mSelector;
 	AudioObjectPropertyScope mScope;
 	AudioObjectPropertyElement mElement;
-};
+} AudioObjectPropertyAddress;
 
 enum
 {

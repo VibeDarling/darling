@@ -18,6 +18,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "PADispatchMainLoop.h"
 #include <iostream>
+#include <atomic>
 
 PADispatchMainLoop::PADispatchMainLoop()
 {
@@ -87,6 +88,7 @@ struct dual_source
 	pa_io_event_flags_t events;
 	void* userdata;
 	int fd;
+	std::atomic<bool> cancelled{false};
 };
 
 pa_io_event* PADispatchMainLoop::io_new(pa_mainloop_api *a, int fd, pa_io_event_flags_t events, pa_io_event_cb_t cb, void *userdata)
@@ -108,12 +110,14 @@ pa_io_event* PADispatchMainLoop::io_new(pa_mainloop_api *a, int fd, pa_io_event_
 	dual->sourceWrite = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, fd, 0, q);
 
 	dispatch_source_set_event_handler(dual->sourceRead, ^{
-		dual->callback(This->getAPI(), reinterpret_cast<pa_io_event*>(dual), fd, PA_IO_EVENT_INPUT, dual->userdata);
+		if (!dual->cancelled)
+			dual->callback(This->getAPI(), reinterpret_cast<pa_io_event*>(dual), fd, PA_IO_EVENT_INPUT, dual->userdata);
 	});
 
 	dispatch_source_set_event_handler(dual->sourceWrite, ^{
 		// std::cout << "PADispatchMainLoop::io_new(): write event on fd " << fd << std::endl;
-		dual->callback(This->getAPI(), reinterpret_cast<pa_io_event*>(dual), fd, PA_IO_EVENT_OUTPUT, dual->userdata);
+		if (!dual->cancelled)
+			dual->callback(This->getAPI(), reinterpret_cast<pa_io_event*>(dual), fd, PA_IO_EVENT_OUTPUT, dual->userdata);
 	});
 
 	dispatch_source_set_cancel_handler(dual->sourceWrite, ^{
@@ -186,6 +190,8 @@ void PADispatchMainLoop::io_free(pa_io_event *e)
 	dual_source* dual = reinterpret_cast<dual_source*>(e);
 	// std::cout << "PADispatchMainLoop::io_free(): fd=" << dual->fd << std::endl;
 
+	dual->cancelled = true;
+
 	if (!dual->readResumed)
 		dispatch_resume(dual->sourceRead);
 	dispatch_source_cancel(dual->sourceRead);
@@ -218,29 +224,40 @@ struct pa_timer
 	struct timespec when;
 	struct linux_timeval tv;
 	pa_time_event_destroy_cb_t destroy = nullptr;
+	std::atomic<bool> cancelled{false};
 };
 
 pa_time_event *PADispatchMainLoop::time_new(pa_mainloop_api *a, const struct timeval *tv, pa_time_event_cb_t cb, void *userdata)
 {
-	const linux_timeval* real_tv = reinterpret_cast<const linux_timeval*>(tv);
 	PADispatchMainLoop* This = static_cast<PADispatchMainLoop*>(a->userdata);
 	dispatch_queue_t q = This->m_queue;
 
 	pa_timer* timer = new pa_timer;
 
 	timer->userdata = userdata;
-
 	timer->source = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, q);
 
-	timer->when.tv_sec = real_tv->tv_sec;
-	timer->when.tv_nsec = real_tv->tv_usec * 1000; // convert to ns
-	timer->tv = *real_tv;
+	if (tv)
+	{
+		const linux_timeval* real_tv = reinterpret_cast<const linux_timeval*>(tv);
+		timer->when.tv_sec = real_tv->tv_sec;
+		timer->when.tv_nsec = real_tv->tv_usec * 1000; // convert to ns
+		timer->tv = *real_tv;
 
-	// std::cout << "PADispatchMainLoop::time_new(), sec=" << real_tv->tv_sec << ", usec=" << real_tv->tv_usec << std::endl;
-
-	dispatch_source_set_timer(timer->source, dispatch_walltime(&timer->when, 0), 0, 0);
+		dispatch_source_set_timer(timer->source, dispatch_walltime(&timer->when, 0), 0, 0);
+	}
+	else
+	{
+		timer->when.tv_sec = 0;
+		timer->when.tv_nsec = 0;
+		timer->tv.tv_sec = 0;
+		timer->tv.tv_usec = 0;
+		dispatch_source_set_timer(timer->source, DISPATCH_TIME_FOREVER, 0, 0);
+	}
 
 	dispatch_source_set_event_handler(timer->source, ^{
+		if (timer->cancelled)
+			return;
 		// std::cout << "PADispatchMainLoop::time_new(): fired\n";
 		cb(This->getAPI(), reinterpret_cast<pa_time_event*>(timer), reinterpret_cast<const struct timeval *>(&timer->tv), timer->userdata);
 	});
@@ -257,16 +274,22 @@ pa_time_event *PADispatchMainLoop::time_new(pa_mainloop_api *a, const struct tim
 
 void PADispatchMainLoop::time_restart(pa_time_event *e, const struct timeval *tv)
 {
-	const linux_timeval* real_tv = reinterpret_cast<const linux_timeval*>(tv);
 	pa_timer* timer = reinterpret_cast<pa_timer*>(e);
 
-	timer->when.tv_sec = real_tv->tv_sec;
-	timer->when.tv_nsec = real_tv->tv_usec * 1000; // convert to ns
-	timer->tv = *real_tv;
+	if (tv)
+	{
+		const linux_timeval* real_tv = reinterpret_cast<const linux_timeval*>(tv);
+		timer->when.tv_sec = real_tv->tv_sec;
+		timer->when.tv_nsec = real_tv->tv_usec * 1000; // convert to ns
+		timer->tv = *real_tv;
 
-	// std::cout << "PADispatchMainLoop::time_restart(), sec=" << real_tv->tv_sec << ", usec=" << real_tv->tv_usec << std::endl;
-
-	dispatch_source_set_timer(timer->source, dispatch_walltime(&timer->when, 0), 0, 0);
+		dispatch_source_set_timer(timer->source, dispatch_walltime(&timer->when, 0), 0, 0);
+	}
+	else
+	{
+		// When tv is NULL in PulseAudio, the timer is disabled
+		dispatch_source_set_timer(timer->source, DISPATCH_TIME_FOREVER, 0, 0);
+	}
 }
 
 void PADispatchMainLoop::time_set_destroy(pa_time_event *e, pa_time_event_destroy_cb_t cb)
@@ -282,6 +305,7 @@ void PADispatchMainLoop::time_free(pa_time_event *e)
 
 	// std::cout << "PADispatchMainLoop::time_free()\n";
 
+	timer->cancelled = true;
 	dispatch_source_cancel(timer->source);
 	dispatch_release(timer->source);
 }

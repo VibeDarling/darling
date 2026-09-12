@@ -33,7 +33,7 @@ AudioHardwareImpl::AudioHardwareImpl(AudioObjectID myId)
 	m_asbd.mFormatID = kAudioFormatLinearPCM;
 	m_asbd.mFormatFlags = kLinearPCMFormatFlagIsFloat | kAudioFormatFlagsNativeEndian;
 	m_asbd.mFramesPerPacket = 1;
-	m_asbd.mBytesPerFrame = UInt32(m_asbd.mBytesPerPacket = m_asbd.mChannelsPerFrame * m_asbd.mSampleRate * m_asbd.mBitsPerChannel / 8);
+	m_asbd.mBytesPerFrame = UInt32(m_asbd.mBytesPerPacket = m_asbd.mChannelsPerFrame * (m_asbd.mBitsPerChannel / 8));
 }
 
 
@@ -283,7 +283,7 @@ OSStatus AudioHardwareImpl::setPropertyData(const AudioObjectPropertyAddress* in
 			memcpy(&m_asbd, setting, sizeof(m_asbd));
 
 			m_asbd.mFramesPerPacket = 1;
-			m_asbd.mBytesPerFrame = UInt32(m_asbd.mBytesPerPacket = m_asbd.mChannelsPerFrame * m_asbd.mSampleRate * m_asbd.mBitsPerChannel / 8);
+			m_asbd.mBytesPerFrame = UInt32(m_asbd.mBytesPerPacket = m_asbd.mChannelsPerFrame * (m_asbd.mBitsPerChannel / 8));
 
 			return kAudioHardwareNoError;
 		}

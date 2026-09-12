@@ -28,17 +28,22 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <unordered_map>
 #include "stub.h"
 
-static std::unordered_map<AudioObjectID, std::unique_ptr<AudioHardwareImpl>> g_objects;
+static std::unordered_map<AudioObjectID, std::unique_ptr<AudioHardwareImpl>>& getObjectsMap()
+{
+	static auto* objects = new std::unordered_map<AudioObjectID, std::unique_ptr<AudioHardwareImpl>>();
+	return *objects;
+}
 
 static void initObjects()
 {
 	static dispatch_once_t once;
 	dispatch_once(&once, ^{
+		auto& g_objects = getObjectsMap();
 		// TODO: Or ALSA
 		g_objects.insert(std::make_pair(kAudioObjectSystemObject, std::make_unique<AudioHardwareImplPA>(kAudioObjectSystemObject)));
 		g_objects.insert(std::make_pair(kAudioObjectSystemObject + 1, std::make_unique<AudioHardwareImplPAOutput>(kAudioObjectSystemObject + 1)));
 		g_objects.insert(std::make_pair(kAudioObjectSystemObject + 2, std::make_unique<AudioHardwareImplPAInput>(kAudioObjectSystemObject + 2)));
-		g_objects.insert(std::make_pair(kAudioObjectSystemObject + 1, std::make_unique<AudioHardwareImplPAOutput>(kAudioObjectSystemObject + 3, "event")));
+		g_objects.insert(std::make_pair(kAudioObjectSystemObject + 3, std::make_unique<AudioHardwareImplPAOutput>(kAudioObjectSystemObject + 3, "event")));
 	});
 }
 
@@ -46,6 +51,7 @@ static AudioHardwareImpl* GetObject(AudioObjectID objID)
 {
 	initObjects();
 
+	auto& g_objects = getObjectsMap();
 	auto it = g_objects.find(objID);
 	if (it == g_objects.end())
 		return nullptr;
