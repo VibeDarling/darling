@@ -834,6 +834,10 @@ int main(int argc, char ** argv)
 		snprintf(socketPath, sizeof(socketPath), "%s"  SHELLSPAWN_SOCKPATH, prefix);
 		
 		unlink(socketPath);
+
+		char dserverSock[4096];
+		snprintf(dserverSock, sizeof(dserverSock), "%s/.darlingserver.sock", prefix);
+		unlink(dserverSock);
 		
 		setupWorkdir();
 		pidInit = spawnInitProcess();

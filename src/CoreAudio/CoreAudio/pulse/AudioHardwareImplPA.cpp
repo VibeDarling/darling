@@ -33,6 +33,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <dirent.h>
 
 AudioHardwareImplPA::AudioHardwareImplPA(AudioObjectID myId, const char* paRole)
 : AudioHardwareImpl(myId), m_paRole(paRole)
@@ -227,6 +228,36 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 
 			pa_context_set_state_callback(m_context, paContextStateCB, Block_copy(cb));
 
+			// Ensure PULSE_COOKIE is set so wrapped ELF libpulse can find the host cookie
+			if (!getenv("PULSE_COOKIE"))
+			{
+				const char* termuxHome = getenv("TERMUX__HOME");
+				if (!termuxHome || !termuxHome[0])
+					termuxHome = "/data/data/com.termux/files/home";
+
+				char cookieHostPath[512];
+				char cookieContainerPath[512];
+				snprintf(cookieHostPath, sizeof(cookieHostPath), "%s/.config/pulse/cookie", termuxHome);
+				snprintf(cookieContainerPath, sizeof(cookieContainerPath), "/Volumes/SystemRoot%s", cookieHostPath);
+				if (access(cookieContainerPath, R_OK) == 0)
+				{
+					setenv("PULSE_COOKIE", cookieHostPath, 0);
+				}
+				else
+				{
+					const char* user = getenv("USER");
+					if (user && user[0])
+					{
+						snprintf(cookieHostPath, sizeof(cookieHostPath), "/home/%s/.config/pulse/cookie", user);
+						snprintf(cookieContainerPath, sizeof(cookieContainerPath), "/Volumes/SystemRoot%s", cookieHostPath);
+						if (access(cookieContainerPath, R_OK) == 0)
+						{
+							setenv("PULSE_COOKIE", cookieHostPath, 0);
+						}
+					}
+				}
+			}
+
 			const char* server = getenv("PULSE_SERVER");
 			char serverBuf[512] = {0};
 			if (!server)
@@ -242,7 +273,7 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 					server = serverBuf;
 				}
 
-				// 2. Termux UNIX socket paths ($PREFIX/var/run/pulse/native or standard static path)
+				// 2. Termux / Android dynamic UNIX socket detection
 				if (!server)
 				{
 					const char* termuxPrefix = getenv("PREFIX");
@@ -251,11 +282,90 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 					if (!termuxPrefix || !termuxPrefix[0])
 						termuxPrefix = "/data/data/com.termux/files/usr";
 
-					snprintf(hostSocketPath, sizeof(hostSocketPath), "/Volumes/SystemRoot%s/var/run/pulse/native", termuxPrefix);
-					if (access(hostSocketPath, R_OK | W_OK) == 0)
+					const char* termuxHome = getenv("TERMUX__HOME");
+					if (!termuxHome || !termuxHome[0])
+						termuxHome = "/data/data/com.termux/files/home";
+
+					// 2a. Check ~/.config/pulse/*-runtime symlink (machine-id-runtime -> $TMPDIR/pulse-XXXXXX)
+					char pulseConfigDir[512];
+					snprintf(pulseConfigDir, sizeof(pulseConfigDir), "/Volumes/SystemRoot%s/.config/pulse", termuxHome);
+					DIR* pdir = opendir(pulseConfigDir);
+					if (pdir)
 					{
-						snprintf(serverBuf, sizeof(serverBuf), "%s/var/run/pulse/native", termuxPrefix);
-						server = serverBuf;
+						struct dirent* ent;
+						while ((ent = readdir(pdir)) != NULL)
+						{
+							const char* rt = strstr(ent->d_name, "-runtime");
+							if (rt && strcmp(rt, "-runtime") == 0)
+							{
+								char linkPath[512];
+								snprintf(linkPath, sizeof(linkPath), "%s/%s", pulseConfigDir, ent->d_name);
+								char target[512];
+								ssize_t len = readlink(linkPath, target, sizeof(target) - 1);
+								if (len > 0)
+								{
+									target[len] = '\0';
+									char checkNative[512];
+									snprintf(checkNative, sizeof(checkNative), "/Volumes/SystemRoot%s/native", target);
+									if (access(checkNative, R_OK | W_OK) == 0)
+									{
+										snprintf(serverBuf, sizeof(serverBuf), "%s/native", target);
+										server = serverBuf;
+										break;
+									}
+								}
+							}
+						}
+						closedir(pdir);
+					}
+
+					// 2b. Scan tmp directories for active pulse-* subdirectories
+					if (!server)
+					{
+						const char* tmpCandidates[][2] = {
+							{ termuxPrefix, "/tmp" },
+							{ "", "/tmp" }
+						};
+
+						for (size_t i = 0; i < sizeof(tmpCandidates) / sizeof(tmpCandidates[0]) && !server; ++i)
+						{
+							char containerTmp[512];
+							char hostTmp[512];
+							snprintf(containerTmp, sizeof(containerTmp), "/Volumes/SystemRoot%s%s", tmpCandidates[i][0], tmpCandidates[i][1]);
+							snprintf(hostTmp, sizeof(hostTmp), "%s%s", tmpCandidates[i][0], tmpCandidates[i][1]);
+
+							DIR* tdir = opendir(containerTmp);
+							if (!tdir)
+								continue;
+
+							struct dirent* ent;
+							while ((ent = readdir(tdir)) != NULL)
+							{
+								if (strncmp(ent->d_name, "pulse-", 6) == 0)
+								{
+									char checkNative[512];
+									snprintf(checkNative, sizeof(checkNative), "%s/%s/native", containerTmp, ent->d_name);
+									if (access(checkNative, R_OK | W_OK) == 0)
+									{
+										snprintf(serverBuf, sizeof(serverBuf), "%s/%s/native", hostTmp, ent->d_name);
+										server = serverBuf;
+										break;
+									}
+								}
+							}
+							closedir(tdir);
+						}
+					}
+
+					// 2c. Termux static socket path fallback ($PREFIX/var/run/pulse/native)
+					if (!server)
+					{
+						snprintf(hostSocketPath, sizeof(hostSocketPath), "/Volumes/SystemRoot%s/var/run/pulse/native", termuxPrefix);
+						if (access(hostSocketPath, R_OK | W_OK) == 0)
+						{
+							snprintf(serverBuf, sizeof(serverBuf), "%s/var/run/pulse/native", termuxPrefix);
+							server = serverBuf;
+						}
 					}
 				}
 
