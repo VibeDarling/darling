@@ -52,12 +52,16 @@ target_link_libraries(afinfo system AudioToolbox cxx CoreServices CoreAudio)
 add_darling_executable(afconvert afconvert.cpp afconvert_main.cpp $<TARGET_OBJECTS:AudioFileTools_util>)
 target_link_libraries(afconvert system AudioToolbox cxx CoreServices CoreAudio)
 
-add_darling_executable(play_wav play_wav.c)
-target_link_libraries(play_wav system CoreAudio CoreFoundation)
+option(DARLING_COREAUDIO_TESTS "Build CoreAudio diagnostic tools (play_wav, ca_beep)" OFF)
 
-add_darling_executable(ca_beep ca_beep.c)
-target_link_libraries(ca_beep system CoreAudio CoreFoundation m)
+if (DARLING_COREAUDIO_TESTS)
+	add_darling_executable(play_wav play_wav.c)
+	target_link_libraries(play_wav system CoreAudio CoreFoundation)
 
-install(TARGETS afplay afrecord afinfo afconvert play_wav ca_beep DESTINATION libexec/darling/usr/bin)
+	add_darling_executable(ca_beep ca_beep.c)
+	target_link_libraries(ca_beep system CoreAudio CoreFoundation m)
+endif()
+
+install(TARGETS afplay afrecord afinfo afconvert DESTINATION libexec/darling/usr/bin)
 
 

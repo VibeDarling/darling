@@ -304,6 +304,7 @@ int main(int argc, char* argv[]) {
     status = AudioDeviceStart(deviceID, procID);
     if (status != noErr) {
         fprintf(stderr, "AudioDeviceStart failed: %d\n", (int)status);
+        AudioDeviceDestroyIOProcID(deviceID, procID);
         free(g_samples);
         return 1;
     }
