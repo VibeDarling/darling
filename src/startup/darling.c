@@ -318,11 +318,25 @@ static void ensureShSymlink(const char* prefixPath)
 	createDir(binDir);
 
 	char shPath[4096];
+	char bashPath[4096];
 	struct stat st;
 	snprintf(shPath, sizeof(shPath), "%s/bin/sh", prefixPath);
-	if (lstat(shPath, &st) != 0)
+	snprintf(bashPath, sizeof(bashPath), "%s/bin/bash", prefixPath);
+
+	const char* target = "bash";
+	if (access(bashPath, X_OK) != 0)
 	{
-		symlink("bash", shPath);
+		char zshPath[4096];
+		snprintf(zshPath, sizeof(zshPath), "%s/bin/zsh", prefixPath);
+		if (access(zshPath, X_OK) == 0)
+			target = "zsh";
+	}
+
+	if (stat(shPath, &st) != 0)
+	{
+		if (lstat(shPath, &st) == 0)
+			unlink(shPath);
+		symlink(target, shPath);
 	}
 }
 

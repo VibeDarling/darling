@@ -252,6 +252,7 @@ install(DIRECTORY DESTINATION libexec/darling/usr/local/share)
 
 InstallSymlink(Volumes/SystemRoot/dev ${CMAKE_INSTALL_PREFIX}/libexec/darling/dev)
 InstallSymlink(private/tmp ${CMAKE_INSTALL_PREFIX}/libexec/darling/tmp)
+InstallSymlink(bash ${CMAKE_INSTALL_PREFIX}/libexec/darling/bin/sh)
 if (ANDROID OR DEFINED ENV{TERMUX_PREFIX} OR DEFINED ENV{TERMUX_VERSION} OR EXISTS "/data/data")
 	set(TMP_TERMUX_PREFIX "")
 	if (DEFINED ENV{TERMUX_PREFIX})
