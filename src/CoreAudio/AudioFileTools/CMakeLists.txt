@@ -57,7 +57,7 @@ if (DARLING_COREAUDIO_TESTS)
 	target_link_libraries(play_wav system CoreAudio CoreFoundation)
 
 	add_darling_executable(ca_beep ca_beep.c)
-	target_link_libraries(ca_beep system CoreAudio CoreFoundation m)
+	target_link_libraries(ca_beep system CoreAudio CoreFoundation)
 endif()
 
 install(TARGETS afplay afrecord afinfo afconvert DESTINATION libexec/darling/usr/bin)

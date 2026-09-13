@@ -267,6 +267,7 @@ if (ANDROID OR DEFINED ENV{TERMUX_PREFIX} OR DEFINED ENV{TERMUX_VERSION} OR EXIS
 	else()
 		InstallSymlink(../Volumes/SystemRoot/tmp ${CMAKE_INSTALL_PREFIX}/libexec/darling/private/tmp)
 	endif()
+	InstallSymlink(Volumes/SystemRoot/data ${CMAKE_INSTALL_PREFIX}/libexec/darling/data)
 else()
 	InstallSymlink(../Volumes/SystemRoot/tmp ${CMAKE_INSTALL_PREFIX}/libexec/darling/private/tmp)
 endif()

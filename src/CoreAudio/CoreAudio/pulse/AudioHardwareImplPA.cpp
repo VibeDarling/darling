@@ -298,57 +298,77 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 					}
 
 					// 2a. Check ~/.config/pulse/*-runtime symlink (machine-id-runtime -> $TMPDIR/pulse-XXXXXX)
-					if (termuxHome && termuxHome[0])
+					const char* termuxHomeCandidates[] = {
+						"/data/data/com.termux/files/home",
+						getenv("TERMUX_HOME"),
+						getenv("HOME"),
+						termuxHome
+					};
+					for (size_t h = 0; h < sizeof(termuxHomeCandidates) / sizeof(termuxHomeCandidates[0]) && !server; ++h)
 					{
-						char pulseConfigDir[512];
-						snprintf(pulseConfigDir, sizeof(pulseConfigDir), "/Volumes/SystemRoot%s/.config/pulse", termuxHome);
-						DIR* pdir = opendir(pulseConfigDir);
-						if (pdir)
+						const char* curHome = termuxHomeCandidates[h];
+						if (!curHome || !curHome[0])
+							continue;
+
+						const char* configPrefixes[] = { "", "/Volumes/SystemRoot" };
+						for (size_t p = 0; p < sizeof(configPrefixes) / sizeof(configPrefixes[0]) && !server; ++p)
 						{
-							struct dirent* ent;
-							while ((ent = readdir(pdir)) != NULL)
+							char pulseConfigDir[512];
+							snprintf(pulseConfigDir, sizeof(pulseConfigDir), "%s%s/.config/pulse", configPrefixes[p], curHome);
+							DIR* pdir = opendir(pulseConfigDir);
+							if (pdir)
 							{
-								const char* rt = strstr(ent->d_name, "-runtime");
-								if (rt && strcmp(rt, "-runtime") == 0)
+								struct dirent* ent;
+								while ((ent = readdir(pdir)) != NULL)
 								{
-									char linkPath[512];
-									snprintf(linkPath, sizeof(linkPath), "%s/%s", pulseConfigDir, ent->d_name);
-									char target[512];
-									ssize_t len = readlink(linkPath, target, sizeof(target) - 1);
-									if (len > 0)
+									const char* rt = strstr(ent->d_name, "-runtime");
+									if (rt && strcmp(rt, "-runtime") == 0)
 									{
-										target[len] = '\0';
-										char checkNative[512];
-										snprintf(checkNative, sizeof(checkNative), "/Volumes/SystemRoot%s/native", target);
-										if (access(checkNative, R_OK | W_OK) == 0)
+										char linkPath[512];
+										snprintf(linkPath, sizeof(linkPath), "%s/%s", pulseConfigDir, ent->d_name);
+										char target[512];
+										ssize_t len = readlink(linkPath, target, sizeof(target) - 1);
+										if (len > 0)
 										{
-											snprintf(serverBuf, sizeof(serverBuf), "%s/native", target);
-											server = serverBuf;
-											break;
+											target[len] = '\0';
+											char directNative[512];
+											snprintf(directNative, sizeof(directNative), "%s/native", target);
+											if (access(directNative, R_OK | W_OK) == 0)
+											{
+												snprintf(serverBuf, sizeof(serverBuf), "unix:%s", directNative);
+												server = serverBuf;
+												break;
+											}
+											char rootNative[512];
+											snprintf(rootNative, sizeof(rootNative), "/Volumes/SystemRoot%s/native", target);
+											if (access(rootNative, R_OK | W_OK) == 0)
+											{
+												snprintf(serverBuf, sizeof(serverBuf), "unix:%s", rootNative);
+												server = serverBuf;
+												break;
+											}
 										}
 									}
 								}
+								closedir(pdir);
 							}
-							closedir(pdir);
 						}
 					}
 
 					// 2b. Scan tmp directories for active pulse-* subdirectories
 					if (!server)
 					{
-						const char* tmpCandidates[][2] = {
-							{ termuxPrefix, "/tmp" },
-							{ "", "/tmp" }
+						const char* tmpCandidates[] = {
+							"/data/data/com.termux/files/usr/tmp",
+							"/Volumes/SystemRoot/data/data/com.termux/files/usr/tmp",
+							"/tmp",
+							"/Volumes/SystemRoot/tmp"
 						};
 
 						for (size_t i = 0; i < sizeof(tmpCandidates) / sizeof(tmpCandidates[0]) && !server; ++i)
 						{
-							char containerTmp[512];
-							char hostTmp[512];
-							snprintf(containerTmp, sizeof(containerTmp), "/Volumes/SystemRoot%s%s", tmpCandidates[i][0], tmpCandidates[i][1]);
-							snprintf(hostTmp, sizeof(hostTmp), "%s%s", tmpCandidates[i][0], tmpCandidates[i][1]);
-
-							DIR* tdir = opendir(containerTmp);
+							const char* searchDir = tmpCandidates[i];
+							DIR* tdir = opendir(searchDir);
 							if (!tdir)
 								continue;
 
@@ -358,10 +378,10 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 								if (strncmp(ent->d_name, "pulse-", 6) == 0)
 								{
 									char checkNative[512];
-									snprintf(checkNative, sizeof(checkNative), "%s/%s/native", containerTmp, ent->d_name);
+									snprintf(checkNative, sizeof(checkNative), "%s/%s/native", searchDir, ent->d_name);
 									if (access(checkNative, R_OK | W_OK) == 0)
 									{
-										snprintf(serverBuf, sizeof(serverBuf), "%s/%s/native", hostTmp, ent->d_name);
+										snprintf(serverBuf, sizeof(serverBuf), "unix:%s", checkNative);
 										server = serverBuf;
 										break;
 									}
@@ -374,11 +394,18 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 					// 2c. Termux static socket path fallback ($PREFIX/var/run/pulse/native)
 					if (!server)
 					{
-						snprintf(hostSocketPath, sizeof(hostSocketPath), "/Volumes/SystemRoot%s/var/run/pulse/native", termuxPrefix);
-						if (access(hostSocketPath, R_OK | W_OK) == 0)
+						const char* staticCandidates[] = {
+							"/data/data/com.termux/files/usr/var/run/pulse/native",
+							"/Volumes/SystemRoot/data/data/com.termux/files/usr/var/run/pulse/native"
+						};
+						for (size_t i = 0; i < sizeof(staticCandidates) / sizeof(staticCandidates[0]); ++i)
 						{
-							snprintf(serverBuf, sizeof(serverBuf), "%s/var/run/pulse/native", termuxPrefix);
-							server = serverBuf;
+							if (access(staticCandidates[i], R_OK | W_OK) == 0)
+							{
+								snprintf(serverBuf, sizeof(serverBuf), "unix:%s", staticCandidates[i]);
+								server = serverBuf;
+								break;
+							}
 						}
 					}
 				}
