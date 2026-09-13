@@ -246,6 +246,50 @@ static void ensureProcSymlink(const char* prefixPath)
 	}
 }
 
+static void ensureHostRootSymlinks(const char* prefixPath)
+{
+	const char* candidates[] = {
+		getenv("PREFIX"),
+		getenv("TERMUX__PREFIX"),
+		getenv("TERMUX_PREFIX"),
+		getInstallPrefix()
+	};
+
+	for (size_t i = 0; i < sizeof(candidates)/sizeof(candidates[0]); i++)
+	{
+		const char* pfx = candidates[i];
+		if (!pfx || pfx[0] != '/')
+			continue;
+
+		char seg[256] = {0};
+		const char* slash = strchr(pfx + 1, '/');
+		size_t len = slash ? (size_t)(slash - (pfx + 1)) : strlen(pfx + 1);
+		if (len == 0 || len >= sizeof(seg))
+			continue;
+		memcpy(seg, pfx + 1, len);
+		seg[len] = '\0';
+
+		if (strcmp(seg, "usr") == 0 || strcmp(seg, "bin") == 0 || strcmp(seg, "sbin") == 0 ||
+		    strcmp(seg, "etc") == 0 || strcmp(seg, "var") == 0 || strcmp(seg, "dev") == 0 ||
+		    strcmp(seg, "proc") == 0 || strcmp(seg, "System") == 0 || strcmp(seg, "Library") == 0 ||
+		    strcmp(seg, "Volumes") == 0 || strcmp(seg, "Applications") == 0 || strcmp(seg, "Users") == 0)
+		{
+			continue;
+		}
+
+		char linkPath[4096];
+		snprintf(linkPath, sizeof(linkPath), "%s/%s", prefixPath, seg);
+
+		struct stat st;
+		if (lstat(linkPath, &st) != 0)
+		{
+			char target[512];
+			snprintf(target, sizeof(target), "/Volumes/SystemRoot/%s", seg);
+			symlink(target, linkPath);
+		}
+	}
+}
+
 void createDir(const char* path);
 
 static void ensureShSymlink(const char* prefixPath)
@@ -747,6 +791,7 @@ int main(int argc, char ** argv)
 
 	if (g_nonroot)
 		ensureProcSymlink(prefix);
+	ensureHostRootSymlinks(prefix);
 	ensureShSymlink(prefix);
 	ensureKeychains(prefix);
 
@@ -1880,6 +1925,7 @@ void setupPrefix()
 
 	if (g_nonroot)
 		ensureProcSymlink(prefix);
+	ensureHostRootSymlinks(prefix);
 	ensureShSymlink(prefix);
 	ensureKeychains(prefix);
 

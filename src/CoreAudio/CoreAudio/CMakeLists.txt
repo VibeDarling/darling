@@ -3,6 +3,7 @@ project(CoreAudio)
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+add_definitions(-DINSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 
 set(coreaudio_sources
 	AudioHardware.cpp

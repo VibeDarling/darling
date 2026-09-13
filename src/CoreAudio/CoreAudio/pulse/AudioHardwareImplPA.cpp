@@ -231,19 +231,23 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 			// Ensure PULSE_COOKIE is set so wrapped ELF libpulse can find the host cookie
 			if (!getenv("PULSE_COOKIE"))
 			{
-				const char* termuxHome = getenv("TERMUX__HOME");
-				if (!termuxHome || !termuxHome[0])
-					termuxHome = getenv("HOME");
-
-				if (termuxHome && termuxHome[0])
+				const char* cookieHomes[] = {
+					getenv("HOME"),
+					getenv("TERMUX__HOME"),
+					getenv("TERMUX_HOME")
+				};
+				for (size_t i = 0; i < sizeof(cookieHomes)/sizeof(cookieHomes[0]); ++i)
 				{
+					const char* ch = cookieHomes[i];
+					if (!ch || !ch[0]) continue;
 					char cookieHostPath[512];
 					char cookieContainerPath[512];
-					snprintf(cookieHostPath, sizeof(cookieHostPath), "%s/.config/pulse/cookie", termuxHome);
+					snprintf(cookieHostPath, sizeof(cookieHostPath), "%s/.config/pulse/cookie", ch);
 					snprintf(cookieContainerPath, sizeof(cookieContainerPath), "/Volumes/SystemRoot%s", cookieHostPath);
-					if (access(cookieContainerPath, R_OK) == 0)
+					if (access(cookieContainerPath, R_OK) == 0 || access(cookieHostPath, R_OK) == 0)
 					{
 						setenv("PULSE_COOKIE", cookieHostPath, 0);
+						break;
 					}
 				}
 
@@ -256,7 +260,7 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 						char cookieContainerPath[512];
 						snprintf(cookieHostPath, sizeof(cookieHostPath), "/home/%s/.config/pulse/cookie", user);
 						snprintf(cookieContainerPath, sizeof(cookieContainerPath), "/Volumes/SystemRoot%s", cookieHostPath);
-						if (access(cookieContainerPath, R_OK) == 0)
+						if (access(cookieContainerPath, R_OK) == 0 || access(cookieHostPath, R_OK) == 0)
 						{
 							setenv("PULSE_COOKIE", cookieHostPath, 0);
 						}
@@ -282,39 +286,45 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 				// 2. Termux / Android dynamic UNIX socket detection
 				if (!server)
 				{
-					const char* termuxPrefix = getenv("TERMUX_PREFIX");
-					if (!termuxPrefix || !termuxPrefix[0])
-						termuxPrefix = getenv("PREFIX");
+					const char* activePrefix = getenv("PREFIX");
+					if (!activePrefix || !activePrefix[0])
+						activePrefix = getenv("TERMUX__PREFIX");
+					if (!activePrefix || !activePrefix[0])
+						activePrefix = getenv("TERMUX_PREFIX");
+#ifdef INSTALL_PREFIX
+					if (!activePrefix || !activePrefix[0])
+						activePrefix = INSTALL_PREFIX;
+#endif
 
-					const char* termuxHome = getenv("TERMUX__HOME");
-					if (!termuxHome || !termuxHome[0])
-						termuxHome = getenv("HOME");
+					const char* activeHome = getenv("HOME");
+					if (!activeHome || !activeHome[0])
+						activeHome = getenv("TERMUX__HOME");
+					if (!activeHome || !activeHome[0])
+						activeHome = getenv("TERMUX_HOME");
 
-					char derivedPrefix[512] = {0};
-					if ((!termuxPrefix || !termuxPrefix[0]) && termuxHome && termuxHome[0])
+					char derivedHome[512] = {0};
+					if ((!activeHome || !activeHome[0]) && activePrefix && activePrefix[0])
 					{
-						snprintf(derivedPrefix, sizeof(derivedPrefix), "%s/../usr", termuxHome);
-						termuxPrefix = derivedPrefix;
+						snprintf(derivedHome, sizeof(derivedHome), "%s/../home", activePrefix);
+						activeHome = derivedHome;
+					}
+
+					const char* activeTmp = getenv("TMPDIR");
+					char derivedTmp[512] = {0};
+					if ((!activeTmp || !activeTmp[0]) && activePrefix && activePrefix[0])
+					{
+						snprintf(derivedTmp, sizeof(derivedTmp), "%s/tmp", activePrefix);
+						activeTmp = derivedTmp;
 					}
 
 					// 2a. Check ~/.config/pulse/*-runtime symlink (machine-id-runtime -> $TMPDIR/pulse-XXXXXX)
-					const char* termuxHomeCandidates[] = {
-						"/data/data/com.termux/files/home",
-						getenv("TERMUX_HOME"),
-						getenv("HOME"),
-						termuxHome
-					};
-					for (size_t h = 0; h < sizeof(termuxHomeCandidates) / sizeof(termuxHomeCandidates[0]) && !server; ++h)
+					if (activeHome && activeHome[0])
 					{
-						const char* curHome = termuxHomeCandidates[h];
-						if (!curHome || !curHome[0])
-							continue;
-
 						const char* configPrefixes[] = { "", "/Volumes/SystemRoot" };
 						for (size_t p = 0; p < sizeof(configPrefixes) / sizeof(configPrefixes[0]) && !server; ++p)
 						{
 							char pulseConfigDir[512];
-							snprintf(pulseConfigDir, sizeof(pulseConfigDir), "%s%s/.config/pulse", configPrefixes[p], curHome);
+							snprintf(pulseConfigDir, sizeof(pulseConfigDir), "%s%s/.config/pulse", configPrefixes[p], activeHome);
 							DIR* pdir = opendir(pulseConfigDir);
 							if (pdir)
 							{
@@ -358,9 +368,13 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 					// 2b. Scan tmp directories for active pulse-* subdirectories
 					if (!server)
 					{
+						char rootActiveTmp[512] = {0};
+						if (activeTmp && activeTmp[0])
+							snprintf(rootActiveTmp, sizeof(rootActiveTmp), "/Volumes/SystemRoot%s", activeTmp);
+
 						const char* tmpCandidates[] = {
-							"/data/data/com.termux/files/usr/tmp",
-							"/Volumes/SystemRoot/data/data/com.termux/files/usr/tmp",
+							activeTmp,
+							rootActiveTmp[0] ? rootActiveTmp : nullptr,
 							"/tmp",
 							"/Volumes/SystemRoot/tmp"
 						};
@@ -368,6 +382,9 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 						for (size_t i = 0; i < sizeof(tmpCandidates) / sizeof(tmpCandidates[0]) && !server; ++i)
 						{
 							const char* searchDir = tmpCandidates[i];
+							if (!searchDir || !searchDir[0])
+								continue;
+
 							DIR* tdir = opendir(searchDir);
 							if (!tdir)
 								continue;
@@ -391,12 +408,17 @@ void AudioHardwareImplPA::getPAContext(void (^cb)(pa_context*))
 						}
 					}
 
-					// 2c. Termux static socket path fallback ($PREFIX/var/run/pulse/native)
-					if (!server)
+					// 2c. Static socket path fallback ($activePrefix/var/run/pulse/native)
+					if (!server && activePrefix && activePrefix[0])
 					{
+						char staticPath[512];
+						char rootStaticPath[512];
+						snprintf(staticPath, sizeof(staticPath), "%s/var/run/pulse/native", activePrefix);
+						snprintf(rootStaticPath, sizeof(rootStaticPath), "/Volumes/SystemRoot%s/var/run/pulse/native", activePrefix);
+
 						const char* staticCandidates[] = {
-							"/data/data/com.termux/files/usr/var/run/pulse/native",
-							"/Volumes/SystemRoot/data/data/com.termux/files/usr/var/run/pulse/native"
+							staticPath,
+							rootStaticPath
 						};
 						for (size_t i = 0; i < sizeof(staticCandidates) / sizeof(staticCandidates[0]); ++i)
 						{
