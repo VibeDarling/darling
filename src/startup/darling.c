@@ -272,7 +272,8 @@ static void ensureHostRootSymlinks(const char* prefixPath)
 		if (strcmp(seg, "usr") == 0 || strcmp(seg, "bin") == 0 || strcmp(seg, "sbin") == 0 ||
 		    strcmp(seg, "etc") == 0 || strcmp(seg, "var") == 0 || strcmp(seg, "dev") == 0 ||
 		    strcmp(seg, "proc") == 0 || strcmp(seg, "System") == 0 || strcmp(seg, "Library") == 0 ||
-		    strcmp(seg, "Volumes") == 0 || strcmp(seg, "Applications") == 0 || strcmp(seg, "Users") == 0)
+		    strcmp(seg, "Volumes") == 0 || strcmp(seg, "Applications") == 0 || strcmp(seg, "Users") == 0 ||
+		    strcmp(seg, "tmp") == 0 || strcmp(seg, "private") == 0)
 		{
 			continue;
 		}
@@ -280,13 +281,31 @@ static void ensureHostRootSymlinks(const char* prefixPath)
 		char linkPath[4096];
 		snprintf(linkPath, sizeof(linkPath), "%s/%s", prefixPath, seg);
 
+		char expectedTarget[512];
+		snprintf(expectedTarget, sizeof(expectedTarget), "Volumes/SystemRoot/%s", seg);
+
 		struct stat st;
-		if (lstat(linkPath, &st) != 0)
+		if (lstat(linkPath, &st) == 0)
 		{
-			char target[512];
-			snprintf(target, sizeof(target), "/Volumes/SystemRoot/%s", seg);
-			symlink(target, linkPath);
+			if (S_ISLNK(st.st_mode))
+			{
+				char currentTarget[512];
+				ssize_t r = readlink(linkPath, currentTarget, sizeof(currentTarget) - 1);
+				if (r > 0)
+				{
+					currentTarget[r] = '\0';
+					if (strcmp(currentTarget, expectedTarget) == 0)
+						continue;
+				}
+				unlink(linkPath);
+			}
+			else
+			{
+				continue;
+			}
 		}
+
+		symlink(expectedTarget, linkPath);
 	}
 }
 
