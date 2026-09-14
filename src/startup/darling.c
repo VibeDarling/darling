@@ -38,6 +38,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <termios.h>
 #include <pty.h>
 #include <pwd.h>
+#include <sys/auxv.h>
 #include "../shellspawn/shellspawn.h"
 #include "darling.h"
 #include "darling-config.h"
@@ -56,13 +57,23 @@ bool g_rootless = false;
 bool g_nonroot = false;
 char g_workingDirectory[4096];
 
+// The launcher is installed setuid root, so its caller controls the environment. Variables
+// that select binaries or files to use (the darlingserver executed as root, the libexec tree
+// used as the overlay lower layer, CA bundles, ...) are ignored when running setuid.
+static const char* getenvTrusted(const char* name)
+{
+	if (getauxval(AT_SECURE))
+		return NULL;
+	return getenv(name);
+}
+
 static const char* getInstallPrefix(void)
 {
 	static char prefixBuf[4096] = {0};
 	if (prefixBuf[0])
 		return prefixBuf;
 
-	const char* env = getenv("DARLING_INSTALL_PREFIX");
+	const char* env = getenvTrusted("DARLING_INSTALL_PREFIX");
 	if (env && env[0])
 	{
 		strncpy(prefixBuf, env, sizeof(prefixBuf) - 1);
@@ -249,9 +260,9 @@ static void ensureProcSymlink(const char* prefixPath)
 static void ensureHostRootSymlinks(const char* prefixPath)
 {
 	const char* candidates[] = {
-		getenv("PREFIX"),
-		getenv("TERMUX__PREFIX"),
-		getenv("TERMUX_PREFIX"),
+		getenvTrusted("PREFIX"),
+		getenvTrusted("TERMUX__PREFIX"),
+		getenvTrusted("TERMUX_PREFIX"),
 		getInstallPrefix()
 	};
 
@@ -626,7 +637,7 @@ static const char* findHostCaBundle(void)
 		return cached_bundle;
 
 	// 1. SSL_CERT_FILE environment variable
-	const char* ssl_cert_file = getenv("SSL_CERT_FILE");
+	const char* ssl_cert_file = getenvTrusted("SSL_CERT_FILE");
 	if (ssl_cert_file && access(ssl_cert_file, R_OK) == 0)
 	{
 		cached_bundle = ssl_cert_file;
@@ -634,9 +645,9 @@ static const char* findHostCaBundle(void)
 	}
 
 	// 2. Termux environment ($PREFIX / $TERMUX_PREFIX)
-	const char* termux_prefix = getenv("PREFIX");
+	const char* termux_prefix = getenvTrusted("PREFIX");
 	if (!termux_prefix || !termux_prefix[0])
-		termux_prefix = getenv("TERMUX_PREFIX");
+		termux_prefix = getenvTrusted("TERMUX_PREFIX");
 
 	if (termux_prefix && termux_prefix[0])
 	{
