@@ -1,7 +1,7 @@
 /*
  This file is part of Darling.
 
- Copyright (C) 2020 Lubos Dolezel
+ Copyright (C) 2026 Darling Developers
 
  Darling is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -17,20 +17,29 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#import <MobileAsset/ASAsset.h>
+#import <RTTUtilities/RTTUtilities.h>
+#include <dispatch/dispatch.h>
 
-NSString *const ASAttributeDownloadSize = @"ASAttributeDownloadSize";
+@implementation RTTSettings
 
-@implementation ASAsset
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
++ (instancetype)sharedInstance
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+	static RTTSettings *shared;
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		shared = [[RTTSettings alloc] init];
+	});
+	return shared;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (BOOL)TTYSoftwareEnabled
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+	return NO;
 }
 
 @end
+
+NSString *ttyLocString(NSString *key)
+{
+	return key;
+}
