@@ -44,7 +44,9 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <sys/utsname.h>
 
 #ifndef PAGE_SIZE
-#	define PAGE_SIZE	4096
+	// Use the host's page size rather than assuming 4K: on 16K-page kernels (e.g. some
+	// aarch64 distros) MAP_FIXED mappings at 4K-rounded addresses fail with EINVAL.
+#	define PAGE_SIZE	((size_t) sysconf(_SC_PAGESIZE))
 #endif
 #define PAGE_ALIGN(x) (x & ~(PAGE_SIZE-1))
 
