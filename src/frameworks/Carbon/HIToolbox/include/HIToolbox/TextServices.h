@@ -15,6 +15,10 @@ OSErr NewTSMDocument(short a, InterfaceTypeList b, TSMDocumentID * c, long d);
 
 OSErr UseInputWindow(TSMDocumentID a, Boolean b);
 
+UInt32 TSMGetDeadKeyState(void);
+void TSMSetDeadKeyState(UInt32 state);
+OSStatus TSMProcessRawKeyCode(EventRef event);
+
 #ifdef __cplusplus
 }
 #endif
