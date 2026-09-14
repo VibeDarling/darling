@@ -71,6 +71,12 @@ typedef struct FSVolumeInfo {
 OSErr FSGetDataForkName(HFSUniStr255* dataForkName);
 OSErr FSGetResourceForkName(HFSUniStr255* rsrcForkName);
 
+OSErr FSOpenFork(const FSRef* ref, UniCharCount forkNameLength, const UniChar* forkName, SInt8 permissions, FSIORefNum* forkRefNum);
+OSErr FSGetForkSize(FSIORefNum forkRefNum, SInt64* forkSize);
+OSErr FSCloseFork(FSIORefNum forkRefNum);
+// Private: physical location of an open fork (used to map it). Not available on Darling.
+OSErr GetForkPhysicalInfo(FSIORefNum forkRefNum, UInt64* physicalOffset, UInt32* deviceBlockSize);
+
 OSErr FSGetVolumeInfo(FSVolumeRefNum volume, ItemCount volumeIndex, FSVolumeRefNum *actualVolume, FSVolumeInfoBitmap whichInfo, FSVolumeInfo *info, HFSUniStr255 *volumeName, FSRef *rootDirectory);
 
 #ifdef __cplusplus
