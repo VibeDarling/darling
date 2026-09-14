@@ -19,6 +19,8 @@ struct load_results {
 	uint32_t bprefs[4];
 	char* root_path;
 	size_t root_path_length;
+	// The executable path mldr was given is a vchroot-expanded host path (from sys_execve).
+	bool executable_path_is_host_path;
 	unsigned long stack_top;
 	char* socket_path;
 	int kernfd;
