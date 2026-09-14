@@ -16,6 +16,7 @@ function(wrap_elf name elfname)
 				${CMAKE_CURRENT_BINARY_DIR}/${name}_vars.h
 		DEPENDS
 			wrapgen
+			${CMAKE_BINARY_DIR}/src/libelfloader/wrapgen/wrapgen
 	)
 
 	if (ARGC LESS 3)
