@@ -126,11 +126,12 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" AND ${CMAKE_C_COMPILER_VERSION} VERSI
 endif()
 
 # DARLING: clang 16+ promoted several long-standing warnings to errors by default
-# (implicit-function-declaration, implicit-int, etc.). Lots of Darling's vendored
-# C code predates C99 strictness; reverting these to warnings keeps the build
-# moving without auditing every legacy source file.
+# (implicit-function-declaration, implicit-int, etc.), and newer clang does the same
+# for incompatible-pointer-types. Lots of Darling's vendored C code predates C99
+# strictness; reverting these to warnings keeps the build moving without auditing
+# every legacy source file.
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" AND ${CMAKE_C_COMPILER_VERSION} VERSION_GREATER_EQUAL "16")
-	set(IGNORED_WARNINGS "${IGNORED_WARNINGS} -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion -Wno-error=incompatible-function-pointer-types")
+	set(IGNORED_WARNINGS "${IGNORED_WARNINGS} -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion -Wno-error=incompatible-function-pointer-types -Wno-error=incompatible-pointer-types")
 endif()
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${IGNORED_WARNINGS}")
