@@ -22,6 +22,7 @@
 // Darling has no OSA components, so there is never a component instance to hand out.
 @implementation OSALanguageInstance {
     OSALanguage *_language;
+    NSAppleEventDescriptor *_defaultTarget;
 }
 
 + (instancetype)languageInstanceWithLanguage:(OSALanguage *)language
@@ -49,17 +50,30 @@
 - (void)dealloc
 {
     [_language release];
+    [_defaultTarget release];
     [super dealloc];
 }
 
 - (OSALanguage *)language
 {
-    return _language;
+    return [[_language retain] autorelease];
 }
 
 - (ComponentInstance)componentInstance
 {
     return NULL;
+}
+
+- (NSAppleEventDescriptor *)defaultTarget
+{
+    return [[_defaultTarget retain] autorelease];
+}
+
+- (void)setDefaultTarget:(NSAppleEventDescriptor *)target
+{
+    [target retain];
+    [_defaultTarget release];
+    _defaultTarget = target;
 }
 
 - (NSAttributedString *)richTextFromDescriptor:(NSAppleEventDescriptor *)descriptor

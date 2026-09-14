@@ -152,12 +152,20 @@ void* scriptAssistantCaseCompareItems(void)
 NSString* const OSAScriptErrorMessageKey = @"OSAScriptErrorMessageKey";
 NSString* const OSAScriptErrorBriefMessageKey = @"OSAScriptErrorBriefMessageKey";
 NSString* const OSAScriptErrorNumberKey = @"OSAScriptErrorNumberKey";
-NSString* const OSAScriptErrorNumber = @"OSAScriptErrorNumber";
 NSString* const OSAScriptErrorPartialResultKey = @"OSAScriptErrorPartialResultKey";
 NSString* const OSAScriptErrorOffendingObjectKey = @"OSAScriptErrorOffendingObjectKey";
 NSString* const OSAScriptErrorExpectedTypeKey = @"OSAScriptErrorExpectedTypeKey";
 NSString* const OSAScriptErrorAppAddressKey = @"OSAScriptErrorAppAddressKey";
+NSString* const OSAScriptErrorAppNameKey = @"OSAScriptErrorAppNameKey";
 NSString* const OSAScriptErrorRangeKey = @"OSAScriptErrorRangeKey";
+
+// The older names share the values of the *Key names, so error dictionaries answer lookups through
+// either spelling.
+NSString* const OSAScriptErrorMessage = @"OSAScriptErrorMessageKey";
+NSString* const OSAScriptErrorBriefMessage = @"OSAScriptErrorBriefMessageKey";
+NSString* const OSAScriptErrorNumber = @"OSAScriptErrorNumberKey";
+NSString* const OSAScriptErrorAppName = @"OSAScriptErrorAppNameKey";
+NSString* const OSAScriptErrorRange = @"OSAScriptErrorRangeKey";
 
 // These match the UTIs that CoreTypes declares for the corresponding file formats.
 NSString* const OSAStorageScriptType = @"com.apple.applescript.script";
