@@ -387,11 +387,11 @@ int __darling_thread_terminate(void* stackaddr,
 		// dispatch_main() calls pthread_exit(NULL) on the main thread,
 		// which turns our process into a zombie on Linux.
 		// Let's just hang around forever.
-		sigset_t mask;
-		memset(&mask, 0, sizeof(mask));
-
+		// Keep every signal blocked while waiting: this thread has already checked out
+		// and closed its RPC socket, so a signal handler running here would fail its
+		// server RPCs and abort. Process-directed signals go to the remaining threads.
 		while (1)
-			sigsuspend(&mask);
+			sigsuspend(&all_signals);
 	}
 
 	t_freeaddr = stackaddr;
