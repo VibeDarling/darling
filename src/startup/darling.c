@@ -162,6 +162,87 @@ static void killDarlingDaemons(int sig)
 	closedir(dir);
 }
 
+// Returns true if `pid` lives in PID namespace `nsLink` (as read from /proc/<pid>/ns/pid).
+static bool processInPidNamespace(pid_t pid, const char* nsLink)
+{
+	char path[64], link[128];
+	snprintf(path, sizeof(path), "/proc/%d/ns/pid", pid);
+	ssize_t len = readlink(path, link, sizeof(link) - 1);
+	if (len <= 0)
+		return false;
+	link[len] = '\0';
+	return strcmp(link, nsLink) == 0;
+}
+
+// Sends `sig` to every process in the container's PID namespace (launchd and everything it
+// started), but not to darlingserver itself. Returns how many processes were signalled.
+static int signalContainerProcesses(pid_t serverPid, int sig)
+{
+	char serverNs[128] = {0};
+	char path[64];
+	snprintf(path, sizeof(path), "/proc/%d/ns/pid", serverPid);
+	ssize_t len = readlink(path, serverNs, sizeof(serverNs) - 1);
+	if (len <= 0)
+		return 0;
+	serverNs[len] = '\0';
+
+	DIR* dir = opendir("/proc");
+	if (!dir)
+		return 0;
+
+	// The container namespace is the one darlingserver's children (launchd) live in.
+	char containerNs[128] = {0};
+	struct dirent* entry;
+	while ((entry = readdir(dir)) != NULL && containerNs[0] == '\0')
+	{
+		if (entry->d_name[0] < '0' || entry->d_name[0] > '9')
+			continue;
+		pid_t pid = (pid_t)atoi(entry->d_name);
+
+		char statPath[64], statBuf[512];
+		snprintf(statPath, sizeof(statPath), "/proc/%d/stat", pid);
+		int fd = open(statPath, O_RDONLY);
+		if (fd < 0)
+			continue;
+		ssize_t n = read(fd, statBuf, sizeof(statBuf) - 1);
+		close(fd);
+		if (n <= 0)
+			continue;
+		statBuf[n] = '\0';
+		char* afterComm = strrchr(statBuf, ')');
+		pid_t ppid = 0;
+		char state;
+		if (!afterComm || sscanf(afterComm + 1, " %c %d", &state, &ppid) != 2 || ppid != serverPid)
+			continue;
+
+		char nsPath[64], nsLink[128];
+		snprintf(nsPath, sizeof(nsPath), "/proc/%d/ns/pid", pid);
+		ssize_t nsLen = readlink(nsPath, nsLink, sizeof(nsLink) - 1);
+		if (nsLen > 0)
+		{
+			nsLink[nsLen] = '\0';
+			if (strcmp(nsLink, serverNs) != 0)
+				strcpy(containerNs, nsLink);
+		}
+	}
+
+	int signalled = 0;
+	if (containerNs[0] != '\0')
+	{
+		rewinddir(dir);
+		while ((entry = readdir(dir)) != NULL)
+		{
+			if (entry->d_name[0] < '0' || entry->d_name[0] > '9')
+				continue;
+			pid_t pid = (pid_t)atoi(entry->d_name);
+			if (pid != serverPid && processInPidNamespace(pid, containerNs) && kill(pid, sig) == 0)
+				signalled++;
+		}
+	}
+	closedir(dir);
+	return signalled;
+}
+
 static void spawnShellspawn(void)
 {
 	pid_t spid = fork();
@@ -1154,6 +1235,18 @@ int main(int argc, char ** argv)
 		pid_t pidInit = getInitProcess();
 		if (pidInit > 0)
 		{
+			// Stop the container's processes while darlingserver is still alive: their signal
+			// handlers need it. Stopping the server first made every process's handler fail and
+			// abort (SIGTRAP), leaving a core dump per process on each shutdown.
+			if (signalContainerProcesses(pidInit, SIGTERM) > 0)
+			{
+				for (int i = 0; i < 20 && signalContainerProcesses(pidInit, 0) > 0; i++)
+					usleep(50000);
+				signalContainerProcesses(pidInit, SIGKILL);
+				for (int i = 0; i < 20 && signalContainerProcesses(pidInit, 0) > 0; i++)
+					usleep(50000);
+			}
+
 			kill(pidInit, SIGTERM);
 			kill(-pidInit, SIGTERM);
 		}
