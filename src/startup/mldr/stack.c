@@ -102,6 +102,20 @@ void FUNCTION_NAME(const char* filepath, struct load_results* lr)
 		{
 			// already a host or special path
 		}
+		else if (lr->executable_path_is_host_path)
+		{
+			// A host path outside the prefix (e.g. an app on another mounted volume): Darwin
+			// processes see the host's root under SYSTEM_ROOT. Without this, dyld and
+			// CFBundle get a path that doesn't exist inside the container, so e.g.
+			// CFBundleGetMainBundle() fails and apps can't find their Info.plist or nibs.
+			if (exepath_len + sizeof(SYSTEM_ROOT) > sizeof(executable_buf))
+			{
+				fprintf(stderr, "File path was too big\n");
+				exit(1);
+			}
+			memmove(executable_buf + sizeof(SYSTEM_ROOT) - 1, executable_path, exepath_len + 1);
+			memcpy(executable_buf, SYSTEM_ROOT, sizeof(SYSTEM_ROOT) - 1);
+		}
 		else
 		{
 			// Container paths (e.g. #!/usr/bin/perl) matching root_path are already

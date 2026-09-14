@@ -164,6 +164,8 @@ int main(int argc, char** argv, char** envp)
 	{
 		filename = (char*) __builtin_alloca(strlen(argv[0])+1);
 		strcpy(filename, p + 1);
+		// sys_execve() hands us the vchroot-expanded (host) path of the executable.
+		mldr_load_results.executable_path_is_host_path = true;
 	}
 	else
 	{
