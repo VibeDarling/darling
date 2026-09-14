@@ -17,7 +17,6 @@
 #include <string.h>
 
 typedef int32_t CVReturn;
-typedef uint32_t OSType;
 typedef uint64_t CVPixelBufferLockFlags;
 
 enum {
