@@ -92,12 +92,37 @@ static bool dropPrivilegesPermanently(uid_t uid, gid_t gid)
 	return true;
 }
 
+// In root mode, temporarily switch the effective ids to the invoking user for
+// work done on their behalf. The gid must change while the euid is still 0, and
+// on the way back the euid must be restored first. Non-root mode has already
+// dropped to the invoking user, so there is nothing to switch.
+static void useOriginalIds(void)
+{
+	if (g_nonroot)
+		return;
+	if (setegid(g_originalGid) != 0 || seteuid(g_originalUid) != 0)
+	{
+		fprintf(stderr, "Cannot switch to the invoking user's identity: %s\n", strerror(errno));
+		exit(1);
+	}
+}
+
+static void restoreRootIds(void)
+{
+	if (g_nonroot)
+		return;
+	if (seteuid(0) != 0 || setegid(0) != 0)
+	{
+		fprintf(stderr, "Cannot restore the launcher's identity: %s\n", strerror(errno));
+		exit(1);
+	}
+}
+
 // When the prefix does not yet exist and the caller is not really root, make
-// sure the real user could create it themselves before we do it for them.
-// access() checks against the real uid/gid, which is exactly the identity the
-// prefix is created with (setupPrefix() runs the creation as the real user, and
-// non-root mode has already dropped to the real user), so the identity used for
-// the check matches the one used for the creation.
+// sure the invoking user could create it themselves before we do it for them.
+// In root mode the real ids are already 0 at this point, so the check runs with
+// the effective ids switched to the invoking user (AT_EACCESS), which is the same
+// identity setupPrefix() creates the prefix with.
 static void checkPrefixCreatable(void)
 {
 	if (g_originalUid == 0)
@@ -123,7 +148,11 @@ static void checkPrefixCreatable(void)
 	else
 		parent = ".";
 
-	if (access(parent, W_OK | X_OK) != 0)
+	useOriginalIds();
+	int allowed = faccessat(AT_FDCWD, parent, W_OK | X_OK, AT_EACCESS) == 0;
+	restoreRootIds();
+
+	if (!allowed)
 	{
 		fprintf(stderr, "You do not have permission to create the prefix directory.\n");
 		exit(1);
@@ -2415,13 +2444,9 @@ void putInitPid(pid_t pidInit)
 	strcpy(pidPath, prefix);
 	strcat(pidPath, pidFile);
 
-	if (!g_nonroot) seteuid(g_originalUid);
-	if (!g_nonroot) setegid(g_originalGid);
-
+	useOriginalIds();
 	fp = fopen(pidPath, "w");
-
-	if (!g_nonroot) seteuid(0);
-	if (!g_nonroot) setegid(0);
+	restoreRootIds();
 
 	if (fp == NULL)
 	{
@@ -2546,8 +2571,7 @@ void setupPrefix()
 
 	fprintf(stderr, "Setting up a new Darling prefix at %s\n", prefix);
 
-	if (!g_nonroot) seteuid(g_originalUid);
-	if (!g_nonroot) setegid(g_originalGid);
+	useOriginalIds();
 
 	createDir(prefix);
 	strcpy(path, prefix);
@@ -2629,9 +2653,8 @@ void setupPrefix()
 		passwd_entry->pw_name
 	);
 	fclose(file);
-	
-	if (!g_nonroot) seteuid(0);
-	if (!g_nonroot) setegid(0);
+
+	restoreRootIds();
 }
 
 pid_t getInitProcess()
