@@ -43,14 +43,16 @@ static AEStorage* storageOf(const AEDesc* desc)
 	return storage->magic == AE_STORAGE_MAGIC ? storage : NULL;
 }
 
-static Boolean isList(DescType type)
-{
-	return type == typeAEList || type == typeAERecord || type == typeAppleEvent;
-}
-
+// Object specifiers are AE records with their own descriptor type, so the record calls
+// (AEGetParamPtr and friends) work on them as well.
 static Boolean isRecordLike(DescType type)
 {
-	return type == typeAERecord || type == typeAppleEvent;
+	return type == typeAERecord || type == typeAppleEvent || type == typeObjectSpecifier;
+}
+
+static Boolean isList(DescType type)
+{
+	return type == typeAEList || isRecordLike(type);
 }
 
 static OSErr newStorage(DescType type, const void* dataPtr, Size dataSize, AEDesc* result)
@@ -493,6 +495,58 @@ OSStatus AESendMessage(const AppleEvent* event, AppleEvent* reply, AESendMode se
 	if (reply)
 		AEInitializeDesc(reply);
 	return procNotFound; // no Apple Event transport to other processes
+}
+
+OSErr AESend(const AppleEvent* theAppleEvent, AppleEvent* reply, AESendMode sendMode, AESendPriority sendPriority,
+	SInt32 timeOutInTicks, AEIdleUPP idleProc, AEFilterUPP filterProc)
+{
+	return (OSErr) AESendMessage(theAppleEvent, reply, sendMode, timeOutInTicks);
+}
+
+// --- Object specifiers ---
+
+// An object specifier is a record of type 'obj ' holding the desired class, the container,
+// the key form and the key data.
+OSErr CreateObjSpecifier(DescType desiredClass, AEDesc* theContainer, DescType keyForm, AEDesc* keyData,
+	Boolean disposeInputs, AEDesc* objSpecifier)
+{
+	if (!objSpecifier || !keyData)
+		return paramErr;
+	AEInitializeDesc(objSpecifier);
+
+	AEDesc record;
+	OSErr err = AECreateList(NULL, 0, true, &record);
+	if (err == noErr)
+		err = AEPutParamPtr(&record, keyAEDesiredClass, typeType, &desiredClass, sizeof(desiredClass));
+	if (err == noErr)
+	{
+		if (theContainer && theContainer->descriptorType != typeNull)
+			err = AEPutParamDesc(&record, keyAEContainer, theContainer);
+		else
+			err = AEPutParamPtr(&record, keyAEContainer, typeNull, NULL, 0);
+	}
+	if (err == noErr)
+		err = AEPutParamPtr(&record, keyAEKeyForm, typeEnumerated, &keyForm, sizeof(keyForm));
+	if (err == noErr)
+		err = AEPutParamDesc(&record, keyAEKeyData, keyData);
+
+	if (err == noErr)
+	{
+		record.descriptorType = typeObjectSpecifier;
+		*objSpecifier = record;
+	}
+	else
+	{
+		AEDisposeDesc(&record);
+	}
+
+	if (disposeInputs)
+	{
+		if (theContainer)
+			AEDisposeDesc(theContainer);
+		AEDisposeDesc(keyData);
+	}
+	return err;
 }
 
 // --- Special handlers ---
