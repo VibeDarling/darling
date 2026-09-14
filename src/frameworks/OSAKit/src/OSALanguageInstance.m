@@ -19,16 +19,55 @@
 
 #import <OSAKit/OSALanguageInstance.h>
 
-@implementation OSALanguageInstance
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+// Darling has no OSA components, so there is never a component instance to hand out.
+@implementation OSALanguageInstance {
+    OSALanguage *_language;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
++ (instancetype)languageInstanceWithLanguage:(OSALanguage *)language
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    return [[[self alloc] initWithLanguage:language] autorelease];
+}
+
++ (ComponentInstance)defaultAppleScriptComponentInstance
+{
+    return NULL;
+}
+
+- (instancetype)initWithLanguage:(OSALanguage *)language
+{
+    if (language == nil) {
+        [self release];
+        return nil;
+    }
+    self = [super init];
+    if (self != nil)
+        _language = [language retain];
+    return self;
+}
+
+- (void)dealloc
+{
+    [_language release];
+    [super dealloc];
+}
+
+- (OSALanguage *)language
+{
+    return _language;
+}
+
+- (ComponentInstance)componentInstance
+{
+    return NULL;
+}
+
+- (NSAttributedString *)richTextFromDescriptor:(NSAppleEventDescriptor *)descriptor
+{
+    NSString *text = [descriptor stringValue];
+    if (text == nil)
+        return nil;
+    return [[[NSAttributedString alloc] initWithString:text] autorelease];
 }
 
 @end
