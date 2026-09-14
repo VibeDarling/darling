@@ -141,6 +141,9 @@ enum {
 
 typedef UInt16 EventModifiers;
 
+// Apple's Events.h lays this out with 2-byte packing (message at 2, modifiers at 18, size 20);
+// apps pass EventRecords built with that layout.
+#pragma pack(push, 2)
 typedef struct EventRecord {
   EventKind what;
   unsigned long message;
@@ -148,6 +151,7 @@ typedef struct EventRecord {
   Point where;
   EventModifiers modifiers;
 } EventRecord;
+#pragma pack(pop)
 
 #ifndef keyDown
 enum {
