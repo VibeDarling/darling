@@ -531,10 +531,13 @@ OSErr FSCloseFork(FSIORefNum forkRefNum)
 	return (ResError() == noErr) ? noErr : rfNumErr;
 }
 
-OSErr GetForkPhysicalInfo(FSIORefNum forkRefNum, UInt64* physicalOffset, UInt32* deviceBlockSize)
+OSErr GetForkPhysicalInfo(FSIORefNum forkRefNum, SInt32* fileDescriptor, UInt32* offset)
 {
-	// Forks here are files or extended attributes, not extents on a block device; callers fall back
-	// to reading the fork normally.
+	// Forks are not exposed as mappable descriptors here; callers fall back to reading the fork normally.
+	if (fileDescriptor)
+		*fileDescriptor = -1;
+	if (offset)
+		*offset = 0;
 	return unimpErr;
 }
 
