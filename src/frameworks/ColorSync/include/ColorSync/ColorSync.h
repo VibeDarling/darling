@@ -27,9 +27,13 @@
 extern "C" {
 #endif
 
-void* CGDisplayCreateUUIDFromDisplayID(void);
-void* CGDisplayGetDisplayIDFromUUID(void);
+
+CFUUIDRef CGDisplayCreateUUIDFromDisplayID(uint32_t display);
+uint32_t CGDisplayGetDisplayIDFromUUID(CFUUIDRef uuid);
+
 void* CMProfileFromColorSyncProfile(void);
+
+
 void* ColorSyncCMMCopyCMMIdentifier(void);
 void* ColorSyncCMMCopyLocalizedName(void);
 void* ColorSyncCMMCreate(void);

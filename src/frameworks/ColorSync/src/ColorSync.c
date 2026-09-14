@@ -29,19 +29,36 @@ static void initme(void) {
     verbose = getenv("STUB_VERBOSE") != NULL;
 }
 
-void* CGDisplayCreateUUIDFromDisplayID(void)
+
+#include <CoreFoundation/CFUUID.h>
+
+CFUUIDRef CGDisplayCreateUUIDFromDisplayID(uint32_t display)
 {
-    if (verbose) puts("STUB: CGDisplayCreateUUIDFromDisplayID called");
-    return NULL;
+    uint8_t b0 = (display >> 24) & 0xff;
+    uint8_t b1 = (display >> 16) & 0xff;
+    uint8_t b2 = (display >> 8) & 0xff;
+    uint8_t b3 = display & 0xff;
+    return CFUUIDCreateWithBytes(kCFAllocatorDefault,
+        b0, b1, b2, b3,
+        0x11, 0x22, 0x33, 0x44,
+        0x55, 0x66, 0x77, 0x88,
+        0x99, 0xaa, 0xbb, 0xcc);
 }
 
-void* CGDisplayGetDisplayIDFromUUID(void)
+uint32_t CGDisplayGetDisplayIDFromUUID(CFUUIDRef uuid)
 {
-    if (verbose) puts("STUB: CGDisplayGetDisplayIDFromUUID called");
-    return NULL;
+    if (!uuid) return 1;
+    CFUUIDBytes b = CFUUIDGetUUIDBytes(uuid);
+    uint32_t id = ((uint32_t)b.byte0 << 24) |
+                  ((uint32_t)b.byte1 << 16) |
+                  ((uint32_t)b.byte2 << 8) |
+                  (uint32_t)b.byte3;
+    if (id == 0) return 1;
+    return id;
 }
 
 void* CMProfileFromColorSyncProfile(void)
+
 {
     if (verbose) puts("STUB: CMProfileFromColorSyncProfile called");
     return NULL;
