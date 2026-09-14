@@ -589,6 +589,34 @@ static void ensureHomebrewSymlinks(const char* prefixPath)
 			fclose(f);
 		}
 	}
+
+	// 6. Bridge libpcap into nanobrew opt/libpcap/lib
+	char nbPcapDir[4096], nbPcapLib[4096];
+	snprintf(nbPcapDir, sizeof(nbPcapDir), "%s/libpcap", nanobrewOpt);
+	snprintf(nbPcapLib, sizeof(nbPcapLib), "%s/libpcap/lib", nanobrewOpt);
+	createDir(nbPcapDir);
+	createDir(nbPcapLib);
+	char nbPcapDylibA[4096];
+	snprintf(nbPcapDylibA, sizeof(nbPcapDylibA), "%s/libpcap.A.dylib", nbPcapLib);
+	if (lstat(nbPcapDylibA, &st) != 0)
+	{
+		symlink("/usr/lib/libpcap.A.dylib", nbPcapDylibA);
+	}
+	char nbPcapDylib[4096];
+	snprintf(nbPcapDylib, sizeof(nbPcapDylib), "%s/libpcap.dylib", nbPcapLib);
+	if (lstat(nbPcapDylib, &st) != 0)
+	{
+		symlink("libpcap.A.dylib", nbPcapDylib);
+	}
+
+	// 7. Ensure /usr/lib/libmd.dylib links to nanobrew's libmd if present
+	char usrLibMd[4096], candidateNbLibMd[4096];
+	snprintf(usrLibMd, sizeof(usrLibMd), "%s/usr/lib/libmd.dylib", prefixPath);
+	snprintf(candidateNbLibMd, sizeof(candidateNbLibMd), "%s/opt/nanobrew/prefix/lib/libmd.dylib", prefixPath);
+	if (lstat(usrLibMd, &st) != 0 && access(candidateNbLibMd, F_OK) == 0)
+	{
+		symlink("/opt/nanobrew/prefix/lib/libmd.dylib", usrLibMd);
+	}
 }
 
 static const char* findHostCaBundle(void)
