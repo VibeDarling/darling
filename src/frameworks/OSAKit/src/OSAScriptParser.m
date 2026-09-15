@@ -18,17 +18,33 @@
 */
 
 #import <OSAKit/OSAScriptParser.h>
+#import <OSAKit/OSAScript.h>
+#import <OSAKit/OSAScriptElement.h>
 
 @implementation OSAScriptParser
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize element = _element;
+
++ (instancetype)parserWithScript:(OSAScript *)script
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    OSAScriptParser *parser = [[[self alloc] init] autorelease];
+    parser->_script = [script retain];
+    return parser;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)dealloc
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [_script release];
+    [_element release];
+    [super dealloc];
+}
+
+// There is no AppleScript parser: the result is one untitled root element spanning the source.
+- (BOOL)parse
+{
+    [_element release];
+    _element = [[OSAScriptElement alloc] initWithRange:NSMakeRange(0, [[_script source] length])];
+    return YES;
 }
 
 @end
