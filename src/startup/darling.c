@@ -171,6 +171,55 @@ static void checkPrefixCreatable(void)
 	}
 }
 
+// darlingserver starts as real root without AT_SECURE, so its dynamic loader and its getenv() calls
+// trust the environment. In root mode a setuid launcher passes it only these variables.
+static const char* const g_darlingserverEnvAllowlist[] = {
+	"HOME",
+	"XDG_CONFIG_HOME",
+	"DARLING_DEBUG",
+	"DSERVER_LOG_STDERR",
+	"DSERVER_LOG_LEVEL",
+	"DARLING_LAUNCHD_STDERR",
+	"DARLING_SHELLSPAWN_DEBUG",
+	"DTAPE_LOG_SAFE_STUBS",
+};
+
+static void restrictEnvironmentForDarlingserver(void)
+{
+	if (!getauxval(AT_SECURE) || g_nonroot)
+		return;
+
+	const size_t count = sizeof(g_darlingserverEnvAllowlist) / sizeof(g_darlingserverEnvAllowlist[0]);
+	char* values[count];
+
+	for (size_t i = 0; i < count; i++)
+	{
+		const char* value = getenv(g_darlingserverEnvAllowlist[i]);
+		values[i] = value ? strdup(value) : NULL;
+		if (value && !values[i])
+		{
+			fprintf(stderr, "Cannot copy the environment for darlingserver\n");
+			exit(1);
+		}
+	}
+
+	if (clearenv() != 0)
+	{
+		fprintf(stderr, "Cannot clear the environment for darlingserver\n");
+		exit(1);
+	}
+
+	for (size_t i = 0; i < count; i++)
+	{
+		if (values[i] && setenv(g_darlingserverEnvAllowlist[i], values[i], 1) != 0)
+		{
+			fprintf(stderr, "Cannot set %s for darlingserver: %s\n", g_darlingserverEnvAllowlist[i], strerror(errno));
+			exit(1);
+		}
+		free(values[i]);
+	}
+}
+
 static const char* getInstallPrefix(void)
 {
 	static char prefixBuf[4096] = {0};
@@ -2350,6 +2399,8 @@ pid_t spawnInitProcess(void)
 		snprintf(pipefd_str, sizeof(pipefd_str), "%d", pipefd[1]);
 
 		close(pipefd[0]);
+
+		restrictEnvironmentForDarlingserver();
 
 		if (g_nonroot)
 		{
