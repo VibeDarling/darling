@@ -21,7 +21,7 @@
 #include <dispatch/dispatch.h>
 
 // Darling has no OSA components. OSAKit reports a single AppleScript language so script editors can
-// describe documents; its language instance and component calls stay stubs.
+// describe documents; its component calls stay stubs.
 static const OSType kOSAScriptingComponentType = 'osa ';
 static const OSType kAppleScriptSubtype = 'ascr';
 

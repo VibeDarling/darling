@@ -21,4 +21,19 @@
 
 @interface OSALanguage : NSObject
 
++ (NSArray *)availableLanguages;
++ (OSALanguage *)defaultLanguage;
++ (void)setDefaultLanguage:(OSALanguage *)language;
++ (OSALanguage *)languageForName:(NSString *)name;
++ (OSALanguage *)languageForSubType:(OSType)subType;
+
+@property (readonly, copy) NSString *name;
+@property (readonly, copy) NSString *info;
+@property (readonly, copy) NSString *version;
+@property (readonly) OSType type;
+@property (readonly) OSType subType;
+@property (readonly) OSType manufacturer;
+@property (readonly) NSUInteger features;
+@property (readonly, getter=isThreadSafe) BOOL threadSafe;
+
 @end

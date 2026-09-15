@@ -18,7 +18,20 @@
 */
 
 #include <Foundation/Foundation.h>
+#include <CoreServices/CoreServices.h>
+#import <OSAKit/OSALanguage.h>
 
 @interface OSALanguageInstance : NSObject
+
++ (instancetype)languageInstanceWithLanguage:(OSALanguage *)language;
++ (ComponentInstance)defaultAppleScriptComponentInstance;
+
+- (instancetype)initWithLanguage:(OSALanguage *)language;
+
+@property (readonly) OSALanguage *language;
+@property (readonly) ComponentInstance componentInstance;
+@property (retain) NSAppleEventDescriptor *defaultTarget;
+
+- (NSAttributedString *)richTextFromDescriptor:(NSAppleEventDescriptor *)descriptor;
 
 @end
