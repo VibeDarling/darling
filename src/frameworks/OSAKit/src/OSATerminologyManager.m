@@ -18,17 +18,22 @@
 */
 
 #import <OSAKit/OSATerminologyManager.h>
+#include <dispatch/dispatch.h>
 
 @implementation OSATerminologyManager
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
++ (instancetype)sharedTerminologyManager
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    static OSATerminologyManager *shared;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        shared = [[OSATerminologyManager alloc] init];
+    });
+    return shared;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)readTerms
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
 }
 
 @end

@@ -18,17 +18,23 @@
 */
 
 #import <OSAKit/OSARecordingController.h>
+#include <dispatch/dispatch.h>
 
 @implementation OSARecordingController
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
++ (instancetype)sharedRecordingController
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    static OSARecordingController *shared;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        shared = [[OSARecordingController alloc] init];
+    });
+    return shared;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (OSAScriptController *)controller
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    return nil;
 }
 
 @end
