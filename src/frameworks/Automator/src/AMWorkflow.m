@@ -18,17 +18,52 @@
 */
 
 #import <Automator/AMWorkflow.h>
+#import <Automator/AMWorkflowMetaData.h>
+#import "AMStubSignature.h"
 
 @implementation AMWorkflow
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize hasUnsavedChanges = _hasUnsavedChanges;
+
+- (instancetype)init
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    self = [super init];
+    if (self != nil) {
+        _metaData = [[AMWorkflowMetaData alloc] init];
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)dealloc
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [_metaData release];
+    [super dealloc];
 }
+
+- (AMWorkflowMetaData *)_workflowMetaData
+{
+    return _metaData;
+}
+
+- (void)_setWorkflowMetaData:(AMWorkflowMetaData *)metaData
+{
+    [metaData retain];
+    [_metaData release];
+    _metaData = metaData;
+}
+
+// Automator.app reads the personality back through the metadata after setting it on the workflow,
+// and restores both at once from a metadata backup, so the metadata owns it.
+- (id)_workflowPersonality
+{
+    return [_metaData personality];
+}
+
+- (void)_setWorkflowPersonality:(id)personality
+{
+    [_metaData setPersonality: personality];
+}
+
+AM_STUB_FORWARDING
 
 @end

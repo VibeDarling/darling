@@ -19,6 +19,13 @@
 
 #include <Foundation/Foundation.h>
 
-@interface AMWorkflowMetaData : NSObject
+@interface AMWorkflowMetaData : NSObject <NSCopying>
+{
+    id _personality;
+    NSString *_documentSaveName;
+}
+
+@property (retain) id personality;
+@property (copy) NSString *documentSaveName;
 
 @end

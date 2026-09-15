@@ -17,8 +17,4 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
-
-@protocol NSApplicationDelegate
-
-@end
+#include <AppKit/AppKit.h>

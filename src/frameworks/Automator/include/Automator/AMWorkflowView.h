@@ -17,8 +17,8 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#include <AppKit/AppKit.h>
 
-@interface AMWorkflowView : NSObject
+@interface AMWorkflowView : NSView
 
 @end

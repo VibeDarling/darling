@@ -17,8 +17,4 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
-
-@protocol NSDraggingSource
-
-@end
+#include <AppKit/AppKit.h>

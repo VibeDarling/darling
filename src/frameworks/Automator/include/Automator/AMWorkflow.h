@@ -19,6 +19,19 @@
 
 #include <Foundation/Foundation.h>
 
+@class AMWorkflowMetaData;
+
 @interface AMWorkflow : NSObject
+{
+    AMWorkflowMetaData *_metaData;
+    BOOL _hasUnsavedChanges;
+}
+
+@property BOOL hasUnsavedChanges;
+
+- (AMWorkflowMetaData *)_workflowMetaData;
+- (void)_setWorkflowMetaData:(AMWorkflowMetaData *)metaData;
+- (id)_workflowPersonality;
+- (void)_setWorkflowPersonality:(id)personality;
 
 @end

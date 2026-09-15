@@ -631,4 +631,5 @@ add_framework(Automator
         system
         objc
         Foundation
+        AppKit
 )

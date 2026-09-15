@@ -17,8 +17,22 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#include <AppKit/AppKit.h>
 
-@interface AMWorkflowController : NSObject
+@class AMWorkflow, AMWorkflowView;
+
+@interface AMWorkflowController : NSController
+{
+    AMWorkflow *_workflow;
+    AMWorkflowView *_workflowView;
+    id _delegate;
+}
+
+@property (retain) AMWorkflow *workflow;
+@property (retain) AMWorkflowView *workflowView;
+@property (assign) id delegate;
+@property (readonly) BOOL canRun;
+@property (readonly, getter=isRunning) BOOL running;
+@property (readonly, getter=isPaused) BOOL paused;
 
 @end
