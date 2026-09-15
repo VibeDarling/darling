@@ -26,6 +26,7 @@
 
 @synthesize workflow = _workflow;
 @synthesize delegate = _delegate;
+@synthesize runLocally = _runLocally;
 
 - (void)dealloc
 {

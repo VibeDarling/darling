@@ -60,6 +60,12 @@
     return [self generalWorkflowPersonality];
 }
 
+// Automator.app adds a displayLabel titlebar label only when this is YES; none is shown.
+- (BOOL)showInTitlebar
+{
+    return NO;
+}
+
 - (BOOL)canSaveWorkflow:(id)workflow atURL:(NSURL *)url forInstallation:(BOOL)install error:(NSError **)error
 {
     if (error != NULL)

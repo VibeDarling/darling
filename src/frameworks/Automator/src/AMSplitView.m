@@ -22,6 +22,8 @@
 
 @implementation AMSplitView
 
+@synthesize collapsesToRightOrBottom = _collapsesToRightOrBottom;
+
 AM_STUB_FORWARDING
 
 @end
