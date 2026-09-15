@@ -118,6 +118,18 @@ static void restoreRootIds(void)
 	}
 }
 
+// Test for a path's existence with the invoking user's ids. In root mode a plain
+// access() uses the real uid (0); switching the effective ids to the user and
+// testing with faccessat(AT_EACCESS) checks with the invoking user's rights
+// instead. Non-root mode has already dropped, so this matches a plain access().
+static int existsAsOriginalUser(const char* path)
+{
+	useOriginalIds();
+	int r = faccessat(AT_FDCWD, path, F_OK, AT_EACCESS);
+	restoreRootIds();
+	return r;
+}
+
 // When the prefix does not yet exist and the caller is not really root, make
 // sure the invoking user could create it themselves before we do it for them.
 // In root mode the real ids are already 0 at this point, so the check runs with
@@ -1560,15 +1572,17 @@ int main(int argc, char ** argv)
 		if (g_nonroot)
 			spawnShellspawn();
 
-		// Wait until shellspawn starts
+		// Wait until shellspawn starts. The socket lives inside the user's prefix
+		// and is created by shellspawn with mode 0600 owned by the user, so probe
+		// it with the user's ids rather than as root.
 		for (int i = 0; i < SHELLSPAWN_WAIT_RETRIES; i++)
 		{
-			if (access(socketPath, F_OK) == 0)
+			if (existsAsOriginalUser(socketPath) == 0)
 				break;
 			usleep(50000);
 		}
 
-		if (access(socketPath, F_OK) != 0)
+		if (existsAsOriginalUser(socketPath) != 0)
 		{
 			fprintf(stderr, "Timed out waiting for shellspawn in container\n");
 			return 1;
@@ -1578,16 +1592,16 @@ int main(int argc, char ** argv)
 	{
 		char socketPath[4096];
 		snprintf(socketPath, sizeof(socketPath), "%s" SHELLSPAWN_SOCKPATH, prefix);
-		if (access(socketPath, F_OK) != 0)
+		if (existsAsOriginalUser(socketPath) != 0)
 		{
 			spawnShellspawn();
 			for (int i = 0; i < SHELLSPAWN_WAIT_RETRIES; i++)
 			{
-				if (access(socketPath, F_OK) == 0)
+				if (existsAsOriginalUser(socketPath) == 0)
 					break;
 				usleep(50000);
 			}
-			if (access(socketPath, F_OK) != 0)
+			if (existsAsOriginalUser(socketPath) != 0)
 			{
 				fprintf(stderr, "Timed out waiting for shellspawn in container\n");
 				return 1;
@@ -2545,7 +2559,14 @@ int checkPrefixDir()
 {
 	struct stat st;
 
-	if (stat(prefix, &st) == 0)
+	// The prefix belongs to the user; stat it with their ids, as the other
+	// prefix operations do.
+	useOriginalIds();
+	int r = stat(prefix, &st);
+	int e = errno;
+	restoreRootIds();
+
+	if (r == 0)
 	{
 		if (!S_ISDIR(st.st_mode))
 		{
@@ -2554,9 +2575,9 @@ int checkPrefixDir()
 		}
 		return 1; // OK
 	}
-	if (errno == ENOENT)
+	if (e == ENOENT)
 		return 0; // not found
-	fprintf(stderr, "Cannot access %s: %s\n", prefix, strerror(errno));
+	fprintf(stderr, "Cannot access %s: %s\n", prefix, strerror(e));
 	exit(1);
 }
 
@@ -2682,20 +2703,28 @@ pid_t getInitProcess()
 	char procBuf[100];
 	char *exeBuf, *statusBuf;
 	int uidMatch = 0, gidMatch = 0;
+	pid_t result = 0;
 
 	pidPath = (char*) alloca(strlen(prefix) + sizeof(pidFile));
 	strcpy(pidPath, prefix);
 	strcat(pidPath, pidFile);
 
+	// The pidfile lives inside the user's prefix, so open and unlink it with the
+	// invoking user's ids, as the other prefix operations do. The /proc lookups
+	// below read only world-readable procfs and run with the same ids, which is
+	// enough to confirm the pid is a darlingserver owned by the user. Every exit
+	// path restores root ids via the label.
+	useOriginalIds();
+
 	fp = fopen(pidPath, "r");
 	if (fp == NULL)
-		return 0;
+		goto out;
 
 	if (fscanf(fp, "%d", &pid_i) != 1)
 	{
 		fclose(fp);
 		unlink(pidPath);
-		return 0;
+		goto out;
 	}
 	fclose(fp);
 	pid = (pid_t) pid_i;
@@ -2704,7 +2733,7 @@ pid_t getInitProcess()
 	if (kill(pid, 0) == -1)
 	{
 		unlink(pidPath);
-		return 0;
+		goto out;
 	}
 
 	// Is it actually an init process?
@@ -2713,21 +2742,22 @@ pid_t getInitProcess()
 	if (fp == NULL)
 	{
 		unlink(pidPath);
-		return 0;
+		goto out;
 	}
 
 	if (fscanf(fp, "%ms", &exeBuf) != 1)
 	{
 		fclose(fp);
 		unlink(pidPath);
-		return 0;
+		goto out;
 	}
 	fclose(fp);
 
 	if (strcmp(exeBuf, "darlingserver") != 0)
 	{
+		free(exeBuf);
 		unlink(pidPath);
-		return 0;
+		goto out;
 	}
 	free(exeBuf);
 
@@ -2739,7 +2769,7 @@ pid_t getInitProcess()
 		if (fp == NULL)
 		{
 			unlink(pidPath);
-			return 0;
+			goto out;
 		}
 
 		while (1)
@@ -2747,7 +2777,10 @@ pid_t getInitProcess()
 			statusBuf = NULL;
 			size_t len;
 			if (getline(&statusBuf, &len, fp) == -1)
+			{
+				free(statusBuf);
 				break;
+			}
 			int rid, eid, sid, fid;
 			if (sscanf(statusBuf, "Uid: %d %d %d %d", &rid, &eid, &sid, &fid) == 4)
 			{
@@ -2764,11 +2797,14 @@ pid_t getInitProcess()
 		if (!uidMatch || !gidMatch)
 		{
 			unlink(pidPath);
-			return 0;
+			goto out;
 		}
 	}
 
-	return pid;
+	result = pid;
+out:
+	restoreRootIds();
+	return result;
 }
 
 void checkPrefixOwner()
