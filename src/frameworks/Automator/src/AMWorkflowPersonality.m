@@ -18,8 +18,32 @@
 */
 
 #import <Automator/AMWorkflowPersonality.h>
+#import <Automator/AMGeneralWorkflowPersonality.h>
+#include <dispatch/dispatch.h>
 
 @implementation AMWorkflowPersonality
+
+// Automator asks for its document personalities at launch. Only the general (plain workflow)
+// personality exists; every document type maps to it.
++ (id)generalWorkflowPersonality
+{
+    static id general;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        general = [[AMGeneralWorkflowPersonality alloc] init];
+    });
+    return general;
+}
+
++ (NSArray *)workflowPersonalities
+{
+    return @[ [self generalWorkflowPersonality] ];
+}
+
++ (id)workflowPersonalityForTypeIdentifier:(NSString *)typeIdentifier
+{
+    return [self generalWorkflowPersonality];
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
