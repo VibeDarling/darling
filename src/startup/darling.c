@@ -38,6 +38,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <termios.h>
 #include <pty.h>
 #include <pwd.h>
+#include <grp.h>
 #include <sys/auxv.h>
 #include "../shellspawn/shellspawn.h"
 #include "darling.h"
@@ -65,6 +66,97 @@ static const char* getenvTrusted(const char* name)
 	if (getauxval(AT_SECURE))
 		return NULL;
 	return getenv(name);
+}
+
+// Permanently drop to the given uid/gid. Group privileges and the supplementary
+// groups must be given up before the uid, because once the uid is no longer
+// privileged we can no longer change them. Every step is checked and the final
+// identity is verified, so we never continue while root could still be regained.
+static bool dropPrivilegesPermanently(uid_t uid, gid_t gid)
+{
+	gid_t groups[1] = { gid };
+	if (setgroups(1, groups) != 0)
+		return false;
+	if (setresgid(gid, gid, gid) != 0)
+		return false;
+	if (setresuid(uid, uid, uid) != 0)
+		return false;
+
+	uid_t ruid, euid, suid;
+	gid_t rgid, egid, sgid;
+	if (getresuid(&ruid, &euid, &suid) != 0 || ruid != uid || euid != uid || suid != uid)
+		return false;
+	if (getresgid(&rgid, &egid, &sgid) != 0 || rgid != gid || egid != gid || sgid != gid)
+		return false;
+
+	return true;
+}
+
+// In root mode, temporarily switch the effective ids to the invoking user for
+// work done on their behalf. The gid must change while the euid is still 0, and
+// on the way back the euid must be restored first. Non-root mode has already
+// dropped to the invoking user, so there is nothing to switch.
+static void useOriginalIds(void)
+{
+	if (g_nonroot)
+		return;
+	if (setegid(g_originalGid) != 0 || seteuid(g_originalUid) != 0)
+	{
+		fprintf(stderr, "Cannot switch to the invoking user's identity: %s\n", strerror(errno));
+		exit(1);
+	}
+}
+
+static void restoreRootIds(void)
+{
+	if (g_nonroot)
+		return;
+	if (seteuid(0) != 0 || setegid(0) != 0)
+	{
+		fprintf(stderr, "Cannot restore the launcher's identity: %s\n", strerror(errno));
+		exit(1);
+	}
+}
+
+// When the prefix does not yet exist and the caller is not really root, make
+// sure the invoking user could create it themselves before we do it for them.
+// In root mode the real ids are already 0 at this point, so the check runs with
+// the effective ids switched to the invoking user (AT_EACCESS), which is the same
+// identity setupPrefix() creates the prefix with.
+static void checkPrefixCreatable(void)
+{
+	if (g_originalUid == 0)
+		return;
+
+	char parentBuf[4096];
+	strncpy(parentBuf, prefix, sizeof(parentBuf) - 1);
+	parentBuf[sizeof(parentBuf) - 1] = '\0';
+
+	size_t len = strlen(parentBuf);
+	while (len > 1 && parentBuf[len - 1] == '/')
+		parentBuf[--len] = '\0';
+
+	char* slash = strrchr(parentBuf, '/');
+	const char* parent;
+	if (slash == parentBuf)
+		parent = "/";
+	else if (slash)
+	{
+		*slash = '\0';
+		parent = parentBuf;
+	}
+	else
+		parent = ".";
+
+	useOriginalIds();
+	int allowed = faccessat(AT_FDCWD, parent, W_OK | X_OK, AT_EACCESS) == 0;
+	restoreRootIds();
+
+	if (!allowed)
+	{
+		fprintf(stderr, "You do not have permission to create the prefix directory.\n");
+		exit(1);
+	}
 }
 
 static const char* getInstallPrefix(void)
@@ -1296,10 +1388,26 @@ int main(int argc, char ** argv)
 	// (shared) procfs, exposed to the container via a symlink.
 	g_nonroot = (getenv("DARLING_NONROOT") != NULL || geteuid() != 0);
 	if (g_nonroot)
+	{
 		g_rootless = true;
-
-	if (!g_nonroot)
-	{		setuid(0);
+		// Non-root mode must never keep the privileges the setuid bit grants.
+		// If we were started with elevated privileges (running under AT_SECURE,
+		// or with an effective uid/gid that differs from the real one),
+		// permanently drop back to the real user before touching the filesystem
+		// or spawning anything. A genuinely unprivileged, non-setuid run has
+		// nothing to drop and its behaviour is unchanged.
+		if (getauxval(AT_SECURE) || geteuid() != getuid() || getegid() != getgid())
+		{
+			if (!dropPrivilegesPermanently(g_originalUid, g_originalGid))
+			{
+				fprintf(stderr, "Failed to drop privileges for non-root mode.\n");
+				return 1;
+			}
+		}
+	}
+	else
+	{
+		setuid(0);
 		setgid(0);
 		g_rootless = (geteuid() != 0);
 	}
@@ -1319,6 +1427,7 @@ int main(int argc, char ** argv)
 
 	if (!checkPrefixDir())
 	{
+		checkPrefixCreatable();
 		setupPrefix();
 		g_fixPermissions = true;
 	}
@@ -2335,13 +2444,9 @@ void putInitPid(pid_t pidInit)
 	strcpy(pidPath, prefix);
 	strcat(pidPath, pidFile);
 
-	if (!g_nonroot) seteuid(g_originalUid);
-	if (!g_nonroot) setegid(g_originalGid);
-
+	useOriginalIds();
 	fp = fopen(pidPath, "w");
-
-	if (!g_nonroot) seteuid(0);
-	if (!g_nonroot) setegid(0);
+	restoreRootIds();
 
 	if (fp == NULL)
 	{
@@ -2466,8 +2571,7 @@ void setupPrefix()
 
 	fprintf(stderr, "Setting up a new Darling prefix at %s\n", prefix);
 
-	if (!g_nonroot) seteuid(g_originalUid);
-	if (!g_nonroot) setegid(g_originalGid);
+	useOriginalIds();
 
 	createDir(prefix);
 	strcpy(path, prefix);
@@ -2549,9 +2653,8 @@ void setupPrefix()
 		passwd_entry->pw_name
 	);
 	fclose(file);
-	
-	if (!g_nonroot) seteuid(0);
-	if (!g_nonroot) setegid(0);
+
+	restoreRootIds();
 }
 
 pid_t getInitProcess()
