@@ -18,7 +18,12 @@
 */
 
 #include <Foundation/Foundation.h>
+#include <Automator/AMWorkflowPersonality.h>
 
-@interface AMGeneralWorkflowPersonality : NSObject
+@interface AMGeneralWorkflowPersonality : AMWorkflowPersonality
+
+@property (readonly) NSString *documentType;
+@property (readonly) NSString *displayLabel;
+@property (readonly) BOOL isPluginType;
 
 @end

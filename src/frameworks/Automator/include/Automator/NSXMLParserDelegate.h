@@ -18,7 +18,3 @@
 */
 
 #include <Foundation/Foundation.h>
-
-@protocol NSXMLParserDelegate
-
-@end

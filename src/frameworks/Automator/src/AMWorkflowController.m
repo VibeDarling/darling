@@ -18,17 +18,39 @@
 */
 
 #import <Automator/AMWorkflowController.h>
+#import <Automator/AMWorkflow.h>
+#import <Automator/AMWorkflowView.h>
+#import "AMStubSignature.h"
 
 @implementation AMWorkflowController
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize workflow = _workflow;
+@synthesize workflowView = _workflowView;
+@synthesize delegate = _delegate;
+
+- (void)dealloc
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    [_workflow release];
+    [_workflowView release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+// There is no workflow engine, so a workflow never runs.
+- (BOOL)canRun
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    return NO;
 }
+
+- (BOOL)isRunning
+{
+    return NO;
+}
+
+- (BOOL)isPaused
+{
+    return NO;
+}
+
+AM_STUB_FORWARDING
 
 @end

@@ -18,17 +18,28 @@
 */
 
 #import <Automator/AMWorkflowMetaData.h>
+#import "AMStubSignature.h"
 
 @implementation AMWorkflowMetaData
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize personality = _personality;
+@synthesize documentSaveName = _documentSaveName;
+
+- (void)dealloc
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    [_personality release];
+    [_documentSaveName release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (id)copyWithZone:(NSZone *)zone
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    AMWorkflowMetaData *copy = [[[self class] allocWithZone: zone] init];
+    [copy setPersonality: _personality];
+    [copy setDocumentSaveName: _documentSaveName];
+    return copy;
 }
+
+AM_STUB_FORWARDING
 
 @end
