@@ -19,6 +19,8 @@
 
 #import <AppKit/AppKit.h>
 
+@class OSAScriptAssistant;
+
 @interface OSAScriptView : NSTextView
 
 @property (copy) NSString *source;
@@ -28,5 +30,7 @@
 @property BOOL wrapsLines;
 @property BOOL indentsWrappedLines;
 @property NSUInteger indentWidth;
+// Always nil: there is no code completion engine.
+@property (readonly) OSAScriptAssistant *scriptAssistant;
 
 @end

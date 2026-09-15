@@ -18,6 +18,23 @@
 */
 
 #import <OSAKit/OSASplitView.h>
+#import <AppKit/AppKit.h>
+
+// Script Editor saves and restores its split views through these (window state, divider dragging).
+@implementation NSSplitView (OSAKit)
+
+- (CGFloat)_osa_positionOfDivider:(NSInteger)index
+{
+    NSRect frame = [[[self subviews] objectAtIndex:index] frame];
+    return [self isVertical] ? NSMaxX(frame) : NSMaxY(frame);
+}
+
+- (void)_osa_setPosition:(CGFloat)position ofDivider:(NSInteger)index
+{
+    [self setPosition:position ofDividerAtIndex:(int)index];
+}
+
+@end
 
 @implementation OSASplitView
 
