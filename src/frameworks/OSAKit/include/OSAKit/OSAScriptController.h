@@ -27,6 +27,8 @@ typedef NS_ENUM(NSInteger, OSAScriptState) {
     OSAScriptRecording,
 };
 
+@class NSAppleEventDescriptor;
+
 @interface OSAScriptController : NSController
 {
     OSAScriptView *_scriptView;
@@ -36,6 +38,7 @@ typedef NS_ENUM(NSInteger, OSAScriptState) {
     OSAScriptState _scriptState;
     BOOL _compiling;
     NSUndoManager *_undoManager;
+    NSAppleEventDescriptor *_defaultTarget;
 }
 
 @property (assign) OSAScriptView *scriptView;
