@@ -21,4 +21,6 @@
 
 @interface AMVariablesRegistry : NSObject
 
++ (instancetype)sharedVariablesRegistry;
+
 @end

@@ -18,17 +18,12 @@
 */
 
 #import <Automator/AMImageRegistry.h>
+#import "AMStubSignature.h"
 
 @implementation AMImageRegistry
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
+AM_STUB_SHARED_INSTANCE(sharedImageRegistry)
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
+AM_STUB_FORWARDING
 
 @end

@@ -21,4 +21,6 @@
 
 @interface AMImageRegistry : NSObject
 
++ (instancetype)sharedImageRegistry;
+
 @end

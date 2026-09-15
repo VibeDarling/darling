@@ -18,17 +18,10 @@
 */
 
 #import <Automator/_AMFinderApplication.h>
+#import "AMStubSignature.h"
 
 @implementation _AMFinderApplication
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
+AM_STUB_FORWARDING
 
 @end

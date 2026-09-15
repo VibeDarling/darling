@@ -21,4 +21,6 @@
 
 @interface AMMediaPanel : NSObject
 
++ (instancetype)sharedMediaPanel;
+
 @end

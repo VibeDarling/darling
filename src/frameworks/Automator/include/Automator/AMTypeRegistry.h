@@ -21,4 +21,6 @@
 
 @interface AMTypeRegistry : NSObject
 
++ (instancetype)sharedTypeRegistry;
+
 @end

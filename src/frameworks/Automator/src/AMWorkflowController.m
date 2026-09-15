@@ -25,14 +25,29 @@
 @implementation AMWorkflowController
 
 @synthesize workflow = _workflow;
-@synthesize workflowView = _workflowView;
 @synthesize delegate = _delegate;
 
 - (void)dealloc
 {
     [_workflow release];
-    [_workflowView release];
+    [self setWorkflowView: nil];
     [super dealloc];
+}
+
+- (AMWorkflowView *)workflowView
+{
+    return _workflowView;
+}
+
+- (void)setWorkflowView:(AMWorkflowView *)view
+{
+    if (view == _workflowView)
+        return;
+    if ([_workflowView workflowController] == self)
+        [_workflowView setWorkflowController: nil];
+    [_workflowView release];
+    _workflowView = [view retain];
+    [_workflowView setWorkflowController: self];
 }
 
 // There is no workflow engine, so a workflow never runs.

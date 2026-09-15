@@ -22,6 +22,9 @@
 
 @implementation AMWorkflowView
 
+@synthesize workflowController = _workflowController;
+@synthesize editable = _editable;
+
 AM_STUB_FORWARDING
 
 @end

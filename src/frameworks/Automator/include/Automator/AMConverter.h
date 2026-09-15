@@ -21,4 +21,6 @@
 
 @interface AMConverter : NSObject
 
++ (instancetype)sharedConverter;
+
 @end

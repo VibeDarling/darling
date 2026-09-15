@@ -18,17 +18,27 @@
 */
 
 #import <Automator/AMApplicationWorkflowPersonality.h>
+#import <Automator/Automator.h>
+#import "AMStubSignature.h"
 
 @implementation AMApplicationWorkflowPersonality
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+// Automator.app's "Application" document type (Info.plist CFBundleTypeName).
+- (NSString *)documentType
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    return AMDocumentTypeApplication;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (NSString *)displayLabel
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    return AMDocumentTypeApplication;
 }
+
+- (BOOL)isPluginType
+{
+    return NO;
+}
+
+AM_STUB_FORWARDING
 
 @end

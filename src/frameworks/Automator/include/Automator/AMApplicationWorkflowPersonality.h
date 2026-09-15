@@ -18,7 +18,8 @@
 */
 
 #include <Foundation/Foundation.h>
+#include <Automator/AMWorkflowPersonality.h>
 
-@interface AMApplicationWorkflowPersonality : NSObject
+@interface AMApplicationWorkflowPersonality : AMWorkflowPersonality
 
 @end

@@ -22,8 +22,4 @@
 
 @interface AMGeneralWorkflowPersonality : AMWorkflowPersonality
 
-@property (readonly) NSString *documentType;
-@property (readonly) NSString *displayLabel;
-@property (readonly) BOOL isPluginType;
-
 @end

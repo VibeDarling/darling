@@ -18,17 +18,12 @@
 */
 
 #import <Automator/AMMediaPanel.h>
+#import "AMStubSignature.h"
 
 @implementation AMMediaPanel
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
+AM_STUB_SHARED_INSTANCE(sharedMediaPanel)
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
+AM_STUB_FORWARDING
 
 @end
