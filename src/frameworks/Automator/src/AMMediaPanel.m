@@ -24,6 +24,15 @@
 
 AM_STUB_SHARED_INSTANCE(sharedMediaPanel)
 
+// The panel is never shown, so there is nothing to notify observers about.
+- (void)addObserver:(id)observer
+{
+}
+
+- (void)removeObserver:(id)observer
+{
+}
+
 AM_STUB_FORWARDING
 
 @end
