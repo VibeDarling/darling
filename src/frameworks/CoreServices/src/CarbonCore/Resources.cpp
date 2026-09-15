@@ -112,6 +112,47 @@ OSErr FSOpenResourceFile(const FSRef* ref, UniCharCount forkNameLength, const Un
 	}
 }
 
+OSErr FSOpenResourceFileMapped(const FSRef* ref, UniCharCount forkNameLength, const UniChar* forkName, void** mappedData, ResFileRefNum* refNum)
+{
+	if (mappedData)
+		*mappedData = nullptr;
+
+	OSErr err = FSOpenResourceFile(ref, forkNameLength, forkName, fsRdPerm, refNum);
+	if (err == noErr)
+		UseResFile(*refNum);
+	return err;
+}
+
+// Mapped resource-fork SPI. Callers only use it after GetForkPhysicalInfo() succeeds, which it
+// doesn't on Darling, so these report no resources.
+OSErr RMNewMappedRefFromMappedFork(const void* forkData, UInt64 forkSize, RMMappedFileRef* mappedRef)
+{
+	if (mappedRef)
+		*mappedRef = nullptr;
+	return unimpErr;
+}
+
+ResourceCount RMGetResourceCount(RMMappedFileRef mappedRef, ResType type)
+{
+	return 0;
+}
+
+void* RMGetIndexedResource(RMMappedFileRef mappedRef, ResType type, ResourceIndex index, void** resourceData, ResID* resourceID, StringPtr resourceName)
+{
+	if (resourceData)
+		*resourceData = nullptr;
+	return nullptr;
+}
+
+UInt64 RMGetResourceSize(void* resource)
+{
+	return 0;
+}
+
+void RMDisposeMappedFileRef(RMMappedFileRef mappedRef)
+{
+}
+
 OSErr ResError(void)
 {
 	return g_lastError;
