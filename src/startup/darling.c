@@ -233,6 +233,15 @@ static const char* getInstallPrefix(void)
 		return prefixBuf;
 	}
 
+	// When setuid, the install location must not depend on where the caller placed the
+	// binary: a hardlink of the launcher next to a planted bin/darlingserver would run
+	// that binary as root. Use only the compiled-in prefix.
+	if (getauxval(AT_SECURE))
+	{
+		strncpy(prefixBuf, INSTALL_PREFIX, sizeof(prefixBuf) - 1);
+		return prefixBuf;
+	}
+
 	char exePath[4096];
 	ssize_t len = readlink("/proc/self/exe", exePath, sizeof(exePath) - 1);
 	if (len > 0)
