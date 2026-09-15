@@ -26,6 +26,7 @@
     AMWorkflow *_workflow;
     AMWorkflowView *_workflowView;
     id _delegate;
+    BOOL _runLocally;
 }
 
 @property (retain) AMWorkflow *workflow;
@@ -34,5 +35,6 @@
 @property (readonly) BOOL canRun;
 @property (readonly, getter=isRunning) BOOL running;
 @property (readonly, getter=isPaused) BOOL paused;
+@property BOOL runLocally;
 
 @end

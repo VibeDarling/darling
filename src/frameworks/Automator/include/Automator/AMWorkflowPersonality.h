@@ -28,6 +28,7 @@
 @property (readonly) NSString *documentType;
 @property (readonly) NSString *displayLabel;
 @property (readonly) BOOL isPluginType;
+@property (readonly) BOOL showInTitlebar;
 
 - (BOOL)canSaveWorkflow:(id)workflow atURL:(NSURL *)url forInstallation:(BOOL)install error:(NSError **)error;
 

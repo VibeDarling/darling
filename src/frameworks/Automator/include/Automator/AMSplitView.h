@@ -20,5 +20,10 @@
 #include <AppKit/AppKit.h>
 
 @interface AMSplitView : NSSplitView
+{
+    BOOL _collapsesToRightOrBottom;
+}
+
+@property BOOL collapsesToRightOrBottom;
 
 @end
