@@ -1,7 +1,7 @@
 /*
  This file is part of Darling.
 
- Copyright (C) 2020 Lubos Dolezel
+ Copyright (C) 2026 Darling Developers
 
  Darling is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -17,20 +17,20 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#import <MobileAsset/ASAsset.h>
+#ifndef _RTTUtilities_H_
+#define _RTTUtilities_H_
 
-NSString *const ASAttributeDownloadSize = @"ASAttributeDownloadSize";
+#import <Foundation/Foundation.h>
 
-@implementation ASAsset
+// Stub of the private real-time text (TTY/RTT) settings framework. Darling has no
+// telephony, so TTY support is always off. Selectors come from the apps' references.
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
-
+@interface RTTSettings : NSObject
++ (instancetype)sharedInstance;
+- (BOOL)TTYSoftwareEnabled;
 @end
+
+// Returns the string for a TTY localization key; the stub returns the key itself.
+NSString *ttyLocString(NSString *key);
+
+#endif
