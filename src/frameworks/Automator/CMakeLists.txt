@@ -305,6 +305,7 @@ add_framework(Automator
         src/AMInputOutputWorkflowMetadata.m
         src/AMVariablesEditorController.m
         src/AMSplitView.m
+        src/AMAppKitLayoutAdditions.m
         src/AMApplicationDefinition.m
         src/_AMFinderApplication.m
         src/_AMFinderItem.m

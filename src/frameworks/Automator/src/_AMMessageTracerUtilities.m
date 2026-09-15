@@ -22,6 +22,11 @@
 
 @implementation _AMMessageTracerUtilities
 
+// Launch timing goes to Apple's MessageTracer, which Darling doesn't have.
++ (void)logTimeIntervalSinceAutomatorLaunch:(const char *)event
+{
+}
+
 AM_STUB_FORWARDING
 
 @end
