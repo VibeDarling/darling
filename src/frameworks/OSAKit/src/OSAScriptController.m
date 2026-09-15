@@ -21,14 +21,83 @@
 
 @implementation OSAScriptController
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize scriptView = _scriptView;
+@synthesize resultView = _resultView;
+@synthesize script = _script;
+@synthesize language = _language;
+@synthesize scriptState = _scriptState;
+@synthesize compiling = _compiling;
+@synthesize undoManager = _undoManager;
+
+// Nib outlets arrive through connectors; NSController's own coder support is unimplemented.
+- (instancetype)initWithCoder:(NSCoder *)coder
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    return [super init];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)dealloc
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [_script release];
+    [_language release];
+    [_undoManager release];
+    [super dealloc];
+}
+
+- (OSALanguage *)language
+{
+    return _language ?: [_script language];
+}
+
+- (void)setLanguage:(OSALanguage *)language
+{
+    [language retain];
+    [_language release];
+    _language = language;
+}
+
+- (void)showError:(NSDictionary *)errorInfo
+{
+    NSString *message = [errorInfo objectForKey:OSAScriptErrorMessageKey];
+    if (message != nil)
+        [_resultView setString:message];
+}
+
+- (IBAction)compileScript:(id)sender
+{
+    OSAScript *script = [[[OSAScript alloc] initWithSource:[_scriptView source] ?: @"" language:[self language]] autorelease];
+    NSDictionary *errorInfo = nil;
+    _compiling = YES;
+    BOOL compiled = [script compileAndReturnError:&errorInfo];
+    _compiling = NO;
+    [self setScript:script];
+    if (!compiled)
+        [self showError:errorInfo];
+}
+
+- (IBAction)runScript:(id)sender
+{
+    [self compileScript:sender];
+    if (![_script isCompiled])
+        return;
+
+    NSAttributedString *displayValue = nil;
+    NSDictionary *errorInfo = nil;
+    _scriptState = OSAScriptRunning;
+    NSAppleEventDescriptor *result = [_script executeAndReturnDisplayValue:&displayValue error:&errorInfo];
+    _scriptState = OSAScriptStopped;
+    if (result == nil)
+        [self showError:errorInfo];
+    else if (displayValue != nil)
+        [[_resultView textStorage] setAttributedString:displayValue];
+}
+
+// There is no Apple event recorder, and scripts run synchronously, so neither has anything to do.
+- (IBAction)recordScript:(id)sender
+{
+}
+
+- (IBAction)stopScript:(id)sender
+{
 }
 
 @end
