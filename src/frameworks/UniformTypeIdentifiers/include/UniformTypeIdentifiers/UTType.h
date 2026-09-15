@@ -28,6 +28,14 @@ extern NSString *const UTTagClassFilenameExtension;
 extern NSString *const UTTagClassMIMEType;
 
 @interface UTType : NSObject <NSCopying, NSSecureCoding>
+{
+	NSString *_identifier;
+	NSString *_key;
+	NSArray *_parents;
+	NSDictionary *_tags;
+	NSString *_description;
+	int _kind;
+}
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;

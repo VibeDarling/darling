@@ -20,10 +20,7 @@
 #import <OSAKit/OSALanguageInstance.h>
 
 // Darling has no OSA components, so there is never a component instance to hand out.
-@implementation OSALanguageInstance {
-    OSALanguage *_language;
-    NSAppleEventDescriptor *_defaultTarget;
-}
+@implementation OSALanguageInstance
 
 + (instancetype)languageInstanceWithLanguage:(OSALanguage *)language
 {

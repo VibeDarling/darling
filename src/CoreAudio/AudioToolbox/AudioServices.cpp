@@ -72,4 +72,3 @@ OSStatus AudioServicesSetProperty(AudioServicesPropertyID inPropertyID, UInt32 i
 {
     return kAudioServicesUnsupportedPropertyError;
 }
-}

@@ -103,14 +103,7 @@ static BOOL UTIdentifierIsValid(NSString *identifier)
 - (void)_setParents:(NSArray *)parents;
 @end
 
-@implementation UTType {
-	NSString *_identifier;
-	NSString *_key;         // lowercased identifier: identifiers compare case-insensitively
-	NSArray *_parents;      // UTType objects this type directly conforms to
-	NSDictionary *_tags;
-	NSString *_description;
-	UTTypeKind _kind;
-}
+@implementation UTType
 
 static void UTBuildRegistry(void *context)
 {

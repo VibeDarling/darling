@@ -1,3 +1,4 @@
+set(DARLING_LIB_64BIT_ONLY 1)
 project(RecapPerformanceTesting)
 
 remove_sdk_framework(RecapPerformanceTesting
@@ -16,7 +17,6 @@ generate_sdk_framework(RecapPerformanceTesting
 )
 
 add_framework(RecapPerformanceTesting
-	FAT
 	CURRENT_VERSION
 	PRIVATE
 	VERSION ${FRAMEWORK_VERSION}

@@ -1,3 +1,4 @@
+set(DARLING_LIB_64BIT_ONLY 1)
 project(ScreenCaptureKit)
 
 remove_sdk_framework(ScreenCaptureKit)
@@ -13,7 +14,6 @@ generate_sdk_framework(ScreenCaptureKit
 )
 
 add_framework(ScreenCaptureKit
-    FAT
     CURRENT_VERSION
     VERSION ${FRAMEWORK_VERSION}
 

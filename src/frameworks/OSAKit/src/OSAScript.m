@@ -50,11 +50,7 @@ static BOOL isTextStorageType(NSString *type)
     return [type isEqualToString:OSAStorageTextType] || [type isEqualToString:@"text"];
 }
 
-@implementation OSAScript {
-    NSString *_source;
-    NSURL *_url;
-    OSALanguageInstance *_languageInstance;
-}
+@implementation OSAScript
 
 + (instancetype)scriptWithSource:(NSString *)source language:(OSALanguage *)language
 {
