@@ -206,9 +206,13 @@ add_subdirectory(\"${CMAKE_CURRENT_SOURCE_DIR}/libelfloader/wrapgen\" wrapgen)
 		"${HOST_TOOLS_BUILD_DIR}/buildtools/getuuid"
 		"${CMAKE_BINARY_DIR}/src/buildtools/getuuid")
 
-	execute_process(COMMAND ${CMAKE_COMMAND} -E copy
+	# wrap_elf() outputs depend on this file: copy only when it changed, so a
+	# reconfigure doesn't regenerate every wrapper, and reconfigure on wrapgen edits.
+	execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${HOST_TOOLS_BUILD_DIR}/wrapgen/wrapgen"
 		"${CMAKE_BINARY_DIR}/src/libelfloader/wrapgen/wrapgen")
+	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+		"${CMAKE_CURRENT_SOURCE_DIR}/libelfloader/wrapgen/wrapgen.cpp")
 
 	add_custom_target(${APPLE_TARGET_TRIPLET_PRIMARY}-ld)
 	add_custom_target(${APPLE_TARGET_TRIPLET_PRIMARY}-ar)
