@@ -50,7 +50,18 @@ static BOOL isTextStorageType(NSString *type)
     return [type isEqualToString:OSAStorageTextType] || [type isEqualToString:@"text"];
 }
 
+@implementation NSDate (OSAKit)
+
+- (BOOL)_osa_isLaterDate:(NSDate *)date
+{
+    return [self compare:date] == NSOrderedDescending;
+}
+
+@end
+
 @implementation OSAScript
+
+@synthesize date = _date;
 
 + (instancetype)scriptWithSource:(NSString *)source language:(OSALanguage *)language
 {
@@ -139,6 +150,7 @@ static BOOL isTextStorageType(NSString *type)
     [_source release];
     [_url release];
     [_languageInstance release];
+    [_date release];
     [super dealloc];
 }
 
