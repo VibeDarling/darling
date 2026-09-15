@@ -20,5 +20,6 @@
 #include <Foundation/Foundation.h>
 
 @interface _AMMessageTracerUtilities : NSObject
++ (void)logTimeIntervalSinceAutomatorLaunch:(const char *)event;
 
 @end
