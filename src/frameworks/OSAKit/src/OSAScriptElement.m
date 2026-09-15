@@ -21,14 +21,34 @@
 
 @implementation OSAScriptElement
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize range = _range;
+
+- (instancetype)initWithRange:(NSRange)range
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if ((self = [super init]))
+        _range = range;
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+// Only root elements exist (see -[OSAScriptParser parse]), so there are no children, title or name.
+- (NSArray *)subElements
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    return [NSArray array];
+}
+
+- (NSRange)rangeOfSubElements
+{
+    return NSMakeRange(_range.location, 0);
+}
+
+- (NSString *)title
+{
+    return nil;
+}
+
+- (NSRange)nameRange
+{
+    return NSMakeRange(_range.location, 0);
 }
 
 @end
