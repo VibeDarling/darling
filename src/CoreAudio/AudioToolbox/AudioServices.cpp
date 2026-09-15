@@ -50,3 +50,26 @@ void AudioServicesPlayAlertSound(SystemSoundID inSystemSoundID)
     // Like AudioServicesPlaySystemSound, but may also vibrate on devices that can; no sound output yet.
     AudioServicesPlaySystemSound(inSystemSoundID);
 }
+
+void AudioServicesRemoveSystemSoundCompletion(SystemSoundID inSystemSoundID)
+{
+    // AudioServicesAddSystemSoundCompletion doesn't register anything yet, so there is nothing to remove.
+}
+
+// Darling has no system sound server, so no Audio Services property (e.g. the user's alert
+// volume or sound effect preferences) is available; callers keep their defaults.
+OSStatus AudioServicesGetPropertyInfo(AudioServicesPropertyID inPropertyID, UInt32 inSpecifierSize, const void *inSpecifier, UInt32 *outPropertyDataSize, Boolean *outWritable)
+{
+    return kAudioServicesUnsupportedPropertyError;
+}
+
+OSStatus AudioServicesGetProperty(AudioServicesPropertyID inPropertyID, UInt32 inSpecifierSize, const void *inSpecifier, UInt32 *ioPropertyDataSize, void *outPropertyData)
+{
+    return kAudioServicesUnsupportedPropertyError;
+}
+
+OSStatus AudioServicesSetProperty(AudioServicesPropertyID inPropertyID, UInt32 inSpecifierSize, const void *inSpecifier, UInt32 inPropertyDataSize, const void *inPropertyData)
+{
+    return kAudioServicesUnsupportedPropertyError;
+}
+}
