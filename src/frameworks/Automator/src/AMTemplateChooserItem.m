@@ -18,17 +18,16 @@
 */
 
 #import <Automator/AMTemplateChooserItem.h>
+#import "AMStubSignature.h"
 
 @implementation AMTemplateChooserItem
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+// No templates are installed.
++ (NSArray *)templateChooserItems
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    return @[];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
+AM_STUB_FORWARDING
 
 @end

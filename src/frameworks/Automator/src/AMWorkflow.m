@@ -24,6 +24,7 @@
 @implementation AMWorkflow
 
 @synthesize hasUnsavedChanges = _hasUnsavedChanges;
+@synthesize fileURL = _fileURL;
 
 - (instancetype)init
 {
@@ -37,7 +38,38 @@
 - (void)dealloc
 {
     [_metaData release];
+    [_fileURL release];
     [super dealloc];
+}
+
+- (instancetype)initWithContentsOfURL:(NSURL *)fileURL error:(NSError **)outError
+{
+    if (outError != NULL)
+        *outError = AMWorkflowFormatUnsupportedError();
+    [self release];
+    return nil;
+}
+
+- (instancetype)initWithFileWrapper:(NSFileWrapper *)fileWrapper error:(NSError **)outError
+{
+    if (outError != NULL)
+        *outError = AMWorkflowFormatUnsupportedError();
+    [self release];
+    return nil;
+}
+
+- (BOOL)writeToURL:(NSURL *)fileURL error:(NSError **)outError
+{
+    if (outError != NULL)
+        *outError = AMWorkflowFormatUnsupportedError();
+    return NO;
+}
+
+- (NSFileWrapper *)fileWrapperForWritingReturningSavedPropertyList:(id *)propertyList documentType:(NSString *)documentType originalContentsFileWrapper:(NSFileWrapper *)original error:(NSError **)outError
+{
+    if (outError != NULL)
+        *outError = AMWorkflowFormatUnsupportedError();
+    return nil;
 }
 
 - (AMWorkflowMetaData *)_workflowMetaData

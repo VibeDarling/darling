@@ -21,4 +21,6 @@
 
 @interface AMAppleScriptKitSoftLinking : NSObject
 
++ (BOOL)isLinked;
+
 @end

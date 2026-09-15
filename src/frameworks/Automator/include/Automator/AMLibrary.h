@@ -21,4 +21,6 @@
 
 @interface AMLibrary : NSObject
 
++ (instancetype)sharedLibrary;
+
 @end

@@ -21,4 +21,6 @@
 
 @interface AMSecurityHelperWindowController : NSWindowController
 
++ (instancetype)sharedWindowController;
+
 @end

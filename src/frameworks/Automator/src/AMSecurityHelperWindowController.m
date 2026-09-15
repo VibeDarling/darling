@@ -22,6 +22,8 @@
 
 @implementation AMSecurityHelperWindowController
 
+AM_STUB_SHARED_INSTANCE(sharedWindowController)
+
 AM_STUB_FORWARDING
 
 @end

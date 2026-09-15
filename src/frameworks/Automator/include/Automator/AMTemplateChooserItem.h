@@ -21,4 +21,6 @@
 
 @interface AMTemplateChooserItem : NSObject
 
++ (NSArray *)templateChooserItems;
+
 @end

@@ -19,6 +19,15 @@
 
 #include <AppKit/AppKit.h>
 
+@class AMWorkflowController;
+
 @interface AMWorkflowView : NSView
+{
+    AMWorkflowController *_workflowController;
+    BOOL _editable;
+}
+
+@property (assign) AMWorkflowController *workflowController;
+@property (getter=isEditable) BOOL editable;
 
 @end

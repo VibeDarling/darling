@@ -18,17 +18,12 @@
 */
 
 #import <Automator/AMConverter.h>
+#import "AMStubSignature.h"
 
 @implementation AMConverter
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
+AM_STUB_SHARED_INSTANCE(sharedConverter)
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
+AM_STUB_FORWARDING
 
 @end

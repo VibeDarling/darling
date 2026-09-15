@@ -19,12 +19,15 @@
 
 #import <Automator/AMWorkflowPersonality.h>
 #import <Automator/AMGeneralWorkflowPersonality.h>
+#import <Automator/AMApplicationWorkflowPersonality.h>
+#import <Automator/Automator.h>
+#import "AMStubSignature.h"
 #include <dispatch/dispatch.h>
 
 @implementation AMWorkflowPersonality
 
-// Automator asks for its document personalities at launch. Only the general (plain workflow)
-// personality exists; every document type maps to it.
+// Automator asks for its document personalities at launch: the general (plain workflow) and
+// application personalities exist; every other type identifier maps to the general one.
 + (id)generalWorkflowPersonality
 {
     static id general;
@@ -35,24 +38,35 @@
     return general;
 }
 
++ (id)applicationWorkflowPersonality
+{
+    static id application;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        application = [[AMApplicationWorkflowPersonality alloc] init];
+    });
+    return application;
+}
+
 + (NSArray *)workflowPersonalities
 {
-    return @[ [self generalWorkflowPersonality] ];
+    return @[ [self generalWorkflowPersonality], [self applicationWorkflowPersonality] ];
 }
 
 + (id)workflowPersonalityForTypeIdentifier:(NSString *)typeIdentifier
 {
+    if ([typeIdentifier isEqualToString: AMWorkflowTypeIdentifierApplication])
+        return [self applicationWorkflowPersonality];
     return [self generalWorkflowPersonality];
 }
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+- (BOOL)canSaveWorkflow:(id)workflow atURL:(NSURL *)url forInstallation:(BOOL)install error:(NSError **)error
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if (error != NULL)
+        *error = AMWorkflowFormatUnsupportedError();
+    return NO;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
+AM_STUB_FORWARDING
 
 @end

@@ -21,4 +21,6 @@
 
 @interface AMApplicationRegistry : NSObject
 
++ (instancetype)sharedApplicationRegistry;
+
 @end

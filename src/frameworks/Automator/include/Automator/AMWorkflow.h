@@ -24,10 +24,17 @@
 @interface AMWorkflow : NSObject
 {
     AMWorkflowMetaData *_metaData;
+    NSURL *_fileURL;
     BOOL _hasUnsavedChanges;
 }
 
 @property BOOL hasUnsavedChanges;
+@property (copy) NSURL *fileURL;
+
+- (instancetype)initWithContentsOfURL:(NSURL *)fileURL error:(NSError **)outError;
+- (instancetype)initWithFileWrapper:(NSFileWrapper *)fileWrapper error:(NSError **)outError;
+- (BOOL)writeToURL:(NSURL *)fileURL error:(NSError **)outError;
+- (NSFileWrapper *)fileWrapperForWritingReturningSavedPropertyList:(id *)propertyList documentType:(NSString *)documentType originalContentsFileWrapper:(NSFileWrapper *)original error:(NSError **)outError;
 
 - (AMWorkflowMetaData *)_workflowMetaData;
 - (void)_setWorkflowMetaData:(AMWorkflowMetaData *)metaData;

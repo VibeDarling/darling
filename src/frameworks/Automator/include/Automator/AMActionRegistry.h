@@ -21,4 +21,6 @@
 
 @interface AMActionRegistry : NSObject
 
++ (instancetype)sharedActionRegistry;
+
 @end

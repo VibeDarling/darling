@@ -18,17 +18,15 @@
 */
 
 #import <Automator/AMAppleScriptKitSoftLinking.h>
+#import "AMStubSignature.h"
 
 @implementation AMAppleScriptKitSoftLinking
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
++ (BOOL)isLinked
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    return NO;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
+AM_STUB_FORWARDING
 
 @end
