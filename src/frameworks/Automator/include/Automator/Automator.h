@@ -28,6 +28,7 @@
 #import <Automator/AMRemoteRunnerXPCDelegateProtocol.h>
 #import <Automator/AMRemoteRunnerXPCProtocol.h>
 #import <Automator/AMRunnerControl.h>
+#import <Automator/AMVariablesViewController.h>
 #import <Automator/AMRunnerController.h>
 #import <Automator/AMRunnerControllerDelegate.h>
 #import <Automator/AMRunnerState.h>
@@ -719,5 +720,22 @@ void* mt_log_automation_app_launched(void);
 void* mt_log_automation_applet_launched(void);
 void* workflow_service_runner_peer_handler(void);
 void* workflow_service_runner_xpc_main(void);
+
+extern NSString* const AMWorkflowTypeIdentifierWorkflow;
+extern NSString* const AMWorkflowTypeIdentifierApplication;
+extern NSString* const AMWorkflowTypeIdentifierServicesMenu;
+extern NSString* const AMDocumentTypeWorkflow;
+extern NSString* const AMDocumentTypeApplication;
+extern NSString* const AMDocumentExtensionWorkflow;
+extern NSString* const AMDocumentExtensionApp;
+extern NSString* const AMWorkflowContentsDirectory;
+extern NSString* const AMTypeIdentifierFilesAndFolders;
+extern NSString* const AMTypeIdentifierText;
+extern NSString* const AMTypeUTICocoaPath;
+extern NSString* const AMVariableIdentifierPath;
+extern NSString* const AMVariableIdentifierStorage;
+extern NSString* const AMVariableIdentifierText;
+
+BOOL _AMSkipOpenUntitledFile(void);
 
 #endif

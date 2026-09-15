@@ -19,6 +19,7 @@ add_framework(Automator
 
     SOURCES
         src/Automator.m
+        src/AMVariablesViewController.m
         src/_AMActionAuxiliary.m
         src/AMAction.m
         src/AMFFeedEnclosure.m
