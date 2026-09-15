@@ -24,6 +24,7 @@
 @synthesize wrapsLines = _wrapsLines;
 @synthesize indentsWrappedLines = _indentsWrappedLines;
 @synthesize date = _date;
+@synthesize controller = _controller;
 
 - (instancetype)init
 {
