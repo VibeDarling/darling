@@ -1433,12 +1433,16 @@ int main(int argc, char ** argv)
 	}
 	checkPrefixOwner();
 
+	// These only act on the invoking user's prefix, through paths the user
+	// controls, so run them with the user's ids (as setupPrefix() does).
+	useOriginalIds();
 	if (g_nonroot)
 		ensureProcSymlink(prefix);
 	ensureHostRootSymlinks(prefix);
 	ensureShSymlink(prefix);
 	ensureHomebrewSymlinks(prefix);
 	ensureKeychains(prefix);
+	restoreRootIds();
 
 	int c;
 	while (1)
@@ -1514,15 +1518,20 @@ int main(int argc, char ** argv)
 
 		char socketPath[4096];
 		snprintf(socketPath, sizeof(socketPath), "%s" SHELLSPAWN_SOCKPATH, prefix);
-		unlink(socketPath);
 
 		char pidPath[4096];
 		snprintf(pidPath, sizeof(pidPath), "%s/.init.pid", prefix);
-		unlink(pidPath);
 
 		char dserverSock[4096];
 		snprintf(dserverSock, sizeof(dserverSock), "%s/.darlingserver.sock", prefix);
+
+		// These paths are inside the user's prefix (the socket path also goes
+		// through var/run), so remove them with the user's ids.
+		useOriginalIds();
+		unlink(socketPath);
+		unlink(pidPath);
 		unlink(dserverSock);
+		restoreRootIds();
 
 		fprintf(stderr, "Darling container shut down successfully.\n");
 		return 0;
@@ -1534,12 +1543,15 @@ int main(int argc, char ** argv)
 		char socketPath[4096];
 		
 		snprintf(socketPath, sizeof(socketPath), "%s"  SHELLSPAWN_SOCKPATH, prefix);
-		
-		unlink(socketPath);
 
 		char dserverSock[4096];
 		snprintf(dserverSock, sizeof(dserverSock), "%s/.darlingserver.sock", prefix);
+
+		// Stale sockets inside the user's prefix: remove them with the user's ids.
+		useOriginalIds();
+		unlink(socketPath);
 		unlink(dserverSock);
+		restoreRootIds();
 		
 		setupWorkdir();
 		pidInit = spawnInitProcess();
@@ -1591,7 +1603,7 @@ int main(int argc, char ** argv)
 		joinNamespace(pidInit, CLONE_NEWNS, "mnt");
 #endif
 
-	if (!g_nonroot) seteuid(g_originalUid);
+	useOriginalIds();
 
 	if (strcmp(argv[1], "shell") == 0)
 	{
@@ -2523,7 +2535,10 @@ void setupWorkdir()
 
 	strcat(workdir, suffix);
 
+	// Create the workdir with the user's ids, like the user-owned prefix next to it.
+	useOriginalIds();
 	createDir(workdir);
+	restoreRootIds();
 }
 
 int checkPrefixDir()
