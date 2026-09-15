@@ -57,6 +57,25 @@ OSErr UseInputWindow(TSMDocumentID a, Boolean b)
 	return 0;
 }
 
+// There are no input methods, so raw key codes never produce dead-key text.
+static UInt32 deadKeyState;
+
+UInt32 TSMGetDeadKeyState(void)
+{
+	return deadKeyState;
+}
+
+void TSMSetDeadKeyState(UInt32 state)
+{
+	deadKeyState = state;
+}
+
+OSStatus TSMProcessRawKeyCode(EventRef event)
+{
+	if (verbose) puts("STUB: TSMProcessRawKeyCode called");
+	return eventNotHandledErr;
+}
+
 void FlushEvents(EventMask a, EventMask b)
 {
     if (verbose) puts("STUB: FlushEvents called");
