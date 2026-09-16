@@ -557,6 +557,9 @@ endif()
 # it has its own component checks to determine which libraries to generate wrappers for.
 add_subdirectory(native)
 
+# Native Applications viewer (installed inside the guest /Applications tree).
+add_subdirectory(darling-applications)
+
 # has its own component checks
 add_subdirectory(external/vim)
 
