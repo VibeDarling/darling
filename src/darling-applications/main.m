@@ -39,8 +39,15 @@
 	if (row < 0 || row >= (NSInteger)self.applications.count) return;
 	NSString *bundle = [@"/Applications" stringByAppendingPathComponent:self.applications[row]];
 	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
-	if (![[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:0 configuration:nil error:NULL])
-		[self showMessage:[NSString stringWithFormat:@"Could not open %@.", self.applications[row]]];
+	NSError *error = nil;
+	BOOL launched = [[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:0 configuration:nil error:&error];
+	if (!launched) {
+		NSString *detail = error.localizedDescription ?: @"no error detail from NSWorkspace";
+		NSLog(@"viewer launch failed: bundle=%@ path=%@ error=%@", self.applications[row], bundle, detail);
+		[self showMessage:[NSString stringWithFormat:@"Could not open %@:\n%@", self.applications[row], detail]];
+	} else {
+		NSLog(@"viewer launch requested: bundle=%@ path=%@ backend=%s wayland=%s", self.applications[row], bundle, getenv("DARLING_APPKIT_BACKEND") ?: "unset", getenv("WAYLAND_DISPLAY") ?: "unset");
+	}
 }
 
 - (void)showMessage:(NSString *)message {
