@@ -20,13 +20,13 @@
 	NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(20, 60, 680, 380)] autorelease];
 	self.table = [[[NSTableView alloc] initWithFrame:scroll.bounds] autorelease];
 	NSTableColumn *column = [[[NSTableColumn alloc] initWithIdentifier:@"application"] autorelease];
-	column.title = @"Applications"; column.width = 660;
+	NSCell *header = column.headerCell; header.stringValue = @"Applications"; column.width = 660;
 	[self.table addTableColumn:column]; self.table.dataSource = self; self.table.delegate = self;
 	self.table.doubleAction = @selector(openSelectedApplication:);
 	scroll.documentView = self.table; scroll.hasVerticalScroller = YES;
 	[self.window.contentView addSubview:scroll];
-	NSButton *brew = [NSButton buttonWithTitle:@"Install Homebrew" target:self action:@selector(installHomebrew:)]; brew.frame = NSMakeRect(20, 15, 180, 32); [self.window.contentView addSubview:brew];
-	NSButton *bundle = [NSButton buttonWithTitle:@"Install Brewfile Apps" target:self action:@selector(installBrewfile:)]; bundle.frame = NSMakeRect(215, 15, 180, 32); [self.window.contentView addSubview:bundle];
+	NSButton *brew = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 15, 180, 32)] autorelease]; brew.title = @"Install Homebrew"; brew.target = self; brew.action = @selector(installHomebrew:); [self.window.contentView addSubview:brew];
+	NSButton *bundle = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 15, 180, 32)] autorelease]; bundle.title = @"Install Brewfile Apps"; bundle.target = self; bundle.action = @selector(installBrewfile:); [self.window.contentView addSubview:bundle];
 	[self.window center]; [self.window makeKeyAndOrderFront:nil];
 }
 
@@ -38,7 +38,7 @@
 	if (row < 0 || row >= (NSInteger)self.applications.count) return;
 	NSString *bundle = [@"/Applications" stringByAppendingPathComponent:self.applications[row]];
 	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
-	if (![[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:NSWorkspaceLaunchDefault additionalEventParamDescriptor:nil launchIdentifier:nil])
+	if (![[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:0 configuration:nil error:NULL])
 		[self showMessage:[NSString stringWithFormat:@"Could not open %@.", self.applications[row]]];
 }
 
@@ -54,7 +54,7 @@
 
 - (void)installBrewfile:(id)sender {
 	NSOpenPanel *panel = [NSOpenPanel openPanel]; panel.canChooseFiles = YES; panel.canChooseDirectories = NO; panel.allowsMultipleSelection = NO; panel.title = @"Choose Brewfile";
-	if ([panel runModal] != NSModalResponseOK) return;
+	if ([panel runModal] != NSOKButton) return;
 	NSString *source = panel.URL.path; NSString *user = NSUserName(); NSString *dir = [NSString stringWithFormat:@"/Users/%@/Library/Application Support/Darling/Brewfiles", user];
 	[[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
 	NSString *target = [dir stringByAppendingPathComponent:source.lastPathComponent];
