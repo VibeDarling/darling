@@ -56,19 +56,36 @@
 }
 
 - (void)importApplications:(id)sender {
-	NSString *source = [NSString stringWithFormat:@"/Users/%@/.local/share/darling/macos-apps/Applications", NSUserName()];
+	/* The host app library is exposed only through this explicit read-only
+	 * SystemRoot share; it is not assumed to exist in guest /Users. */
+	NSString *source = [NSString stringWithFormat:@"/Volumes/SystemRoot/home/%@/.local/share/darling/macos-apps/Applications", NSUserName()];
 	NSFileManager *fm = [NSFileManager defaultManager];
 	NSArray *roots = [fm contentsOfDirectoryAtPath:source error:NULL];
 	if (!roots) { [self showMessage:@"Verified local macOS application copies are not mounted in this prefix."]; return; }
-	NSUInteger imported = 0, skipped = 0;
+	NSMutableArray *candidates = [NSMutableArray array];
 	for (NSString *name in roots) {
-		if (![name.pathExtension isEqualToString:@"app"]) continue;
-		NSString *src = [source stringByAppendingPathComponent:name];
-		NSString *dst = [@"/Applications" stringByAppendingPathComponent:name];
+		if ([name.pathExtension isEqualToString:@"app"]) [candidates addObject:name];
+		else if ([name isEqualToString:@"Utilities"]) {
+			NSString *utilities = [source stringByAppendingPathComponent:name];
+			for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL])
+				if ([child.pathExtension isEqualToString:@"app"]) [candidates addObject:[name stringByAppendingPathComponent:child]];
+		}
+	}
+	NSUInteger imported = 0, skipped = 0;
+	for (NSString *relative in candidates) {
+		NSString *src = [source stringByAppendingPathComponent:relative];
+		NSString *dst = [@"/Applications" stringByAppendingPathComponent:relative];
+		[fm createDirectoryAtPath:[dst stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
+		NSString *name = relative.lastPathComponent;
 		if ([fm fileExistsAtPath:dst]) { skipped++; continue; }
+		NSString *temp = [@"/Applications" stringByAppendingPathComponent:[NSString stringWithFormat:@".%@.importing", name]];
 		NSError *error = nil;
-		if ([fm copyItemAtPath:src toPath:dst error:&error]) imported++;
-		else { [self showMessage:[NSString stringWithFormat:@"Import stopped at %@: %@", name, error.localizedDescription]]; break; }
+		if (![fm copyItemAtPath:src toPath:temp error:&error] || ![fm moveItemAtPath:temp toPath:dst error:&error]) {
+			[fm removeItemAtPath:temp error:NULL];
+			[self showMessage:[NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", name, error.localizedDescription]];
+			return;
+		}
+		imported++;
 	}
 	[self refreshApplications];
 	[self showMessage:[NSString stringWithFormat:@"Imported %lu verified apps; skipped %lu existing apps. No app was launched.", (unsigned long)imported, (unsigned long)skipped]];
