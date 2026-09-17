@@ -3,8 +3,95 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <math.h>
 
 @class DarlingApplications;
+
+@protocol DarlingApplicationsGridDelegate;
+
+@interface DarlingApplicationsGrid : NSView
+@property(nonatomic, assign) id< DarlingApplicationsGridDelegate > gridDelegate;
+@property(nonatomic, retain) NSArray *items;
+@property(nonatomic, retain) NSMutableDictionary *icons;
+@property(nonatomic, assign) NSInteger selectedIndex;
+@property(nonatomic, assign) NSUInteger generation;
+- (void)setIcon:(NSImage *)icon forIndex:(NSUInteger)index generation:(NSUInteger)generation;
+@end
+
+@protocol DarlingApplicationsGridDelegate <NSObject>
+- (void)grid:(DarlingApplicationsGrid *)grid selectedIndex:(NSInteger)index doubleClicked:(BOOL)doubleClicked;
+@end
+
+@implementation DarlingApplicationsGrid
+
+- (id)initWithFrame:(NSRect)frame {
+	if ((self = [super initWithFrame:frame])) {
+		self.icons = [NSMutableDictionary dictionary];
+		self.selectedIndex = -1;
+		[self setAutoresizingMask:NSViewWidthSizable];
+	}
+	return self;
+}
+
+- (BOOL)isFlipped { return YES; }
+
+- (CGFloat)columnCountForWidth:(CGFloat)width {
+	return MAX(1.0, floor((width + 12.0) / (130.0 + 12.0)));
+}
+
+- (void)resizeToViewportWidth:(CGFloat)width {
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:width];
+	NSUInteger rows = (self.items.count + columns - 1) / columns;
+	[self setFrameSize:NSMakeSize(MAX(width, 1.0), MAX(1.0, rows * 120.0 + 20.0))];
+}
+
+- (void)drawRect:(NSRect)dirtyRect {
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:self.bounds.size.width];
+	CGFloat cellWidth = (self.bounds.size.width - 24.0 - (columns - 1) * 12.0) / columns;
+	NSUInteger firstRow = dirtyRect.origin.y > 10.0 ? (NSUInteger)floor((dirtyRect.origin.y - 10.0) / 120.0) : 0;
+	NSUInteger lastRow = MIN((self.items.count + columns - 1) / columns, (NSUInteger)ceil((NSMaxY(dirtyRect) - 10.0) / 120.0));
+	for (NSUInteger index = firstRow * columns; index < MIN(self.items.count, lastRow * columns); index++) {
+		NSUInteger row = index / columns, column = index % columns;
+		NSRect cell = NSMakeRect(12.0 + column * (cellWidth + 12.0), 10.0 + row * 120.0, cellWidth, 108.0);
+		if ((NSInteger)index == self.selectedIndex) {
+			[[NSColor selectedControlColor] set];
+			NSBezierPath *selection = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(cell, 1.0, 1.0) xRadius:6.0 yRadius:6.0];
+			[selection fill];
+		}
+		NSImage *icon = [self.icons objectForKey:[NSNumber numberWithUnsignedInteger:index]];
+		if ((id)icon == [NSNull null]) icon = nil;
+		if (icon) {
+			[icon drawInRect:NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+		}
+		NSString *name = [self.items objectAtIndex:index];
+		NSDictionary *attributes = @{NSFontAttributeName: [NSFont systemFontOfSize:12.0], NSForegroundColorAttributeName: [NSColor textColor]};
+		[name drawInRect:NSMakeRect(cell.origin.x + 4.0, cell.origin.y + 79.0, cell.size.width - 8.0, 26.0) withAttributes:attributes];
+	}
+}
+
+- (void)setIcon:(NSImage *)icon forIndex:(NSUInteger)index generation:(NSUInteger)generation {
+	if (generation != self.generation || index >= self.items.count) return;
+	[self.icons setObject:icon ?: (id)[NSNull null] forKey:[NSNumber numberWithUnsignedInteger:index]];
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:self.bounds.size.width];
+	CGFloat cellWidth = (self.bounds.size.width - 24.0 - (columns - 1) * 12.0) / columns;
+	NSUInteger row = index / columns, column = index % columns;
+	[self setNeedsDisplayInRect:NSMakeRect(12.0 + column * (cellWidth + 12.0), 10.0 + row * 120.0, cellWidth, 108.0)];
+}
+
+- (void)mouseDown:(NSEvent *)event {
+	NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:self.bounds.size.width];
+	CGFloat cellWidth = (self.bounds.size.width - 24.0 - (columns - 1) * 12.0) / columns;
+	NSInteger column = (NSInteger)floor((point.x - 12.0) / (cellWidth + 12.0));
+	NSInteger row = (NSInteger)floor((point.y - 10.0) / 120.0);
+	NSInteger index = row >= 0 && column >= 0 ? row * (NSInteger)columns + column : -1;
+	if (index < 0 || index >= (NSInteger)self.items.count) return;
+	self.selectedIndex = index;
+	[self setNeedsDisplay:YES];
+	[self.gridDelegate grid:self selectedIndex:index doubleClicked:event.clickCount > 1];
+}
+
+@end
 
 typedef struct {
 	DarlingApplications *controller;
@@ -12,11 +99,12 @@ typedef struct {
 	CFAbsoluteTime lastReportTime;
 } ImportCopyContext;
 
-@interface DarlingApplications : NSObject <NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate>
+@interface DarlingApplications : NSObject <NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate, DarlingApplicationsGridDelegate>
 @property(nonatomic, retain) NSWindow *window;
 @property(nonatomic, retain) NSArray *applications;
 @property(nonatomic, retain) NSTableView *table;
 @property(nonatomic, retain) NSScrollView *scrollView;
+@property(nonatomic, retain) DarlingApplicationsGrid *grid;
 @property(nonatomic, retain) NSButton *importButton;
 @property(nonatomic, retain) NSButton *cancelButton;
 @property(nonatomic, retain) NSButton *brewButton;
@@ -71,8 +159,8 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	CGFloat buttonGap = 8.0;
 	CGFloat buttonWidth = MAX(1.0, (width - margin * 2.0 - buttonGap * 2.0) / 3.0);
 	[self.scrollView setFrame:listFrame];
-	[self.table setFrame:self.scrollView.bounds];
-	[self.table setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+	[self.grid setFrameOrigin:NSMakePoint(0.0, 0.0)];
+	[self.grid resizeToViewportWidth:self.scrollView.bounds.size.width];
 	[self.progressLabel setFrame:statusFrame];
 	[self.progress setFrame:progressFrame];
 	[self.cancelButton setFrame:cancelFrame];
@@ -106,7 +194,9 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	NSCell *header = column.headerCell; header.stringValue = @"Applications"; column.width = 660;
 	[self.table addTableColumn:column]; self.table.dataSource = self; self.table.delegate = self;
 	self.table.doubleAction = @selector(openSelectedApplication:);
-	scroll.documentView = self.table; scroll.hasVerticalScroller = YES;
+	self.grid = [[[DarlingApplicationsGrid alloc] initWithFrame:scroll.bounds] autorelease];
+	self.grid.gridDelegate = self;
+	scroll.documentView = self.grid; scroll.hasVerticalScroller = YES;
 	[self.window.contentView addSubview:scroll];
 	self.brewButton = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 15, 180, 32)] autorelease]; self.brewButton.title = @"Install Homebrew"; self.brewButton.target = self; self.brewButton.action = @selector(installHomebrew:); [self.window.contentView addSubview:self.brewButton];
 	self.bundleButton = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 15, 180, 32)] autorelease]; self.bundleButton.title = @"Install Brewfile Apps"; self.bundleButton.target = self; self.bundleButton.action = @selector(installBrewfile:); [self.window.contentView addSubview:self.bundleButton];
@@ -117,6 +207,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	[self.window setFrame:frame display:NO];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidResize:) name:NSWindowDidResizeNotification object:self.window];
 	[self layoutViewerContent];
+	[self refreshApplications];
 	[self.window center]; [self.window makeKeyAndOrderFront:nil];
 }
 
@@ -136,12 +227,61 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	NSAlert *alert = [[[NSAlert alloc] init] autorelease]; alert.messageText = @"Darling Applications"; alert.informativeText = message; [alert runModal];
 }
 
-- (void)refreshApplications {
-	NSArray *entries = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications" error:NULL];
+- (NSArray *)applicationEntries {
+	NSFileManager *fm = [NSFileManager defaultManager];
+	NSArray *entries = [fm contentsOfDirectoryAtPath:@"/Applications" error:NULL];
 	NSMutableArray *items = [NSMutableArray array];
-	for (NSString *entry in entries) if ([entry.pathExtension isEqualToString:@"app"]) [items addObject:entry];
-	self.applications = [items sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+	for (NSString *entry in entries) {
+		if ([entry.pathExtension isEqualToString:@"app"]) [items addObject:entry];
+		else if ([entry isEqualToString:@"Utilities"]) {
+			NSString *utilities = [@"/Applications" stringByAppendingPathComponent:entry];
+			for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL])
+				if ([child.pathExtension isEqualToString:@"app"]) [items addObject:[entry stringByAppendingPathComponent:child]];
+		}
+	}
+	return [items sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+}
+
+- (void)grid:(DarlingApplicationsGrid *)grid selectedIndex:(NSInteger)index doubleClicked:(BOOL)doubleClicked {
+	if (index < 0 || index >= (NSInteger)self.applications.count) return;
+	[self.table selectRowIndexes:[NSIndexSet indexSetWithIndex:index] byExtendingSelection:NO];
+	if (doubleClicked) [self openSelectedApplication:grid];
+}
+
+- (void)loadIconUpdate:(NSDictionary *)update {
+	[self.grid setIcon:[update objectForKey:@"icon"] forIndex:[[update objectForKey:@"index"] unsignedIntegerValue] generation:[[update objectForKey:@"generation"] unsignedIntegerValue]];
+}
+
+- (void)loadIconsInBackground:(NSDictionary *)request {
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSArray *items = [request objectForKey:@"items"];
+	NSUInteger generation = [[request objectForKey:@"generation"] unsignedIntegerValue];
+	NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+	for (NSUInteger index = 0; index < items.count; index++) {
+		NSString *path = [@"/Applications" stringByAppendingPathComponent:[items objectAtIndex:index]];
+		NSImage *icon = [workspace iconForFile:path];
+		if (!icon) icon = [workspace iconForFileType:@"app"];
+		NSDictionary *update = @{@"icon": icon ?: (id)[NSNull null], @"index": @(index), @"generation": @(generation)};
+		[self performSelectorOnMainThread:@selector(loadIconUpdate:) withObject:update waitUntilDone:NO];
+	}
+	[pool drain];
+}
+
+- (void)startIconLoading {
+	self.grid.generation++;
+	self.grid.icons = [NSMutableDictionary dictionary];
+	[self.grid setNeedsDisplay:YES];
+	NSDictionary *request = @{@"items": self.applications, @"generation": @(self.grid.generation)};
+	[NSThread detachNewThreadSelector:@selector(loadIconsInBackground:) toTarget:self withObject:request];
+}
+
+- (void)refreshApplications {
+	self.applications = [self applicationEntries];
+	self.grid.items = self.applications;
+	self.grid.selectedIndex = -1;
+	[self.grid resizeToViewportWidth:self.scrollView.bounds.size.width];
 	[self.table reloadData];
+	[self startIconLoading];
 }
 
 - (void)importApplications:(id)sender {
