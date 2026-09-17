@@ -14,7 +14,7 @@ IMAGE = Path("/home/cristi/src/darling-integration17")
 BUILD = IMAGE / "build"
 VARS = Path("/home/cristi/src/darling-gui/privbuild/wayland/apps")
 OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", "/home/cristi/.local/share/darling/macos-apps/builds/darling-applications-integration17"))
-EXPECTED_SOURCE = "76eb7bd96a3381fb056f504865c1c34923d6e4de460d55266aebf0a275e8eb4e"
+EXPECTED_SOURCE = "409334866152fc92154f80a413fef91acc8c887d0b1de6f70a95b2036d2e826b"
 
 def load(path):
     result = {}
@@ -70,8 +70,18 @@ def main():
         result = subprocess.run(command, cwd=BUILD, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         (OUTPUT / f"{name}.log").write_text(result.stdout)
         if result.returncode: raise SystemExit(f"{name} failed ({result.returncode}); see {OUTPUT}/{name}.log")
-    shutil.copy2(PLIST, exe.parents[1] / "Info.plist")
-    manifest = {"source_sha256": actual, "binary_sha256": hashlib.sha256(exe.read_bytes()).hexdigest(), "plist_sha256": hashlib.sha256(PLIST.read_bytes()).hexdigest(), "bundle": str(exe.parent.parent)}
+    bundle = exe.parent.parent
+    shutil.copy2(PLIST, bundle / "Info.plist")
+    resources = bundle / "Resources"
+    resources.mkdir(parents=True, exist_ok=True)
+    helper_hashes = {}
+    for helper_name in ("homebrew-bootstrap", "brewfile-install"):
+        helper = Path(__file__).with_name(helper_name)
+        target = resources / helper_name
+        shutil.copy2(helper, target)
+        target.chmod(0o755)
+        helper_hashes[helper_name] = hashlib.sha256(target.read_bytes()).hexdigest()
+    manifest = {"source_sha256": actual, "binary_sha256": hashlib.sha256(exe.read_bytes()).hexdigest(), "plist_sha256": hashlib.sha256(PLIST.read_bytes()).hexdigest(), "helpers_sha256": helper_hashes, "bundle": str(bundle)}
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(OUTPUT)
 

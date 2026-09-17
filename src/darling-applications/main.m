@@ -435,8 +435,9 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)installHomebrew:(id)sender {
 	NSString *bootstrap = FindHelper(@"homebrew-bootstrap");
 	if (!bootstrap) { [self showMessage:@"Native Homebrew bootstrap helper is not installed. Install the verified Darling bootstrap first; host brew is never used."]; return; }
-	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = bootstrap; task.arguments = @[@"/opt/homebrew"]; task.standardOutput = pipe; task.standardError = pipe; [task launch]; [task waitUntilExit];
-	NSString *output = [[[NSString alloc] initWithData:pipe.fileHandleForReading.readDataToEndOfFile encoding:NSUTF8StringEncoding] autorelease];
+	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = bootstrap; task.arguments = @[@"/opt/homebrew"]; task.standardOutput = pipe; task.standardError = pipe; [task launch];
+	NSData *data = [pipe.fileHandleForReading readDataToEndOfFile]; [task waitUntilExit];
+	NSString *output = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
 	[self showMessage:[NSString stringWithFormat:@"Homebrew bootstrap exited %d:\n%@", task.terminationStatus, output ?: @""]];
 }
 
@@ -454,8 +455,9 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	NSMutableArray *masIDs = [NSMutableArray array]; NSMutableArray *masNames = [NSMutableArray array];
 	for (NSTextCheckingResult *m in [masPattern matchesInString:brewText options:0 range:NSMakeRange(0, brewText.length)]) { [masNames addObject:[brewText substringWithRange:[m rangeAtIndex:1]]]; [masIDs addObject:[brewText substringWithRange:[m rangeAtIndex:2]]]; }
 	NSString *skipIDs = [masIDs componentsJoinedByString:@","];
-	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = helper; task.arguments = @[[@"/" stringByAppendingString:[target substringFromIndex:1]], skipIDs]; task.standardOutput = pipe; task.standardError = pipe; [task launch]; [task waitUntilExit];
-	NSString *output = [[[NSString alloc] initWithData:pipe.fileHandleForReading.readDataToEndOfFile encoding:NSUTF8StringEncoding] autorelease];
+	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = helper; task.arguments = @[[@"/" stringByAppendingString:[target substringFromIndex:1]], skipIDs]; task.standardOutput = pipe; task.standardError = pipe; [task launch];
+	NSData *data = [pipe.fileHandleForReading readDataToEndOfFile]; [task waitUntilExit];
+	NSString *output = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
 	[self refreshApplications]; [self showMessage:[NSString stringWithFormat:@"Brewfile exited %d. Skipped %lu MAS apps (App Store unavailable): %@\n%@", task.terminationStatus, (unsigned long)masNames.count, [masNames componentsJoinedByString:@", "], output ?: @""]];
 }
 
