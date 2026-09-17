@@ -1,0 +1,20 @@
+#!/bin/sh
+# Guest-side Brewfile gate; casks target the guest /Applications directory.
+set -eu
+file=${1:?Brewfile path required}
+mas_skip=${2:-}
+[ "${file#/}" = "$file" ] && exit 64
+[ -f "$file" ] || { echo "Brewfile not found: $file" >&2; exit 66; }
+if [ -n "$mas_skip" ]; then export HOMEBREW_BUNDLE_MAS_SKIP="$mas_skip"; fi
+export HOMEBREW_CASK_OPTS="--appdir=/Applications"
+
+if [ -x /opt/homebrew/bin/brew ]; then
+  exec /opt/homebrew/bin/brew bundle --file "$file"
+elif [ -x /opt/nanobrew/prefix/bin/nb ]; then
+  exec /opt/nanobrew/prefix/bin/nb bundle install "$file"
+elif [ -x /usr/local/bin/brew ]; then
+  exec /usr/local/bin/brew bundle --file "$file"
+else
+  echo "Neither Homebrew nor Nanobrew package manager found in prefix" >&2
+  exit 127
+fi

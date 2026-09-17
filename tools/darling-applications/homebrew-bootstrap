@@ -1,0 +1,32 @@
+#!/bin/sh
+# Prefix-local, idempotent Homebrew / Nanobrew bootstrap gate.
+set -eu
+prefix=${1:-/opt/homebrew}
+
+# 1. Check for standard Homebrew installation
+if [ -x /opt/homebrew/bin/brew ]; then
+  git=/opt/homebrew/bin/git
+  ruby=/opt/homebrew/Library/Homebrew/vendor/portable-ruby/4.0.7/bin/ruby
+  if [ -x "$git" ] && [ -x "$ruby" ]; then
+    echo "bootstrap: verified native Homebrew paths"
+    exec /opt/homebrew/bin/brew --version
+  fi
+fi
+
+# 2. Check for Darling's built-in Nanobrew (Homebrew-compatible)
+if [ -x /opt/nanobrew/prefix/bin/nb ]; then
+  echo "bootstrap: verified native Nanobrew (Homebrew-compatible) package manager"
+  if [ ! -e /opt/nanobrew/prefix/bin/brew ]; then
+    ln -sf nb /opt/nanobrew/prefix/bin/brew 2>/dev/null || true
+  fi
+  exec /opt/nanobrew/prefix/bin/nb version
+fi
+
+# 3. Check for standard /usr/local/bin/brew
+if [ -x /usr/local/bin/brew ]; then
+  echo "bootstrap: verified /usr/local/bin/brew"
+  exec /usr/local/bin/brew --version
+fi
+
+echo "bootstrap: Homebrew or Nanobrew payload missing in prefix" >&2
+exit 66
