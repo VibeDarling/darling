@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,6 +8,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "../../src/startup/prefix-state.h"
+#include "../../src/startup/profile-prefix.h"
 
 static void makeDirectory(const char* path)
 {
@@ -26,10 +28,10 @@ int main(void)
 	assert(mkdtemp(root));
 
 	char path[4096];
-	assert(darlingClassifyPrefix(root) == DARLING_PREFIX_EMPTY);
+	assert(darlingClassifyPrefix(root) == DARLING_PREFIX_STATE_EMPTY);
 	snprintf(path, sizeof(path), "%s/user-data", root);
 	makeFile(path);
-	assert(darlingClassifyPrefix(root) == DARLING_PREFIX_UNINITIALIZED);
+	assert(darlingClassifyPrefix(root) == DARLING_PREFIX_STATE_UNINITIALIZED);
 
 	const char* dirs[] = {"Volumes", "usr", "var", "var/run", "private", "private/etc"};
 	for (size_t i = 0; i < sizeof(dirs) / sizeof(*dirs); ++i) {
@@ -41,7 +43,7 @@ int main(void)
 		snprintf(path, sizeof(path), "%s/%s", root, files[i]);
 		makeFile(path);
 	}
-	assert(darlingClassifyPrefix(root) == DARLING_PREFIX_INITIALIZED);
+	assert(darlingClassifyPrefix(root) == DARLING_PREFIX_STATE_INITIALIZED);
 
 	puts("PASS: empty prefixes initialize, partial non-empty prefixes fail closed, initialized prefixes remain usable");
 	return 0;
