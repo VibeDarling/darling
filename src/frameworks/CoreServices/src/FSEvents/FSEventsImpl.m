@@ -33,6 +33,8 @@ static void rlPerform(void* info)
 	[fse _doCallback];
 }
 
+extern uint64_t g_globalFSEventID;
+
 @implementation FSEventsImpl
 
 -(instancetype)initWithPaths:(NSArray*)pathsToWatch
@@ -260,7 +262,8 @@ static void rlPerform(void* info)
 	_flagArray[newCount-1] = flags;
 
 	_idArray = (FSEventStreamEventId*) realloc(_idArray, sizeof(*_idArray) * newCount);
-	_idArray[newCount-1] = ++_lastEventID;
+	_lastEventID = __atomic_add_fetch(&g_globalFSEventID, 1, __ATOMIC_RELAXED);
+	_idArray[newCount-1] = _lastEventID;
 }
 
 -(void)_dispatchEvents
