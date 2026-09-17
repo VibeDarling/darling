@@ -539,6 +539,36 @@ static void relativizeNanobrewSymlinks(const char* dirPath)
 	closedir(dir);
 }
 
+static void ensureSystemLibBridge(const char* prefixPath, const char* libName)
+{
+	char usrLib[4096];
+	snprintf(usrLib, sizeof(usrLib), "%s/usr/lib/%s", prefixPath, libName);
+
+	struct stat st;
+	if (lstat(usrLib, &st) == 0)
+		return;
+
+	const char* const searchDirs[] = {
+		"/usr/local/lib",
+		"/opt/homebrew/lib",
+		"/opt/nanobrew/prefix/lib",
+		NULL
+	};
+
+	for (int i = 0; searchDirs[i]; i++)
+	{
+		char hostCandidate[4096];
+		snprintf(hostCandidate, sizeof(hostCandidate), "%s%s/%s", prefixPath, searchDirs[i], libName);
+		if (lstat(hostCandidate, &st) == 0)
+		{
+			char target[512];
+			snprintf(target, sizeof(target), "%s/%s", searchDirs[i], libName);
+			if (symlink(target, usrLib) == 0 || errno == EEXIST)
+				break;
+		}
+	}
+}
+
 static void ensureHomebrewSymlinks(const char* prefixPath)
 {
 	char nanobrewBin[4096];
@@ -782,6 +812,52 @@ static void ensureHomebrewSymlinks(const char* prefixPath)
 		symlink("../../opt/nanobrew/prefix/share", usrLocalShare);
 	}
 
+	char usrLocalLib[4096];
+	snprintf(usrLocalLib, sizeof(usrLocalLib), "%s/usr/local/lib", prefixPath);
+	if (lstat(usrLocalLib, &st) == 0)
+	{
+		if (S_ISDIR(st.st_mode))
+		{
+			DIR* d = opendir(usrLocalLib);
+			if (d)
+			{
+				struct dirent* de;
+				bool has_real_content = false;
+				while ((de = readdir(d)) != NULL)
+				{
+					if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+						continue;
+					has_real_content = true;
+					break;
+				}
+				closedir(d);
+				if (!has_real_content)
+				{
+					rmdir(usrLocalLib);
+					symlink("../../opt/nanobrew/prefix/lib", usrLocalLib);
+				}
+			}
+		}
+		else if (S_ISLNK(st.st_mode))
+		{
+			char target[4096];
+			ssize_t len = readlink(usrLocalLib, target, sizeof(target) - 1);
+			if (len > 0)
+			{
+				target[len] = '\0';
+				if (strcmp(target, "../../opt/nanobrew/prefix/lib") != 0 && strcmp(target, "/opt/nanobrew/prefix/lib") != 0)
+				{
+					unlink(usrLocalLib);
+					symlink("../../opt/nanobrew/prefix/lib", usrLocalLib);
+				}
+			}
+		}
+	}
+	else
+	{
+		symlink("../../opt/nanobrew/prefix/lib", usrLocalLib);
+	}
+
 	// 3. Symlink all binaries from /opt/nanobrew/prefix/bin into /usr/local/bin
 	DIR* dir = opendir(nanobrewBin);
 	if (dir)
@@ -903,13 +979,23 @@ static void ensureHomebrewSymlinks(const char* prefixPath)
 		symlink("libpcap.A.dylib", nbPcapDylib);
 	}
 
-	// 7. Ensure /usr/lib/libmd.dylib links to nanobrew's libmd if present
-	char usrLibMd[4096], candidateNbLibMd[4096];
-	snprintf(usrLibMd, sizeof(usrLibMd), "%s/usr/lib/libmd.dylib", prefixPath);
-	snprintf(candidateNbLibMd, sizeof(candidateNbLibMd), "%s/opt/nanobrew/prefix/lib/libmd.dylib", prefixPath);
-	if (lstat(usrLibMd, &st) != 0 && access(candidateNbLibMd, F_OK) == 0)
+	// 7. Ensure system library bridges into /usr/lib if provided by package managers (/usr/local/lib, /opt/homebrew/lib, /opt/nanobrew/prefix/lib)
+	ensureSystemLibBridge(prefixPath, "libmd.dylib");
+
+	const char* const pcre2Libs[] = {
+		"libpcre2-8.0.dylib",
+		"libpcre2-8.dylib",
+		"libpcre2-16.0.dylib",
+		"libpcre2-16.dylib",
+		"libpcre2-32.0.dylib",
+		"libpcre2-32.dylib",
+		"libpcre2-posix.3.dylib",
+		"libpcre2-posix.dylib",
+		NULL
+	};
+	for (int i = 0; pcre2Libs[i]; i++)
 	{
-		symlink("/opt/nanobrew/prefix/lib/libmd.dylib", usrLibMd);
+		ensureSystemLibBridge(prefixPath, pcre2Libs[i]);
 	}
 }
 
