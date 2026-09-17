@@ -68,7 +68,10 @@ def mas_entries(text: str) -> list[tuple[str, str]]:
             elif ch in "'\"": quote = ch
             elif ch in "([{": depth += 1
             elif ch in ")]}": depth = max(0, depth - 1)
-            elif ch == "\n" and depth == 0: break
+            elif ch == "\n" and depth == 0:
+                previous = text[start:i].rstrip()
+                if not previous.endswith(","):
+                    break
             i += 1
         span = text[start:i]
         name_match = re.search(r"mas(?:\s+|\s*\()[\'\"]([^\'\"]+)[\'\"]", span, re.S)
