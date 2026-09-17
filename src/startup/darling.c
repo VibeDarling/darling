@@ -2161,6 +2161,22 @@ void setupShellspawnEnv(int sockfd)
 		"/usr/sbin:"
 		"/sbin");
 	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, "TMPDIR=/private/tmp");
+
+	// Ensure native Linux Mesa/Vulkan drivers have a valid, shared host/guest path for shader caches.
+	// In rootless Darling, host .so libraries (e.g. Mesa/RADV) execute direct Linux host syscalls,
+	// bypassing vchroot. If HOME=/Users/<user> is inherited, Mesa attempts mkdir /Users on the host
+	// root, which fails with Permission Denied and disables shader caching entirely.
+	// We use /tmp/.darling-shader-cache-<uid> because /tmp is identical in both host and guest namespaces.
+	// Note: While /tmp is typically on tmpfs and does not survive host reboots (requiring Mesa to
+	// rebuild the cache once per boot session), it guarantees collision-free, ram-speed shader access
+	// without needing host-path translation between /home and /Volumes/SystemRoot.
+	char shaderCacheDir[4096];
+	snprintf(shaderCacheDir, sizeof(shaderCacheDir), "/tmp/.darling-shader-cache-%u", geteuid());
+	mkdir(shaderCacheDir, 0700);
+
+	char envShaderCache[4096];
+	snprintf(envShaderCache, sizeof(envShaderCache), "MESA_SHADER_CACHE_DIR=%s", shaderCacheDir);
+	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, envShaderCache);
 	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV,
 		"PERL5LIB=/System/Library/Perl/5.28:"
 		"/System/Library/Perl/5.28/darwin-thread-multi-2level:"
