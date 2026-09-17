@@ -30,6 +30,13 @@ Manual checks:
    original selection is preserved.
 
 Known limits: Ruby 4/Homebrew package execution is not ready; Ruby still raises
-`wrong argument type false (expected Class)`. The installed setuid launcher is
-unchanged, so the combined PR70/PR71 launcher has host and non-root candidate
-coverage but not a privileged installed-runtime gate.
+`wrong argument type false (expected Class)`. The exact PR70/PR71 candidate
+`b2cba87f7` has now passed the explicitly authorized temporary privileged gate:
+root:root mode 4755, absent/empty boot and restart, marker preservation,
+partial-prefix rejection, and cleanup all passed in
+`/home/cristi/build/prefix-init-validation/rt-qqm201zf/results.json`.
+This validates the candidate only; the installed launcher remains unchanged
+(`f78b07ff...`) and no installed-runtime update is claimed. The original
+automatic-review rejection and the later explicit authorization are preserved
+in the shared handoff; temporary-candidate removal is still awaiting verified
+Polkit cleanup.
