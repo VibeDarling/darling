@@ -42,7 +42,41 @@ def guest(prefix: Path, argv: list[str], *, timeout: int = 3600) -> int:
     env = {k: v for k, v in os.environ.items() if not k.startswith("DYLD_")}
     env["DPREFIX"] = str(prefix)
     env["HOMEBREW_PREFIX"] = "/opt/homebrew"
+    skip = next((arg for arg in argv if arg.startswith("--mas-skip=")), None)
+    if skip:
+        env["HOMEBREW_BUNDLE_MAS_SKIP"] = skip.split("=", 1)[1]
+        argv = [arg for arg in argv if not arg.startswith("--mas-skip=")]
     return subprocess.run([DARLING, "shell", *argv], env=env, timeout=timeout).returncode
+
+
+def mas_entries(text: str) -> list[tuple[str, str]]:
+    """Extract MAS declarations without evaluating Brewfile Ruby.
+
+    This is a lexical, balanced-span scan: multiline strings/parentheses are
+    retained and only the declaration's name/id metadata is read. The source
+    remains unchanged and is still parsed by Homebrew for every non-MAS entry.
+    """
+    found: list[tuple[str, str]] = []
+    for match in re.finditer(r"(?m)(?<![A-Za-z0-9_])mas(?:\s+|\s*\()", text):
+        start = match.start(); i = match.end(); quote = None; escaped = False; depth = 0
+        while i < len(text):
+            ch = text[i]
+            if quote:
+                if escaped: escaped = False
+                elif ch == "\\": escaped = True
+                elif ch == quote: quote = None
+            elif ch in "'\"": quote = ch
+            elif ch in "([{": depth += 1
+            elif ch in ")]}": depth = max(0, depth - 1)
+            elif ch == "\n" and depth == 0: break
+            i += 1
+        span = text[start:i]
+        name_match = re.search(r"mas(?:\s+|\s*\()[\'\"]([^\'\"]+)[\'\"]", span, re.S)
+        id_match = re.search(r"\bid\s*:\s*['\"]?([0-9]+)", span)
+        if not (name_match and id_match):
+            raise SystemExit("could not safely extract a MAS declaration; refusing to execute or rewrite the Brewfile")
+        found.append((name_match.group(1), id_match.group(1)))
+    return found
 
 
 def install_homebrew(prefix: Path, bootstrap: Path | None) -> int:
@@ -64,8 +98,7 @@ def install_homebrew(prefix: Path, bootstrap: Path | None) -> int:
 def install_brewfile(prefix: Path, brewfile: Path, confirm_mas: bool) -> int:
     source = brewfile.expanduser().resolve(strict=True)
     text = source.read_text(encoding="utf-8")
-    if re.search(r"(^|\n)\s*mas\s+['\"]", text) and not confirm_mas:
-        raise SystemExit("Brewfile contains mas entries; confirm Apple ID/App Store installation explicitly")
+    mas = mas_entries(text)
     staging = confined_child(prefix, prefix / "Users" / os.environ.get("USER", "darling") / "Library/Application Support/Darling/Brewfiles")
     staging.mkdir(parents=True, exist_ok=True)
     target = confined_child(prefix, staging / (source.name or "Brewfile"))
@@ -77,7 +110,13 @@ def install_brewfile(prefix: Path, brewfile: Path, confirm_mas: bool) -> int:
         temporary_path.write_text(text, encoding="utf-8")
         temporary_path.replace(target)
         guest_target = "/" + str(target.relative_to(prefix))
-        return guest(prefix, ["/opt/homebrew/bin/brew", "bundle", "--file", guest_target])
+        skip = ",".join(entry_id for _name, entry_id in mas)
+        rc = guest(prefix, ["/opt/homebrew/bin/brew", "bundle", "--file", guest_target, "--mas-skip=" + skip])
+        if mas:
+            print("Skipped MAS entries (App Store unavailable): " + ", ".join(f"{name} [{entry_id}]" for name, entry_id in mas), flush=True)
+        if rc:
+            print(f"Other Brewfile packages failed with exit status {rc}; MAS skips were not failures", flush=True)
+        return rc
     finally:
         temporary_path.unlink(missing_ok=True)
 
