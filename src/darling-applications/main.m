@@ -22,6 +22,7 @@
 	NSTableColumn *column = [[[NSTableColumn alloc] initWithIdentifier:@"application"] autorelease];
 	column.title = @"Applications"; column.width = 660;
 	[self.table addTableColumn:column]; self.table.dataSource = self; self.table.delegate = self;
+	self.table.doubleAction = @selector(openSelectedApplication:);
 	scroll.documentView = self.table; scroll.hasVerticalScroller = YES;
 	[self.window.contentView addSubview:scroll];
 	NSButton *brew = [NSButton buttonWithTitle:@"Install Homebrew" target:self action:@selector(installHomebrew:)]; brew.frame = NSMakeRect(20, 15, 180, 32); [self.window.contentView addSubview:brew];
@@ -31,6 +32,15 @@
 
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)tableView { return self.applications.count; }
 - (id)tableView:(NSTableView *)tableView objectValueForTableColumn:(NSTableColumn *)column row:(NSInteger)row { return self.applications[row]; }
+
+- (void)openSelectedApplication:(id)sender {
+	NSInteger row = self.table.clickedRow >= 0 ? self.table.clickedRow : self.table.selectedRow;
+	if (row < 0 || row >= (NSInteger)self.applications.count) return;
+	NSString *bundle = [@"/Applications" stringByAppendingPathComponent:self.applications[row]];
+	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
+	if (![[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:NSWorkspaceLaunchDefault additionalEventParamDescriptor:nil launchIdentifier:nil])
+		[self showMessage:[NSString stringWithFormat:@"Could not open %@.", self.applications[row]]];
+}
 
 - (void)showMessage:(NSString *)message {
 	NSAlert *alert = [[[NSAlert alloc] init] autorelease]; alert.messageText = @"Darling Applications"; alert.informativeText = message; [alert runModal];
