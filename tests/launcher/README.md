@@ -1,5 +1,21 @@
 # Launcher shutdown isolation
 
+## Profile selection
+
+Run without root or any Darling container:
+
+```sh
+cc -Wall -Wextra -Werror -O2 tests/launcher/profile-prefix.c -o /tmp/darling-profile-prefix-test
+/tmp/darling-profile-prefix-test
+```
+
+This tests the launcher's pure prefix selector. `DPREFIX` remains the explicit
+path interface. `DARLING_PROFILE=<name>` selects the isolated sibling prefix
+`~/.darling.<name>`; using both selectors or a name containing path separators
+is rejected. The harness does not create or access any prefix.
+
+## Shutdown isolation
+
 Run without root or any Darling container:
 
 ```sh
