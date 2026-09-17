@@ -43,6 +43,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include "../shellspawn/shellspawn.h"
 #include "darling.h"
 #include "darling-config.h"
+#include "prefix-state.h"
 #include "profile-prefix.h"
 
 // Between Linux 4.9 and 4.11, a strange bug has been introduced
@@ -2542,7 +2543,25 @@ int checkPrefixDir()
 			fprintf(stderr, "%s is a file. Remove the file.\n", prefix);
 			exit(1);
 		}
-		return 1; // OK
+		enum darling_prefix_state state;
+		useOriginalIds();
+		state = darlingClassifyPrefix(prefix);
+		int classifyError = errno;
+		restoreRootIds();
+		if (state == DARLING_PREFIX_STATE_INSPECTION_ERROR)
+		{
+			fprintf(stderr, "Cannot inspect prefix %s: %s.\n", prefix, strerror(classifyError));
+			exit(1);
+		}
+		if (state == DARLING_PREFIX_STATE_UNINITIALIZED)
+		{
+			fprintf(stderr,
+				"Prefix %s is non-empty but is not an initialized Darling prefix; refusing to overwrite it.\n"
+				"Use an absent/empty directory for a new prefix, or point DPREFIX at an initialized prefix.\n",
+				prefix);
+			exit(1);
+		}
+		return state == DARLING_PREFIX_STATE_INITIALIZED;
 	}
 	if (e == ENOENT)
 		return 0; // not found
