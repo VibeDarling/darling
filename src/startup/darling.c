@@ -43,6 +43,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include "../shellspawn/shellspawn.h"
 #include "darling.h"
 #include "darling-config.h"
+#include "profile-prefix.h"
 
 // Between Linux 4.9 and 4.11, a strange bug has been introduced
 // which prevents connecting to Unix sockets if the socket was
@@ -1389,17 +1390,15 @@ int main(int argc, char ** argv)
 		g_rootless = (geteuid() != 0);
 	}
 
-	prefix = getenv("DPREFIX");
-	if (!prefix)
-		prefix = defaultPrefixPath();
-	if (!prefix)
-		return 1;
-	if (strlen(prefix) > 255)
-	{
-		fprintf(stderr, "Prefix path too long\n");
+	enum darling_prefix_error prefixError;
+	prefix = darlingSelectPrefix(getenv("DPREFIX"), getenv("DARLING_PROFILE"),
+		getenv("HOME"), &prefixError);
+	if (!prefix) {
+		fprintf(stderr, "%s.\n", darlingPrefixError(prefixError));
 		return 1;
 	}
 	unsetenv("DPREFIX");
+	unsetenv("DARLING_PROFILE");
 	getcwd(g_workingDirectory, sizeof(g_workingDirectory));
 
 	if (!checkPrefixDir())
@@ -2239,7 +2238,8 @@ void showHelp(const char* argv0)
 	fprintf(stderr, "\t%s shutdown\n", argv0);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Environment variables:\n"
-		"DPREFIX - specifies the location of Darling prefix, defaults to ~/.darling\n");
+		"DPREFIX - specifies the location of the Darling prefix, defaults to ~/.darling\n"
+		"DARLING_PROFILE - selects an isolated named prefix at ~/.darling.<name>\n");
 }
 
 void showVersion(const char* argv0) {
