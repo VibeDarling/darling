@@ -10,11 +10,11 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[2] / "src/darling-applications/main.m"
 PLIST = SOURCE.with_name("Info.plist")
-IMAGE = Path(os.environ.get("DARLING_IMAGE", "/home/cristi/src/darling-integration17"))
-BUILD = Path(os.environ.get("DARLING_BUILD", str(IMAGE / "build")))
-VARS = Path(os.environ.get("DARLING_VARS", "/home/cristi/src/darling-gui/privbuild/wayland/apps"))
+IMAGE = Path("/home/cristi/src/darling-integration17")
+BUILD = IMAGE / "build"
+VARS = Path("/home/cristi/src/darling-gui/privbuild/wayland/apps")
 OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", "/home/cristi/.local/share/darling/macos-apps/builds/darling-applications-integration17"))
-EXPECTED_SOURCE = os.environ.get("DARLING_EXPECTED_SOURCE", "034a59a341409db6fc2477a9459de9b8f154220349406b81b661606cb92abbcd")
+EXPECTED_SOURCE = "79bdaddb69cb2ad40cc17d8ee05b4de632acc9b31e54a7dc42df4aa2775f4571"
 
 def load(path):
     result = {}

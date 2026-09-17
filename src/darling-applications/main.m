@@ -1,4 +1,9 @@
 #import <AppKit/AppKit.h>
+#include <copyfile.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <math.h>
 
 static NSString *FindHelper(NSString *name) {
 	NSArray *searchPaths = @[
@@ -8,20 +13,180 @@ static NSString *FindHelper(NSString *name) {
 		[[[NSBundle mainBundle] bundlePath] stringByAppendingPathComponent:name],
 	];
 	NSFileManager *fm = [NSFileManager defaultManager];
-	for (NSString *path in searchPaths) {
-		if ([fm isExecutableFileAtPath:path])
-			return path;
-	}
+	for (NSString *path in searchPaths) if ([fm isExecutableFileAtPath:path]) return path;
 	return nil;
 }
 
-@interface DarlingApplications : NSObject <NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate>
+@class DarlingApplications;
+
+@protocol DarlingApplicationsGridDelegate;
+
+@interface DarlingApplicationsGrid : NSView
+@property(nonatomic, assign) id< DarlingApplicationsGridDelegate > gridDelegate;
+@property(nonatomic, retain) NSArray *items;
+@property(nonatomic, retain) NSMutableDictionary *icons;
+@property(nonatomic, assign) NSInteger selectedIndex;
+@property(nonatomic, assign) NSUInteger generation;
+- (void)setIcon:(NSImage *)icon forIndex:(NSUInteger)index generation:(NSUInteger)generation;
+@end
+
+@protocol DarlingApplicationsGridDelegate <NSObject>
+- (void)grid:(DarlingApplicationsGrid *)grid selectedIndex:(NSInteger)index doubleClicked:(BOOL)doubleClicked;
+@end
+
+@implementation DarlingApplicationsGrid
+
+- (id)initWithFrame:(NSRect)frame {
+	if ((self = [super initWithFrame:frame])) {
+		self.icons = [NSMutableDictionary dictionary];
+		self.selectedIndex = -1;
+		[self setAutoresizingMask:NSViewWidthSizable];
+	}
+	return self;
+}
+
+- (BOOL)isFlipped { return YES; }
+
+- (CGFloat)columnCountForWidth:(CGFloat)width {
+	return MAX(1.0, floor((width + 12.0) / (130.0 + 12.0)));
+}
+
+- (void)resizeToViewportWidth:(CGFloat)width {
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:width];
+	NSUInteger rows = (self.items.count + columns - 1) / columns;
+	[self setFrameSize:NSMakeSize(MAX(width, 1.0), MAX(1.0, rows * 120.0 + 20.0))];
+}
+
+- (void)drawRect:(NSRect)dirtyRect {
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:self.bounds.size.width];
+	CGFloat cellWidth = (self.bounds.size.width - 24.0 - (columns - 1) * 12.0) / columns;
+	NSUInteger firstRow = dirtyRect.origin.y > 10.0 ? (NSUInteger)floor((dirtyRect.origin.y - 10.0) / 120.0) : 0;
+	NSUInteger lastRow = MIN((self.items.count + columns - 1) / columns, (NSUInteger)ceil((NSMaxY(dirtyRect) - 10.0) / 120.0));
+	for (NSUInteger index = firstRow * columns; index < MIN(self.items.count, lastRow * columns); index++) {
+		NSUInteger row = index / columns, column = index % columns;
+		NSRect cell = NSMakeRect(12.0 + column * (cellWidth + 12.0), 10.0 + row * 120.0, cellWidth, 108.0);
+		if ((NSInteger)index == self.selectedIndex) {
+			[[NSColor selectedControlColor] set];
+			NSBezierPath *selection = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(cell, 1.0, 1.0) xRadius:6.0 yRadius:6.0];
+			[selection fill];
+		}
+		NSImage *icon = [self.icons objectForKey:[NSNumber numberWithUnsignedInteger:index]];
+		if ((id)icon == [NSNull null]) icon = nil;
+		if (icon) {
+			[icon drawInRect:NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+		}
+		NSString *name = [self.items objectAtIndex:index];
+		NSDictionary *attributes = @{NSFontAttributeName: [NSFont systemFontOfSize:12.0], NSForegroundColorAttributeName: [NSColor textColor]};
+		[name drawInRect:NSMakeRect(cell.origin.x + 4.0, cell.origin.y + 79.0, cell.size.width - 8.0, 26.0) withAttributes:attributes];
+	}
+}
+
+- (void)setIcon:(NSImage *)icon forIndex:(NSUInteger)index generation:(NSUInteger)generation {
+	if (generation != self.generation || index >= self.items.count) return;
+	[self.icons setObject:icon ?: (id)[NSNull null] forKey:[NSNumber numberWithUnsignedInteger:index]];
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:self.bounds.size.width];
+	CGFloat cellWidth = (self.bounds.size.width - 24.0 - (columns - 1) * 12.0) / columns;
+	NSUInteger row = index / columns, column = index % columns;
+	[self setNeedsDisplayInRect:NSMakeRect(12.0 + column * (cellWidth + 12.0), 10.0 + row * 120.0, cellWidth, 108.0)];
+}
+
+- (void)mouseDown:(NSEvent *)event {
+	NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+	NSUInteger columns = (NSUInteger)[self columnCountForWidth:self.bounds.size.width];
+	CGFloat cellWidth = (self.bounds.size.width - 24.0 - (columns - 1) * 12.0) / columns;
+	NSInteger column = (NSInteger)floor((point.x - 12.0) / (cellWidth + 12.0));
+	NSInteger row = (NSInteger)floor((point.y - 10.0) / 120.0);
+	NSInteger index = row >= 0 && column >= 0 ? row * (NSInteger)columns + column : -1;
+	if (index < 0 || index >= (NSInteger)self.items.count) return;
+	self.selectedIndex = index;
+	[self setNeedsDisplay:YES];
+	[self.gridDelegate grid:self selectedIndex:index doubleClicked:event.clickCount > 1];
+}
+
+@end
+
+typedef struct {
+	DarlingApplications *controller;
+	unsigned long long completedBytes;
+	CFAbsoluteTime lastReportTime;
+} ImportCopyContext;
+
+@interface DarlingApplications : NSObject <NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate, DarlingApplicationsGridDelegate>
 @property(nonatomic, retain) NSWindow *window;
 @property(nonatomic, retain) NSArray *applications;
 @property(nonatomic, retain) NSTableView *table;
+@property(nonatomic, retain) NSScrollView *scrollView;
+@property(nonatomic, retain) DarlingApplicationsGrid *grid;
+@property(nonatomic, retain) NSButton *importButton;
+@property(nonatomic, retain) NSButton *cancelButton;
+@property(nonatomic, retain) NSButton *brewButton;
+@property(nonatomic, retain) NSButton *bundleButton;
+@property(nonatomic, retain) NSTextField *progressLabel;
+@property(nonatomic, retain) NSProgressIndicator *progress;
+@property(nonatomic, copy) NSString *statusPrefix;
+@property(nonatomic, assign) unsigned long long importTotalBytes;
+@property(nonatomic, assign) BOOL importCancelled;
+@property(nonatomic, assign) BOOL importRunning;
 @end
 
+static NSString *ImportByteCount(unsigned long long bytes) {
+	if (bytes >= 1024ULL * 1024ULL * 1024ULL) return [NSString stringWithFormat:@"%.1f GB", (double)bytes / (1024.0 * 1024.0 * 1024.0)];
+	if (bytes >= 1024ULL * 1024ULL) return [NSString stringWithFormat:@"%.1f MB", (double)bytes / (1024.0 * 1024.0)];
+	if (bytes >= 1024ULL) return [NSString stringWithFormat:@"%.1f KB", (double)bytes / 1024.0];
+	return [NSString stringWithFormat:@"%llu bytes", bytes];
+}
+
+static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const char *source, const char *destination, void *opaque) {
+	ImportCopyContext *context = opaque;
+	if (context->controller.importCancelled) return COPYFILE_QUIT;
+	if (what == COPYFILE_COPY_DATA && stage == COPYFILE_PROGRESS) {
+		off_t current = 0;
+		CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+		if (now - context->lastReportTime >= 0.1 && copyfile_state_get(state, COPYFILE_STATE_COPIED, &current) == 0) {
+			context->lastReportTime = now;
+			NSNumber *value = [NSNumber numberWithUnsignedLongLong:context->completedBytes + (unsigned long long)current];
+			[context->controller performSelectorOnMainThread:@selector(updateCopiedBytes:) withObject:value waitUntilDone:NO];
+		}
+	} else if (what == COPYFILE_RECURSE_FILE && stage == COPYFILE_FINISH) {
+		struct stat info;
+		if (lstat(source, &info) == 0 && S_ISREG(info.st_mode)) context->completedBytes += (unsigned long long)info.st_size;
+		[context->controller performSelectorOnMainThread:@selector(updateCopiedBytes:) withObject:[NSNumber numberWithUnsignedLongLong:context->completedBytes] waitUntilDone:NO];
+	}
+	return COPYFILE_CONTINUE;
+}
+
 @implementation DarlingApplications
+
+- (void)layoutViewerContent {
+	NSView *content = self.window.contentView;
+	CGFloat width = content.bounds.size.width;
+	CGFloat height = content.bounds.size.height;
+	CGFloat margin = 20.0;
+	CGFloat bottomControls = 135.0;
+	NSRect listFrame = NSMakeRect(margin, bottomControls, MAX(1.0, width - margin * 2.0), MAX(1.0, height - bottomControls - 20.0));
+	/* Actions stay together above a dedicated status strip.  Keeping the
+	 * operation label and progress control below the buttons makes import
+	 * activity visible without stealing space from the scrollable grid. */
+	NSRect statusFrame = NSMakeRect(margin, 42.0, MAX(1.0, width - margin * 2.0), 22.0);
+	CGFloat cancelWidth = 100.0;
+	NSRect progressFrame = NSMakeRect(margin, 18.0, MAX(1.0, width - margin * 2.0 - cancelWidth - 30.0), 16.0);
+	NSRect cancelFrame = NSMakeRect(width - margin - cancelWidth, 14.0, cancelWidth, 28.0);
+	CGFloat buttonGap = 8.0;
+	CGFloat buttonWidth = MAX(1.0, (width - margin * 2.0 - buttonGap * 2.0) / 3.0);
+	[self.scrollView setFrame:listFrame];
+	[self.grid setFrameOrigin:NSMakePoint(0.0, 0.0)];
+	[self.grid resizeToViewportWidth:self.scrollView.bounds.size.width];
+	[self.progressLabel setFrame:statusFrame];
+	[self.progress setFrame:progressFrame];
+	[self.cancelButton setFrame:cancelFrame];
+	[self.brewButton setFrame:NSMakeRect(margin, 75.0, buttonWidth, 32.0)];
+	[self.bundleButton setFrame:NSMakeRect(margin + buttonWidth + buttonGap, 75.0, buttonWidth, 32.0)];
+	[self.importButton setFrame:NSMakeRect(margin + (buttonWidth + buttonGap) * 2.0, 75.0, buttonWidth, 32.0)];
+}
+
+- (void)windowDidResize:(NSNotification *)notification {
+	[self layoutViewerContent];
+}
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
 	self.applications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications" error:NULL];
@@ -29,20 +194,35 @@ static NSString *FindHelper(NSString *name) {
 	for (NSString *entry in self.applications)
 		if ([entry.pathExtension isEqualToString:@"app"]) [items addObject:entry];
 	self.applications = [items sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
-	NSRect frame = NSMakeRect(0, 0, 720, 480);
+	NSScreen *screen = [NSScreen mainScreen];
+	NSRect visible = screen ? [screen visibleFrame] : NSMakeRect(0, 0, 1024, 768);
+	CGFloat width = MIN(720.0, MAX(1.0, visible.size.width - 40.0));
+	CGFloat height = MIN(480.0, MAX(1.0, visible.size.height - 40.0));
+	NSRect frame = NSMakeRect(visible.origin.x + (visible.size.width - width) / 2.0, visible.origin.y + (visible.size.height - height) / 2.0, width, height);
 	self.window = [[[NSWindow alloc] initWithContentRect:frame styleMask:(NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskResizable) backing:NSBackingStoreBuffered defer:NO] autorelease];
 	self.window.title = @"Darling Applications";
-	NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(20, 60, 680, 380)] autorelease];
+	[self.window setMinSize:NSMakeSize(MIN(520.0, width), MIN(320.0, height))];
+	NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(20, 135, 680, 305)] autorelease];
+	self.scrollView = scroll;
 	self.table = [[[NSTableView alloc] initWithFrame:scroll.bounds] autorelease];
 	NSTableColumn *column = [[[NSTableColumn alloc] initWithIdentifier:@"application"] autorelease];
 	NSCell *header = column.headerCell; header.stringValue = @"Applications"; column.width = 660;
 	[self.table addTableColumn:column]; self.table.dataSource = self; self.table.delegate = self;
 	self.table.doubleAction = @selector(openSelectedApplication:);
-	scroll.documentView = self.table; scroll.hasVerticalScroller = YES;
+	self.grid = [[[DarlingApplicationsGrid alloc] initWithFrame:scroll.bounds] autorelease];
+	self.grid.gridDelegate = self;
+	scroll.documentView = self.grid; scroll.hasVerticalScroller = YES;
 	[self.window.contentView addSubview:scroll];
-	NSButton *brew = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 15, 180, 32)] autorelease]; brew.title = @"Install Homebrew"; brew.target = self; brew.action = @selector(installHomebrew:); [self.window.contentView addSubview:brew];
-	NSButton *bundle = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 15, 180, 32)] autorelease]; bundle.title = @"Install Brewfile Apps"; bundle.target = self; bundle.action = @selector(installBrewfile:); [self.window.contentView addSubview:bundle];
-	NSButton *import = [[[NSButton alloc] initWithFrame:NSMakeRect(410, 15, 180, 32)] autorelease]; import.title = @"Import macOS Apps"; import.target = self; import.action = @selector(importApplications:); [self.window.contentView addSubview:import];
+	self.brewButton = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 75, 180, 32)] autorelease]; self.brewButton.title = @"Install Homebrew"; self.brewButton.toolTip = @"Bootstrap the native Homebrew environment in this prefix."; self.brewButton.target = self; self.brewButton.action = @selector(installHomebrew:); [self.window.contentView addSubview:self.brewButton];
+	self.bundleButton = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 75, 180, 32)] autorelease]; self.bundleButton.title = @"Install Brewfile Apps"; self.bundleButton.toolTip = @"Choose a Brewfile and install its supported native packages."; self.bundleButton.target = self; self.bundleButton.action = @selector(installBrewfile:); [self.window.contentView addSubview:self.bundleButton];
+	self.progressLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(20, 42, 680, 22)] autorelease]; self.progressLabel.editable = NO; self.progressLabel.bordered = NO; self.progressLabel.drawsBackground = NO; self.progressLabel.toolTip = @"Current import operation and byte progress."; self.progressLabel.stringValue = @"Ready to import verified macOS apps."; [self.window.contentView addSubview:self.progressLabel];
+	self.progress = [[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(20, 18, 570, 16)] autorelease]; self.progress.minValue = 0; self.progress.maxValue = 1; self.progress.doubleValue = 0; self.progress.indeterminate = NO; self.progress.toolTip = @"Import progress"; [self.window.contentView addSubview:self.progress];
+	self.cancelButton = [[[NSButton alloc] initWithFrame:NSMakeRect(600, 14, 100, 28)] autorelease]; self.cancelButton.title = @"Cancel"; self.cancelButton.toolTip = @"Cancel the current import and remove only its temporary copy."; self.cancelButton.target = self; self.cancelButton.action = @selector(cancelImport:); self.cancelButton.enabled = NO; [self.window.contentView addSubview:self.cancelButton];
+	self.importButton = [[[NSButton alloc] initWithFrame:NSMakeRect(410, 75, 180, 32)] autorelease]; self.importButton.title = @"Import macOS Apps"; self.importButton.toolTip = @"Copy verified applications into this prefix with progress."; self.importButton.target = self; self.importButton.action = @selector(importApplications:); [self.window.contentView addSubview:self.importButton];
+	[self.window setFrame:frame display:NO];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidResize:) name:NSWindowDidResizeNotification object:self.window];
+	[self layoutViewerContent];
+	[self refreshApplications];
 	[self.window center]; [self.window makeKeyAndOrderFront:nil];
 }
 
@@ -56,8 +236,7 @@ static NSString *FindHelper(NSString *name) {
 	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
 	NSError *error = nil;
 	NSRunningApplication *app = [[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:0 configuration:nil error:&error];
-	BOOL launched = (app != nil);
-	if (!launched) {
+	if (!app) {
 		NSString *detail = error.localizedDescription ?: @"no error detail from NSWorkspace";
 		NSLog(@"viewer launch failed: bundle=%@ path=%@ error=%@", self.applications[row], bundle, detail);
 		[self showMessage:[NSString stringWithFormat:@"Could not open %@:\n%@", self.applications[row], detail]];
@@ -70,87 +249,192 @@ static NSString *FindHelper(NSString *name) {
 	NSAlert *alert = [[[NSAlert alloc] init] autorelease]; alert.messageText = @"Darling Applications"; alert.informativeText = message; [alert runModal];
 }
 
-- (void)refreshApplications {
-	NSArray *entries = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications" error:NULL];
+- (NSArray *)applicationEntries {
+	NSFileManager *fm = [NSFileManager defaultManager];
+	NSArray *entries = [fm contentsOfDirectoryAtPath:@"/Applications" error:NULL];
 	NSMutableArray *items = [NSMutableArray array];
-	for (NSString *entry in entries) if ([entry.pathExtension isEqualToString:@"app"]) [items addObject:entry];
-	self.applications = [items sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+	for (NSString *entry in entries) {
+		if ([entry.pathExtension isEqualToString:@"app"]) [items addObject:entry];
+		else if ([entry isEqualToString:@"Utilities"]) {
+			NSString *utilities = [@"/Applications" stringByAppendingPathComponent:entry];
+			for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL])
+				if ([child.pathExtension isEqualToString:@"app"]) [items addObject:[entry stringByAppendingPathComponent:child]];
+		}
+	}
+	return [items sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+}
+
+- (void)grid:(DarlingApplicationsGrid *)grid selectedIndex:(NSInteger)index doubleClicked:(BOOL)doubleClicked {
+	if (index < 0 || index >= (NSInteger)self.applications.count) return;
+	[self.table selectRowIndexes:[NSIndexSet indexSetWithIndex:index] byExtendingSelection:NO];
+	if (doubleClicked) [self openSelectedApplication:grid];
+}
+
+- (void)loadIconUpdate:(NSDictionary *)update {
+	[self.grid setIcon:[update objectForKey:@"icon"] forIndex:[[update objectForKey:@"index"] unsignedIntegerValue] generation:[[update objectForKey:@"generation"] unsignedIntegerValue]];
+}
+
+- (void)loadIconsInBackground:(NSDictionary *)request {
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSArray *items = [request objectForKey:@"items"];
+	NSUInteger generation = [[request objectForKey:@"generation"] unsignedIntegerValue];
+	NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+	for (NSUInteger index = 0; index < items.count; index++) {
+		NSString *path = [@"/Applications" stringByAppendingPathComponent:[items objectAtIndex:index]];
+		NSImage *icon = [workspace iconForFile:path];
+		if (!icon) icon = [workspace iconForFileType:@"app"];
+		NSDictionary *update = @{@"icon": icon ?: (id)[NSNull null], @"index": @(index), @"generation": @(generation)};
+		[self performSelectorOnMainThread:@selector(loadIconUpdate:) withObject:update waitUntilDone:NO];
+	}
+	[pool drain];
+}
+
+- (void)startIconLoading {
+	self.grid.generation++;
+	self.grid.icons = [NSMutableDictionary dictionary];
+	[self.grid setNeedsDisplay:YES];
+	NSDictionary *request = @{@"items": self.applications, @"generation": @(self.grid.generation)};
+	[NSThread detachNewThreadSelector:@selector(loadIconsInBackground:) toTarget:self withObject:request];
+}
+
+- (void)refreshApplications {
+	self.applications = [self applicationEntries];
+	self.grid.items = self.applications;
+	self.grid.selectedIndex = -1;
+	[self.grid resizeToViewportWidth:self.scrollView.bounds.size.width];
 	[self.table reloadData];
+	[self startIconLoading];
 }
 
 - (void)importApplications:(id)sender {
-	NSOpenPanel *panel = [NSOpenPanel openPanel];
-	panel.canChooseFiles = YES;
-	panel.canChooseDirectories = YES;
-	panel.allowsMultipleSelection = YES;
-	panel.title = @"Choose Application (.app) or Directory to Import";
+	if (self.importRunning) return;
+	self.importCancelled = NO;
+	self.importRunning = YES;
+	self.importButton.enabled = NO; self.cancelButton.enabled = YES;
+	self.progress.indeterminate = YES; [self.progress startAnimation:nil];
+	self.progressLabel.stringValue = @"Scanning verified macOS applications…";
+	[NSThread detachNewThreadSelector:@selector(importApplicationsInBackground:) toTarget:self withObject:nil];
+}
 
-	NSString *defaultPath = [NSString stringWithFormat:@"/Volumes/SystemRoot/home/%@", NSUserName()];
-	if ([[NSFileManager defaultManager] fileExistsAtPath:defaultPath]) {
-		panel.directoryURL = [NSURL fileURLWithPath:defaultPath];
+- (void)cancelImport:(id)sender {
+	self.importCancelled = YES;
+	self.cancelButton.enabled = NO;
+	self.progressLabel.stringValue = @"Cancelling safely…";
+}
+
+- (unsigned long long)sizeOfTree:(NSString *)path fileManager:(NSFileManager *)fm {
+	unsigned long long total = 0;
+	NSDictionary *attributes = [fm attributesOfItemAtPath:path error:NULL];
+	if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeRegular]) total += [[attributes objectForKey:NSFileSize] unsignedLongLongValue];
+	NSDirectoryEnumerator *enumerator = [fm enumeratorAtPath:path];
+	for (NSString *relative in enumerator) {
+		if (self.importCancelled) break;
+		attributes = [fm attributesOfItemAtPath:[path stringByAppendingPathComponent:relative] error:NULL];
+		if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeRegular]) total += [[attributes objectForKey:NSFileSize] unsignedLongLongValue];
 	}
+	return total;
+}
 
-	if ([panel runModal] != NSOKButton) return;
+- (void)updateCopiedBytes:(NSNumber *)value {
+	self.progress.doubleValue = value.doubleValue;
+	self.progressLabel.stringValue = [NSString stringWithFormat:@"%@, %@ of %@", self.statusPrefix, ImportByteCount(value.unsignedLongLongValue), ImportByteCount(self.importTotalBytes)];
+}
 
+- (void)updateImportStatus:(NSDictionary *)status {
+	NSString *phase = [status objectForKey:@"phase"];
+	if ([phase isEqualToString:@"copy"]) {
+		unsigned long long completed = [[status objectForKey:@"completedBytes"] unsignedLongLongValue];
+		unsigned long long total = [[status objectForKey:@"totalBytes"] unsignedLongLongValue];
+		self.importTotalBytes = total;
+		self.statusPrefix = [NSString stringWithFormat:@"Copying %@ — app %@ of %@", [status objectForKey:@"name"], [status objectForKey:@"app"], [status objectForKey:@"count"]];
+		self.progress.indeterminate = NO; [self.progress stopAnimation:nil]; self.progress.maxValue = MAX(1.0, (double)total); self.progress.doubleValue = completed;
+		self.progressLabel.stringValue = [NSString stringWithFormat:@"%@, %@ of %@", self.statusPrefix, ImportByteCount(completed), ImportByteCount(total)];
+	} else {
+		[self.progress stopAnimation:nil]; self.progress.indeterminate = NO;
+		self.importRunning = NO;
+		self.importButton.enabled = YES; self.cancelButton.enabled = NO;
+		self.progressLabel.stringValue = [status objectForKey:@"label"];
+		[self refreshApplications];
+		NSString *message = [status objectForKey:@"message"];
+		if (message) [self showMessage:message];
+	}
+}
+
+- (void)importApplicationsInBackground:(id)unused {
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	/* The host app library is exposed only through this explicit read-only
+	 * SystemRoot share; it is not assumed to exist in guest /Users. */
+	NSString *source = [NSString stringWithFormat:@"/Volumes/SystemRoot/home/%@/.local/share/darling/macos-apps/Applications", NSUserName()];
 	NSFileManager *fm = [NSFileManager defaultManager];
+	NSArray *roots = [fm contentsOfDirectoryAtPath:source error:NULL];
+	if (!roots) { [self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import source is unavailable.", @"message": @"Verified local macOS application copies are not mounted in this prefix."} waitUntilDone:NO]; [pool drain]; return; }
 	NSMutableArray *candidates = [NSMutableArray array];
-
-	for (NSURL *url in panel.URLs) {
-		NSString *path = url.path;
-		if ([path.pathExtension isEqualToString:@"app"]) {
-			[candidates addObject:path];
-		} else {
-			NSArray *entries = [fm contentsOfDirectoryAtPath:path error:NULL];
-			for (NSString *entry in entries) {
-				if ([entry.pathExtension isEqualToString:@"app"]) {
-					[candidates addObject:[path stringByAppendingPathComponent:entry]];
-				} else if ([entry isEqualToString:@"Utilities"]) {
-					NSString *utilities = [path stringByAppendingPathComponent:entry];
-					for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL]) {
-						if ([child.pathExtension isEqualToString:@"app"]) {
-							[candidates addObject:[utilities stringByAppendingPathComponent:child]];
-						}
-					}
-				}
-			}
+	for (NSString *name in roots) {
+		if ([name.pathExtension isEqualToString:@"app"]) [candidates addObject:name];
+		else if ([name isEqualToString:@"Utilities"]) {
+			NSString *utilities = [source stringByAppendingPathComponent:name];
+			for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL])
+				if ([child.pathExtension isEqualToString:@"app"]) [candidates addObject:[name stringByAppendingPathComponent:child]];
 		}
 	}
-
-	if (candidates.count == 0) {
-		[self showMessage:@"No .app application bundles found in the selected location."];
-		return;
+	unsigned long long totalBytes = 0;
+	for (NSString *relative in candidates) {
+		NSString *destination = [@"/Applications" stringByAppendingPathComponent:relative];
+		if (![fm fileExistsAtPath:destination]) totalBytes += [self sizeOfTree:[source stringByAppendingPathComponent:relative] fileManager:fm];
 	}
-
+	if (self.importCancelled) { [self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import cancelled before copying.", @"message": @"Import cancelled; no partial app was installed."} waitUntilDone:NO]; [pool drain]; return; }
 	NSUInteger imported = 0, skipped = 0;
-	for (NSString *src in candidates) {
-		NSString *name = src.lastPathComponent;
-		NSString *dst = [@"/Applications" stringByAppendingPathComponent:name];
+	unsigned long long completedBytes = 0;
+	for (NSUInteger index = 0; index < candidates.count; index++) {
+		NSString *relative = [candidates objectAtIndex:index];
+		NSString *src = [source stringByAppendingPathComponent:relative];
+		NSString *dst = [@"/Applications" stringByAppendingPathComponent:relative];
 		[fm createDirectoryAtPath:[dst stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
-
-		if ([fm fileExistsAtPath:dst]) {
-			skipped++;
-			continue;
+		NSString *name = relative.lastPathComponent;
+		if ([fm fileExistsAtPath:dst]) { skipped++; continue; }
+		NSString *temporaryDirectory = [dst stringByDeletingLastPathComponent];
+		NSUInteger temporarySuffix = 0;
+		NSString *temp = nil;
+		do {
+			temp = [temporaryDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@".%@.importing-%d-%lu", name, [[NSProcessInfo processInfo] processIdentifier], (unsigned long)temporarySuffix++]];
+		} while ([fm fileExistsAtPath:temp]);
+		NSDictionary *status = @{@"phase": @"copy", @"name": name, @"app": @(index + 1), @"count": @(candidates.count), @"completedBytes": @(completedBytes), @"totalBytes": @(totalBytes)};
+		[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:status waitUntilDone:NO];
+		ImportCopyContext context = { self, completedBytes, 0 };
+		copyfile_state_t state = copyfile_state_alloc();
+		copyfile_callback_t callback = ImportCopyStatus;
+		if (!state || copyfile_state_set(state, COPYFILE_STATE_STATUS_CB, callback) != 0 || copyfile_state_set(state, COPYFILE_STATE_STATUS_CTX, &context) != 0) {
+			if (state) copyfile_state_free(state);
+			[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import could not start.", @"message": @"Could not initialize metadata-preserving copy progress; no app was changed."} waitUntilDone:NO];
+			[pool drain]; return;
 		}
-
-		NSString *temp = [@"/Applications" stringByAppendingPathComponent:[NSString stringWithFormat:@".%@.importing", name]];
-		NSError *error = nil;
-		if (![fm copyItemAtPath:src toPath:temp error:&error] || ![fm moveItemAtPath:temp toPath:dst error:&error]) {
+		errno = 0;
+		int result = copyfile(src.fileSystemRepresentation, temp.fileSystemRepresentation, state, COPYFILE_ALL | COPYFILE_RECURSIVE | COPYFILE_EXCL | COPYFILE_NOFOLLOW);
+		int copyError = errno;
+		copyfile_state_free(state);
+		if (result != 0 || self.importCancelled) {
 			[fm removeItemAtPath:temp error:NULL];
-			[self showMessage:[NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", name, error.localizedDescription]];
-			return;
+			NSString *message = self.importCancelled ? @"Import cancelled; only the unfinished temporary copy was removed." : [NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", name, [NSString stringWithUTF8String:strerror(copyError)]];
+			[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": self.importCancelled ? @"Import cancelled." : @"Import failed.", @"message": message} waitUntilDone:NO];
+			[pool drain]; return;
 		}
+		NSError *error = nil;
+		if (![fm moveItemAtPath:temp toPath:dst error:&error] || ![fm fileExistsAtPath:dst isDirectory:NULL]) {
+			[fm removeItemAtPath:temp error:NULL];
+			[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import failed during publication.", @"message": [NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", name, error.localizedDescription ?: @"destination verification failed"]} waitUntilDone:NO];
+			[pool drain]; return;
+		}
+		completedBytes = context.completedBytes;
 		imported++;
 	}
-	[self refreshApplications];
-	[self showMessage:[NSString stringWithFormat:@"Imported %lu apps; skipped %lu existing apps. No app was launched.", (unsigned long)imported, (unsigned long)skipped]];
+	NSString *summary = [NSString stringWithFormat:@"Imported %lu verified apps; skipped %lu existing apps. No app was launched.", (unsigned long)imported, (unsigned long)skipped];
+	[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": [NSString stringWithFormat:@"Import complete — %@ copied.", ImportByteCount(completedBytes)], @"message": summary} waitUntilDone:NO];
+	[pool drain];
 }
 
 - (void)installHomebrew:(id)sender {
 	NSString *bootstrap = FindHelper(@"homebrew-bootstrap");
-	if (!bootstrap) {
-		[self showMessage:@"Native Homebrew bootstrap helper is not installed. Install the verified Darling bootstrap first; host brew is never used."];
-		return;
-	}
+	if (!bootstrap) { [self showMessage:@"Native Homebrew bootstrap helper is not installed. Install the verified Darling bootstrap first; host brew is never used."]; return; }
 	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = bootstrap; task.arguments = @[@"/opt/homebrew"]; task.standardOutput = pipe; task.standardError = pipe; [task launch]; [task waitUntilExit];
 	NSString *output = [[[NSString alloc] initWithData:pipe.fileHandleForReading.readDataToEndOfFile encoding:NSUTF8StringEncoding] autorelease];
 	[self showMessage:[NSString stringWithFormat:@"Homebrew bootstrap exited %d:\n%@", task.terminationStatus, output ?: @""]];
@@ -169,7 +453,8 @@ static NSString *FindHelper(NSString *name) {
 	NSRegularExpression *masPattern = [NSRegularExpression regularExpressionWithPattern:@"mas\\s*\\(?\\s*[\\\"']([^\\\"']+)[\\\"'][\\s\\S]*?\\bid\\s*:\\s*[\\\"']?([0-9]+)" options:0 error:NULL];
 	NSMutableArray *masIDs = [NSMutableArray array]; NSMutableArray *masNames = [NSMutableArray array];
 	for (NSTextCheckingResult *m in [masPattern matchesInString:brewText options:0 range:NSMakeRange(0, brewText.length)]) { [masNames addObject:[brewText substringWithRange:[m rangeAtIndex:1]]]; [masIDs addObject:[brewText substringWithRange:[m rangeAtIndex:2]]]; }
-	NSString *skipIDs = [masIDs componentsJoinedByString:@" "];
+	/* Homebrew's HOMEBREW_BUNDLE_MAS_SKIP syntax is comma-separated. */
+	NSString *skipIDs = [masIDs componentsJoinedByString:@","];
 	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = helper; task.arguments = @[[@"/" stringByAppendingString:[target substringFromIndex:1]], skipIDs]; task.standardOutput = pipe; task.standardError = pipe; [task launch]; [task waitUntilExit];
 	NSString *output = [[[NSString alloc] initWithData:pipe.fileHandleForReading.readDataToEndOfFile encoding:NSUTF8StringEncoding] autorelease];
 	[self refreshApplications]; [self showMessage:[NSString stringWithFormat:@"Brewfile exited %d. Skipped %lu MAS apps (App Store unavailable): %@\n%@", task.terminationStatus, (unsigned long)masNames.count, [masNames componentsJoinedByString:@", "], output ?: @""]];
