@@ -308,12 +308,29 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 
 - (void)importApplications:(id)sender {
 	if (self.importRunning) return;
+
+	NSOpenPanel *panel = [NSOpenPanel openPanel];
+	panel.canChooseFiles = YES;
+	panel.canChooseDirectories = YES;
+	panel.allowsMultipleSelection = YES;
+	panel.title = @"Choose Application (.app) or Directory to Import";
+
+	NSString *defaultPath = [NSString stringWithFormat:@"/Volumes/SystemRoot/home/%@", NSUserName()];
+	if ([[NSFileManager defaultManager] fileExistsAtPath:defaultPath]) {
+		panel.directoryURL = [NSURL fileURLWithPath:defaultPath];
+	}
+
+	if ([panel runModal] != NSOKButton) return;
+
+	NSArray *chosenURLs = [panel.URLs retain];
+	if (chosenURLs.count == 0) return;
+
 	self.importCancelled = NO;
 	self.importRunning = YES;
 	self.importButton.enabled = NO; self.cancelButton.enabled = YES;
 	self.progress.indeterminate = YES; [self.progress startAnimation:nil];
-	self.progressLabel.stringValue = @"Scanning verified macOS applications…";
-	[NSThread detachNewThreadSelector:@selector(importApplicationsInBackground:) toTarget:self withObject:nil];
+	self.progressLabel.stringValue = @"Scanning applications to import…";
+	[NSThread detachNewThreadSelector:@selector(importApplicationsInBackground:) toTarget:self withObject:chosenURLs];
 }
 
 - (void)cancelImport:(id)sender {
@@ -360,45 +377,69 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	}
 }
 
-- (void)importApplicationsInBackground:(id)unused {
+- (void)importApplicationsInBackground:(NSArray *)chosenURLs {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	/* The host app library is exposed only through this explicit read-only
-	 * SystemRoot share; it is not assumed to exist in guest /Users. */
-	NSString *source = [NSString stringWithFormat:@"/Volumes/SystemRoot/home/%@/.local/share/darling/macos-apps/Applications", NSUserName()];
 	NSFileManager *fm = [NSFileManager defaultManager];
-	NSArray *roots = [fm contentsOfDirectoryAtPath:source error:NULL];
-	if (!roots) { [self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import source is unavailable.", @"message": @"Verified local macOS application copies are not mounted in this prefix."} waitUntilDone:NO]; [pool drain]; return; }
 	NSMutableArray *candidates = [NSMutableArray array];
-	for (NSString *name in roots) {
-		if ([name.pathExtension isEqualToString:@"app"]) [candidates addObject:name];
-		else if ([name isEqualToString:@"Utilities"]) {
-			NSString *utilities = [source stringByAppendingPathComponent:name];
-			for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL])
-				if ([child.pathExtension isEqualToString:@"app"]) [candidates addObject:[name stringByAppendingPathComponent:child]];
+
+	for (NSURL *url in chosenURLs) {
+		NSString *path = url.path;
+		if ([path.pathExtension isEqualToString:@"app"]) {
+			[candidates addObject:@{@"src": path, @"name": path.lastPathComponent}];
+		} else {
+			NSArray *entries = [fm contentsOfDirectoryAtPath:path error:NULL];
+			for (NSString *entry in entries) {
+				NSString *sub = [path stringByAppendingPathComponent:entry];
+				if ([entry.pathExtension isEqualToString:@"app"]) {
+					[candidates addObject:@{@"src": sub, @"name": entry}];
+				} else if ([entry isEqualToString:@"Utilities"]) {
+					for (NSString *child in [fm contentsOfDirectoryAtPath:sub error:NULL]) {
+						if ([child.pathExtension isEqualToString:@"app"]) {
+							[candidates addObject:@{@"src": [sub stringByAppendingPathComponent:child],
+							                        @"name": [NSString stringWithFormat:@"Utilities/%@", child]}];
+						}
+					}
+				}
+			}
 		}
 	}
-	unsigned long long totalBytes = 0;
-	for (NSString *relative in candidates) {
-		NSString *destination = [@"/Applications" stringByAppendingPathComponent:relative];
-		if (![fm fileExistsAtPath:destination]) totalBytes += [self sizeOfTree:[source stringByAppendingPathComponent:relative] fileManager:fm];
+	[chosenURLs release];
+
+	if (candidates.count == 0) {
+		[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"No applications found.", @"message": @"No .app application bundles found in the selected location."} waitUntilDone:NO];
+		[pool drain];
+		return;
 	}
-	if (self.importCancelled) { [self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import cancelled before copying.", @"message": @"Import cancelled; no partial app was installed."} waitUntilDone:NO]; [pool drain]; return; }
+
+	unsigned long long totalBytes = 0;
+	for (NSDictionary *cand in candidates) {
+		NSString *dst = [@"/Applications" stringByAppendingPathComponent:cand[@"name"]];
+		if (![fm fileExistsAtPath:dst]) totalBytes += [self sizeOfTree:cand[@"src"] fileManager:fm];
+	}
+
+	if (self.importCancelled) {
+		[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import cancelled before copying.", @"message": @"Import cancelled; no partial app was installed."} waitUntilDone:NO];
+		[pool drain];
+		return;
+	}
+
 	NSUInteger imported = 0, skipped = 0;
 	unsigned long long completedBytes = 0;
 	for (NSUInteger index = 0; index < candidates.count; index++) {
-		NSString *relative = [candidates objectAtIndex:index];
-		NSString *src = [source stringByAppendingPathComponent:relative];
-		NSString *dst = [@"/Applications" stringByAppendingPathComponent:relative];
+		NSDictionary *cand = [candidates objectAtIndex:index];
+		NSString *src = cand[@"src"];
+		NSString *name = cand[@"name"];
+		NSString *dst = [@"/Applications" stringByAppendingPathComponent:name];
 		[fm createDirectoryAtPath:[dst stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
-		NSString *name = relative.lastPathComponent;
 		if ([fm fileExistsAtPath:dst]) { skipped++; continue; }
 		NSString *temporaryDirectory = [dst stringByDeletingLastPathComponent];
 		NSUInteger temporarySuffix = 0;
 		NSString *temp = nil;
 		do {
-			temp = [temporaryDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@".%@.importing-%d-%lu", name, [[NSProcessInfo processInfo] processIdentifier], (unsigned long)temporarySuffix++]];
+			temp = [temporaryDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@".%@.importing-%d-%lu", [name lastPathComponent], [[NSProcessInfo processInfo] processIdentifier], (unsigned long)temporarySuffix++]];
 		} while ([fm fileExistsAtPath:temp]);
-		NSDictionary *status = @{@"phase": @"copy", @"name": name, @"app": @(index + 1), @"count": @(candidates.count), @"completedBytes": @(completedBytes), @"totalBytes": @(totalBytes)};
+
+		NSDictionary *status = @{@"phase": @"copy", @"name": [name lastPathComponent], @"app": @(index + 1), @"count": @(candidates.count), @"completedBytes": @(completedBytes), @"totalBytes": @(totalBytes)};
 		[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:status waitUntilDone:NO];
 		ImportCopyContext context = { self, completedBytes, 0 };
 		copyfile_state_t state = copyfile_state_alloc();
@@ -414,14 +455,14 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 		copyfile_state_free(state);
 		if (result != 0 || self.importCancelled) {
 			[fm removeItemAtPath:temp error:NULL];
-			NSString *message = self.importCancelled ? @"Import cancelled; only the unfinished temporary copy was removed." : [NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", name, [NSString stringWithUTF8String:strerror(copyError)]];
+			NSString *message = self.importCancelled ? @"Import cancelled; only the unfinished temporary copy was removed." : [NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", [name lastPathComponent], [NSString stringWithUTF8String:strerror(copyError)]];
 			[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": self.importCancelled ? @"Import cancelled." : @"Import failed.", @"message": message} waitUntilDone:NO];
 			[pool drain]; return;
 		}
 		NSError *error = nil;
 		if (![fm moveItemAtPath:temp toPath:dst error:&error] || ![fm fileExistsAtPath:dst isDirectory:NULL]) {
 			[fm removeItemAtPath:temp error:NULL];
-			[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import failed during publication.", @"message": [NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", name, error.localizedDescription ?: @"destination verification failed"]} waitUntilDone:NO];
+			[self performSelectorOnMainThread:@selector(updateImportStatus:) withObject:@{@"phase": @"done", @"label": @"Import failed during publication.", @"message": [NSString stringWithFormat:@"Import failed for %@; no partial app was installed: %@", [name lastPathComponent], error.localizedDescription ?: @"destination verification failed"]} waitUntilDone:NO];
 			[pool drain]; return;
 		}
 		completedBytes = context.completedBytes;
