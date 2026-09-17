@@ -27,6 +27,7 @@
 	[self.window.contentView addSubview:scroll];
 	NSButton *brew = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 15, 180, 32)] autorelease]; brew.title = @"Install Homebrew"; brew.target = self; brew.action = @selector(installHomebrew:); [self.window.contentView addSubview:brew];
 	NSButton *bundle = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 15, 180, 32)] autorelease]; bundle.title = @"Install Brewfile Apps"; bundle.target = self; bundle.action = @selector(installBrewfile:); [self.window.contentView addSubview:bundle];
+	NSButton *import = [[[NSButton alloc] initWithFrame:NSMakeRect(410, 15, 180, 32)] autorelease]; import.title = @"Import macOS Apps"; import.target = self; import.action = @selector(importApplications:); [self.window.contentView addSubview:import];
 	[self.window center]; [self.window makeKeyAndOrderFront:nil];
 }
 
@@ -46,10 +47,39 @@
 	NSAlert *alert = [[[NSAlert alloc] init] autorelease]; alert.messageText = @"Darling Applications"; alert.informativeText = message; [alert runModal];
 }
 
+- (void)refreshApplications {
+	NSArray *entries = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications" error:NULL];
+	NSMutableArray *items = [NSMutableArray array];
+	for (NSString *entry in entries) if ([entry.pathExtension isEqualToString:@"app"]) [items addObject:entry];
+	self.applications = [items sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+	[self.table reloadData];
+}
+
+- (void)importApplications:(id)sender {
+	NSString *source = [NSString stringWithFormat:@"/Users/%@/.local/share/darling/macos-apps/Applications", NSUserName()];
+	NSFileManager *fm = [NSFileManager defaultManager];
+	NSArray *roots = [fm contentsOfDirectoryAtPath:source error:NULL];
+	if (!roots) { [self showMessage:@"Verified local macOS application copies are not mounted in this prefix."]; return; }
+	NSUInteger imported = 0, skipped = 0;
+	for (NSString *name in roots) {
+		if (![name.pathExtension isEqualToString:@"app"]) continue;
+		NSString *src = [source stringByAppendingPathComponent:name];
+		NSString *dst = [@"/Applications" stringByAppendingPathComponent:name];
+		if ([fm fileExistsAtPath:dst]) { skipped++; continue; }
+		NSError *error = nil;
+		if ([fm copyItemAtPath:src toPath:dst error:&error]) imported++;
+		else { [self showMessage:[NSString stringWithFormat:@"Import stopped at %@: %@", name, error.localizedDescription]]; break; }
+	}
+	[self refreshApplications];
+	[self showMessage:[NSString stringWithFormat:@"Imported %lu verified apps; skipped %lu existing apps. No app was launched.", (unsigned long)imported, (unsigned long)skipped]];
+}
+
 - (void)installHomebrew:(id)sender {
 	NSString *bootstrap = @"/usr/local/libexec/darling/homebrew-bootstrap";
 	if (![[NSFileManager defaultManager] isExecutableFileAtPath:bootstrap]) { [self showMessage:@"Native Homebrew bootstrap is not installed. Install the verified Darling bootstrap first; host brew is never used."]; return; }
-	NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = bootstrap; task.arguments = @[@"/opt/homebrew"]; [task launch]; [self showMessage:@"Native Homebrew bootstrap started in this Darling prefix."];
+	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = bootstrap; task.arguments = @[@"/opt/homebrew"]; task.standardOutput = pipe; task.standardError = pipe; [task launch]; [task waitUntilExit];
+	NSString *output = [[[NSString alloc] initWithData:pipe.fileHandleForReading.readDataToEndOfFile encoding:NSUTF8StringEncoding] autorelease];
+	[self showMessage:[NSString stringWithFormat:@"Homebrew bootstrap exited %d:\n%@", task.terminationStatus, output ?: @""]];
 }
 
 - (void)installBrewfile:(id)sender {
@@ -59,8 +89,11 @@
 	[[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
 	NSString *target = [dir stringByAppendingPathComponent:source.lastPathComponent];
 	if (![[NSFileManager defaultManager] copyItemAtPath:source toPath:target error:NULL]) { [self showMessage:@"Could not stage the Brewfile inside the Darling prefix."]; return; }
-	NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = @"/opt/homebrew/bin/brew"; task.arguments = @[@"bundle", @"--file", [@"/" stringByAppendingString:[target substringFromIndex:1]]]; [task launch];
-	[self showMessage:@"Native brew bundle started. MAS entries still require explicit App Store login."];
+	NSString *helper = @"/usr/local/libexec/darling/brewfile-install";
+	if (![[NSFileManager defaultManager] isExecutableFileAtPath:helper]) { [self showMessage:@"Brewfile helper is not installed in this prefix; no packages were started."]; return; }
+	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = helper; task.arguments = @[[@"/" stringByAppendingString:[target substringFromIndex:1]]]; task.standardOutput = pipe; task.standardError = pipe; [task launch]; [task waitUntilExit];
+	NSString *output = [[[NSString alloc] initWithData:pipe.fileHandleForReading.readDataToEndOfFile encoding:NSUTF8StringEncoding] autorelease];
+	[self refreshApplications]; [self showMessage:[NSString stringWithFormat:@"Brewfile exited %d:\n%@", task.terminationStatus, output ?: @""]];
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { return YES; }

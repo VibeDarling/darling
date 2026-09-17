@@ -1,0 +1,24 @@
+#!/bin/sh
+# Prefix-local, idempotent Homebrew bootstrap gate. Payloads are installed by
+# the signed/pinned image preparation; this guest helper never overwrites them.
+set -eu
+prefix=${1:-/opt/homebrew}
+[ "$prefix" = /opt/homebrew ] || { echo "bootstrap: refusing non-native prefix $prefix" >&2; exit 64; }
+brew=/opt/homebrew/bin/brew
+git=/opt/homebrew/bin/git
+ruby=/opt/homebrew/Library/Homebrew/vendor/portable-ruby/4.0.7/bin/ruby
+[ -x "$brew" ] || { echo "bootstrap: Homebrew payload missing at $brew" >&2; exit 66; }
+[ -x "$git" ] || { echo "bootstrap: native Git payload missing at $git" >&2; exit 66; }
+echo "bootstrap: verified native Git/Homebrew paths (no reinstall)"
+"$git" --version || { echo "bootstrap: native Git failed" >&2; exit 70; }
+if [ ! -x "$ruby" ]; then
+  echo "bootstrap: portable Ruby 4.0.7 payload missing; Homebrew cannot run" >&2
+  exit 69
+fi
+if ! "$ruby" --version >/tmp/darling-homebrew-ruby.out 2>&1; then
+  echo "bootstrap: portable Ruby 4.0.7 startup failed; Homebrew remains unavailable" >&2
+  cat /tmp/darling-homebrew-ruby.out >&2 || true
+  exit 69
+fi
+echo "bootstrap: portable Ruby is runnable; Homebrew is ready"
+"$brew" --version

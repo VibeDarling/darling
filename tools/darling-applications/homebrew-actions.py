@@ -23,10 +23,20 @@ def confined_prefix(value: str) -> Path:
     return prefix
 
 
+def confined_child(prefix: Path, child: Path) -> Path:
+    """Resolve a path and reject symlink/junction escapes from the prefix."""
+    resolved = child.resolve()
+    try:
+        resolved.relative_to(prefix)
+    except ValueError:
+        raise SystemExit(f"path escapes Darling prefix: {child}")
+    return resolved
+
+
 def guest(prefix: Path, argv: list[str], *, timeout: int = 3600) -> int:
     if not argv or argv[0] != "/opt/homebrew/bin/brew":
         raise ValueError("only native /opt/homebrew/bin/brew is permitted")
-    brew = prefix / "opt/homebrew/bin/brew"
+    brew = confined_child(prefix, prefix / "opt/homebrew/bin/brew")
     if not brew.is_file() or brew.is_symlink():
         raise SystemExit("native Homebrew is not installed in this prefix")
     env = {k: v for k, v in os.environ.items() if not k.startswith("DYLD_")}
@@ -39,6 +49,11 @@ def install_homebrew(prefix: Path, bootstrap: Path | None) -> int:
     if bootstrap is None:
         raise SystemExit("configure a checksum-verifying native bootstrap before installing Homebrew")
     script = bootstrap.expanduser().resolve()
+    trusted = Path(__file__).resolve().parent
+    try:
+        script.relative_to(trusted)
+    except ValueError:
+        raise SystemExit(f"bootstrap must be the tracked helper under {trusted}")
     if not script.is_file() or not os.access(script, os.X_OK):
         raise SystemExit(f"bootstrap is not executable: {script}")
     # The bootstrap owns artifact verification and atomic placement.  It receives
@@ -51,9 +66,9 @@ def install_brewfile(prefix: Path, brewfile: Path, confirm_mas: bool) -> int:
     text = source.read_text(encoding="utf-8")
     if re.search(r"(^|\n)\s*mas\s+['\"]", text) and not confirm_mas:
         raise SystemExit("Brewfile contains mas entries; confirm Apple ID/App Store installation explicitly")
-    staging = prefix / "Users" / os.environ.get("USER", "darling") / "Library/Application Support/Darling/Brewfiles"
+    staging = confined_child(prefix, prefix / "Users" / os.environ.get("USER", "darling") / "Library/Application Support/Darling/Brewfiles")
     staging.mkdir(parents=True, exist_ok=True)
-    target = staging / (source.name or "Brewfile")
+    target = confined_child(prefix, staging / (source.name or "Brewfile"))
     # Replace only our staged copy; never modify the user's source Brewfile.
     fd, temporary = tempfile.mkstemp(prefix=".Brewfile-", dir=staging)
     os.close(fd)
