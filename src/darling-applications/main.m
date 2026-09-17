@@ -100,5 +100,10 @@
 @end
 
 int main(int argc, const char **argv) {
+	/* Native Wayland is the default on Omarchy; X11 remains explicit. */
+	if (getenv("WAYLAND_DISPLAY") && !getenv("DARLING_APPKIT_BACKEND")) {
+		setenv("DARLING_APPKIT_BACKEND", "wayland", 1);
+		unsetenv("DISPLAY");
+	}
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init]; DarlingApplications *delegate = [[[DarlingApplications alloc] init] autorelease]; NSApplication *app = [NSApplication sharedApplication]; app.delegate = delegate; [app run]; [pool drain]; return 0;
 }

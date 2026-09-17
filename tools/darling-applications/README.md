@@ -20,6 +20,12 @@ The helper refuses a missing/stopped prefix, symlink escapes, host `brew`, and
 MAS entries unless the caller explicitly confirms the Apple ID/login step.
 It does not delete existing Applications, Homebrew, or user data.
 
+On an Omarchy Wayland session the native viewer selects Wayland by default when
+no backend is explicitly set, unsets `DISPLAY`, and child apps inherit that
+socket/backend. X11 is explicit opt-in via `DARLING_APPKIT_BACKEND=x11`; it is
+never reported as native Wayland. The active image must contain the provenance-
+pinned `Wayland.backend` bundle.
+
 The current native bootstrap evidence is recorded outside the source tree in
 `~/.local/share/darling/macos-apps/brew/PROGRESS.md`; official bottle payloads
 are intentionally not committed.
