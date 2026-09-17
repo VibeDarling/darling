@@ -8,11 +8,12 @@ user-selected persistent prefix.
 import argparse
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import re
 
-DARLING = os.environ.get("DARLING", "/usr/local/bin/darling")
+DARLING = os.environ.get("DARLING") or shutil.which("darling") or "/usr/local/bin/darling"
 DEFAULT_PREFIX = Path.home() / ".darling-apps"
 
 

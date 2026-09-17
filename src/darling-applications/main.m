@@ -1,5 +1,20 @@
 #import <AppKit/AppKit.h>
 
+static NSString *FindHelper(NSString *name) {
+	NSArray *searchPaths = @[
+		[NSString stringWithFormat:@"/usr/libexec/darling/%@", name],
+		[NSString stringWithFormat:@"/usr/local/libexec/darling/%@", name],
+		[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:name],
+		[[[NSBundle mainBundle] bundlePath] stringByAppendingPathComponent:name],
+	];
+	NSFileManager *fm = [NSFileManager defaultManager];
+	for (NSString *path in searchPaths) {
+		if ([fm isExecutableFileAtPath:path])
+			return path;
+	}
+	return nil;
+}
+
 @interface DarlingApplications : NSObject <NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate>
 @property(nonatomic, retain) NSWindow *window;
 @property(nonatomic, retain) NSArray *applications;
@@ -40,7 +55,8 @@
 	NSString *bundle = [@"/Applications" stringByAppendingPathComponent:self.applications[row]];
 	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
 	NSError *error = nil;
-	BOOL launched = [[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:0 configuration:nil error:&error];
+	NSRunningApplication *app = [[NSWorkspace sharedWorkspace] launchApplicationAtURL:url options:0 configuration:nil error:&error];
+	BOOL launched = (app != nil);
 	if (!launched) {
 		NSString *detail = error.localizedDescription ?: @"no error detail from NSWorkspace";
 		NSLog(@"viewer launch failed: bundle=%@ path=%@ error=%@", self.applications[row], bundle, detail);
@@ -63,28 +79,59 @@
 }
 
 - (void)importApplications:(id)sender {
-	/* The host app library is exposed only through this explicit read-only
-	 * SystemRoot share; it is not assumed to exist in guest /Users. */
-	NSString *source = [NSString stringWithFormat:@"/Volumes/SystemRoot/home/%@/.local/share/darling/macos-apps/Applications", NSUserName()];
+	NSOpenPanel *panel = [NSOpenPanel openPanel];
+	panel.canChooseFiles = YES;
+	panel.canChooseDirectories = YES;
+	panel.allowsMultipleSelection = YES;
+	panel.title = @"Choose Application (.app) or Directory to Import";
+
+	NSString *defaultPath = [NSString stringWithFormat:@"/Volumes/SystemRoot/home/%@", NSUserName()];
+	if ([[NSFileManager defaultManager] fileExistsAtPath:defaultPath]) {
+		panel.directoryURL = [NSURL fileURLWithPath:defaultPath];
+	}
+
+	if ([panel runModal] != NSOKButton) return;
+
 	NSFileManager *fm = [NSFileManager defaultManager];
-	NSArray *roots = [fm contentsOfDirectoryAtPath:source error:NULL];
-	if (!roots) { [self showMessage:@"Verified local macOS application copies are not mounted in this prefix."]; return; }
 	NSMutableArray *candidates = [NSMutableArray array];
-	for (NSString *name in roots) {
-		if ([name.pathExtension isEqualToString:@"app"]) [candidates addObject:name];
-		else if ([name isEqualToString:@"Utilities"]) {
-			NSString *utilities = [source stringByAppendingPathComponent:name];
-			for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL])
-				if ([child.pathExtension isEqualToString:@"app"]) [candidates addObject:[name stringByAppendingPathComponent:child]];
+
+	for (NSURL *url in panel.URLs) {
+		NSString *path = url.path;
+		if ([path.pathExtension isEqualToString:@"app"]) {
+			[candidates addObject:path];
+		} else {
+			NSArray *entries = [fm contentsOfDirectoryAtPath:path error:NULL];
+			for (NSString *entry in entries) {
+				if ([entry.pathExtension isEqualToString:@"app"]) {
+					[candidates addObject:[path stringByAppendingPathComponent:entry]];
+				} else if ([entry isEqualToString:@"Utilities"]) {
+					NSString *utilities = [path stringByAppendingPathComponent:entry];
+					for (NSString *child in [fm contentsOfDirectoryAtPath:utilities error:NULL]) {
+						if ([child.pathExtension isEqualToString:@"app"]) {
+							[candidates addObject:[utilities stringByAppendingPathComponent:child]];
+						}
+					}
+				}
+			}
 		}
 	}
+
+	if (candidates.count == 0) {
+		[self showMessage:@"No .app application bundles found in the selected location."];
+		return;
+	}
+
 	NSUInteger imported = 0, skipped = 0;
-	for (NSString *relative in candidates) {
-		NSString *src = [source stringByAppendingPathComponent:relative];
-		NSString *dst = [@"/Applications" stringByAppendingPathComponent:relative];
+	for (NSString *src in candidates) {
+		NSString *name = src.lastPathComponent;
+		NSString *dst = [@"/Applications" stringByAppendingPathComponent:name];
 		[fm createDirectoryAtPath:[dst stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
-		NSString *name = relative.lastPathComponent;
-		if ([fm fileExistsAtPath:dst]) { skipped++; continue; }
+
+		if ([fm fileExistsAtPath:dst]) {
+			skipped++;
+			continue;
+		}
+
 		NSString *temp = [@"/Applications" stringByAppendingPathComponent:[NSString stringWithFormat:@".%@.importing", name]];
 		NSError *error = nil;
 		if (![fm copyItemAtPath:src toPath:temp error:&error] || ![fm moveItemAtPath:temp toPath:dst error:&error]) {
@@ -95,12 +142,15 @@
 		imported++;
 	}
 	[self refreshApplications];
-	[self showMessage:[NSString stringWithFormat:@"Imported %lu verified apps; skipped %lu existing apps. No app was launched.", (unsigned long)imported, (unsigned long)skipped]];
+	[self showMessage:[NSString stringWithFormat:@"Imported %lu apps; skipped %lu existing apps. No app was launched.", (unsigned long)imported, (unsigned long)skipped]];
 }
 
 - (void)installHomebrew:(id)sender {
-	NSString *bootstrap = @"/usr/local/libexec/darling/homebrew-bootstrap";
-	if (![[NSFileManager defaultManager] isExecutableFileAtPath:bootstrap]) { [self showMessage:@"Native Homebrew bootstrap is not installed. Install the verified Darling bootstrap first; host brew is never used."]; return; }
+	NSString *bootstrap = FindHelper(@"homebrew-bootstrap");
+	if (!bootstrap) {
+		[self showMessage:@"Native Homebrew bootstrap helper is not installed. Install the verified Darling bootstrap first; host brew is never used."];
+		return;
+	}
 	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = bootstrap; task.arguments = @[@"/opt/homebrew"]; task.standardOutput = pipe; task.standardError = pipe; [task launch]; [task waitUntilExit];
 	NSString *output = [[[NSString alloc] initWithData:pipe.fileHandleForReading.readDataToEndOfFile encoding:NSUTF8StringEncoding] autorelease];
 	[self showMessage:[NSString stringWithFormat:@"Homebrew bootstrap exited %d:\n%@", task.terminationStatus, output ?: @""]];
@@ -113,8 +163,8 @@
 	[[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
 	NSString *target = [dir stringByAppendingPathComponent:source.lastPathComponent];
 	if (![[NSFileManager defaultManager] copyItemAtPath:source toPath:target error:NULL]) { [self showMessage:@"Could not stage the Brewfile inside the Darling prefix."]; return; }
-	NSString *helper = @"/usr/local/libexec/darling/brewfile-install";
-	if (![[NSFileManager defaultManager] isExecutableFileAtPath:helper]) { [self showMessage:@"Brewfile helper is not installed in this prefix; no packages were started."]; return; }
+	NSString *helper = FindHelper(@"brewfile-install");
+	if (!helper) { [self showMessage:@"Brewfile helper is not installed in this prefix; no packages were started."]; return; }
 	NSString *brewText = [NSString stringWithContentsOfFile:source encoding:NSUTF8StringEncoding error:NULL] ?: @"";
 	NSRegularExpression *masPattern = [NSRegularExpression regularExpressionWithPattern:@"mas\\s*\\(?\\s*[\\\"']([^\\\"']+)[\\\"'][\\s\\S]*?\\bid\\s*:\\s*[\\\"']?([0-9]+)" options:0 error:NULL];
 	NSMutableArray *masIDs = [NSMutableArray array]; NSMutableArray *masNames = [NSMutableArray array];
