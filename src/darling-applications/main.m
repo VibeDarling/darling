@@ -150,12 +150,15 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	CGFloat width = content.bounds.size.width;
 	CGFloat height = content.bounds.size.height;
 	CGFloat margin = 20.0;
-	CGFloat bottomControls = 115.0;
+	CGFloat bottomControls = 135.0;
 	NSRect listFrame = NSMakeRect(margin, bottomControls, MAX(1.0, width - margin * 2.0), MAX(1.0, height - bottomControls - 20.0));
-	NSRect statusFrame = NSMakeRect(margin, 82.0, MAX(1.0, width - margin * 2.0), 22.0);
+	/* Actions stay together above a dedicated status strip.  Keeping the
+	 * operation label and progress control below the buttons makes import
+	 * activity visible without stealing space from the scrollable grid. */
+	NSRect statusFrame = NSMakeRect(margin, 42.0, MAX(1.0, width - margin * 2.0), 22.0);
 	CGFloat cancelWidth = 100.0;
-	NSRect progressFrame = NSMakeRect(margin, 60.0, MAX(1.0, width - margin * 2.0 - cancelWidth - 30.0), 16.0);
-	NSRect cancelFrame = NSMakeRect(width - margin - cancelWidth, 54.0, cancelWidth, 28.0);
+	NSRect progressFrame = NSMakeRect(margin, 18.0, MAX(1.0, width - margin * 2.0 - cancelWidth - 30.0), 16.0);
+	NSRect cancelFrame = NSMakeRect(width - margin - cancelWidth, 14.0, cancelWidth, 28.0);
 	CGFloat buttonGap = 8.0;
 	CGFloat buttonWidth = MAX(1.0, (width - margin * 2.0 - buttonGap * 2.0) / 3.0);
 	[self.scrollView setFrame:listFrame];
@@ -164,9 +167,9 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	[self.progressLabel setFrame:statusFrame];
 	[self.progress setFrame:progressFrame];
 	[self.cancelButton setFrame:cancelFrame];
-	[self.brewButton setFrame:NSMakeRect(margin, 15.0, buttonWidth, 32.0)];
-	[self.bundleButton setFrame:NSMakeRect(margin + buttonWidth + buttonGap, 15.0, buttonWidth, 32.0)];
-	[self.importButton setFrame:NSMakeRect(margin + (buttonWidth + buttonGap) * 2.0, 15.0, buttonWidth, 32.0)];
+	[self.brewButton setFrame:NSMakeRect(margin, 75.0, buttonWidth, 32.0)];
+	[self.bundleButton setFrame:NSMakeRect(margin + buttonWidth + buttonGap, 75.0, buttonWidth, 32.0)];
+	[self.importButton setFrame:NSMakeRect(margin + (buttonWidth + buttonGap) * 2.0, 75.0, buttonWidth, 32.0)];
 }
 
 - (void)windowDidResize:(NSNotification *)notification {
@@ -187,7 +190,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	self.window = [[[NSWindow alloc] initWithContentRect:frame styleMask:(NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskResizable) backing:NSBackingStoreBuffered defer:NO] autorelease];
 	self.window.title = @"Darling Applications";
 	[self.window setMinSize:NSMakeSize(MIN(520.0, width), MIN(320.0, height))];
-	NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(20, 115, 680, 325)] autorelease];
+	NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(20, 135, 680, 305)] autorelease];
 	self.scrollView = scroll;
 	self.table = [[[NSTableView alloc] initWithFrame:scroll.bounds] autorelease];
 	NSTableColumn *column = [[[NSTableColumn alloc] initWithIdentifier:@"application"] autorelease];
@@ -198,12 +201,12 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	self.grid.gridDelegate = self;
 	scroll.documentView = self.grid; scroll.hasVerticalScroller = YES;
 	[self.window.contentView addSubview:scroll];
-	self.brewButton = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 15, 180, 32)] autorelease]; self.brewButton.title = @"Install Homebrew"; self.brewButton.target = self; self.brewButton.action = @selector(installHomebrew:); [self.window.contentView addSubview:self.brewButton];
-	self.bundleButton = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 15, 180, 32)] autorelease]; self.bundleButton.title = @"Install Brewfile Apps"; self.bundleButton.target = self; self.bundleButton.action = @selector(installBrewfile:); [self.window.contentView addSubview:self.bundleButton];
-	self.progressLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(20, 82, 680, 22)] autorelease]; self.progressLabel.editable = NO; self.progressLabel.bordered = NO; self.progressLabel.drawsBackground = NO; self.progressLabel.stringValue = @"Ready to import verified macOS apps."; [self.window.contentView addSubview:self.progressLabel];
-	self.progress = [[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(20, 60, 570, 16)] autorelease]; self.progress.minValue = 0; self.progress.maxValue = 1; self.progress.doubleValue = 0; self.progress.indeterminate = NO; [self.window.contentView addSubview:self.progress];
-	self.cancelButton = [[[NSButton alloc] initWithFrame:NSMakeRect(600, 54, 100, 28)] autorelease]; self.cancelButton.title = @"Cancel"; self.cancelButton.target = self; self.cancelButton.action = @selector(cancelImport:); self.cancelButton.enabled = NO; [self.window.contentView addSubview:self.cancelButton];
-	self.importButton = [[[NSButton alloc] initWithFrame:NSMakeRect(410, 15, 180, 32)] autorelease]; self.importButton.title = @"Import macOS Apps"; self.importButton.target = self; self.importButton.action = @selector(importApplications:); [self.window.contentView addSubview:self.importButton];
+	self.brewButton = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 75, 180, 32)] autorelease]; self.brewButton.title = @"Install Homebrew"; self.brewButton.toolTip = @"Bootstrap the native Homebrew environment in this prefix."; self.brewButton.target = self; self.brewButton.action = @selector(installHomebrew:); [self.window.contentView addSubview:self.brewButton];
+	self.bundleButton = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 75, 180, 32)] autorelease]; self.bundleButton.title = @"Install Brewfile Apps"; self.bundleButton.toolTip = @"Choose a Brewfile and install its supported native packages."; self.bundleButton.target = self; self.bundleButton.action = @selector(installBrewfile:); [self.window.contentView addSubview:self.bundleButton];
+	self.progressLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(20, 42, 680, 22)] autorelease]; self.progressLabel.editable = NO; self.progressLabel.bordered = NO; self.progressLabel.drawsBackground = NO; self.progressLabel.toolTip = @"Current import operation and byte progress."; self.progressLabel.stringValue = @"Ready to import verified macOS apps."; [self.window.contentView addSubview:self.progressLabel];
+	self.progress = [[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(20, 18, 570, 16)] autorelease]; self.progress.minValue = 0; self.progress.maxValue = 1; self.progress.doubleValue = 0; self.progress.indeterminate = NO; self.progress.toolTip = @"Import progress"; [self.window.contentView addSubview:self.progress];
+	self.cancelButton = [[[NSButton alloc] initWithFrame:NSMakeRect(600, 14, 100, 28)] autorelease]; self.cancelButton.title = @"Cancel"; self.cancelButton.toolTip = @"Cancel the current import and remove only its temporary copy."; self.cancelButton.target = self; self.cancelButton.action = @selector(cancelImport:); self.cancelButton.enabled = NO; [self.window.contentView addSubview:self.cancelButton];
+	self.importButton = [[[NSButton alloc] initWithFrame:NSMakeRect(410, 75, 180, 32)] autorelease]; self.importButton.title = @"Import macOS Apps"; self.importButton.toolTip = @"Copy verified applications into this prefix with progress."; self.importButton.target = self; self.importButton.action = @selector(importApplications:); [self.window.contentView addSubview:self.importButton];
 	[self.window setFrame:frame display:NO];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidResize:) name:NSWindowDidResizeNotification object:self.window];
 	[self layoutViewerContent];
