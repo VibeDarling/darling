@@ -124,6 +124,60 @@ static NSString *ImportByteCount(unsigned long long bytes) {
 	return [NSString stringWithFormat:@"%llu bytes", bytes];
 }
 
+static NSImage *BundleIconForApplication(NSString *path) {
+	NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Contents/Info.plist"]];
+	NSMutableArray *names = [NSMutableArray array];
+	id value = [info objectForKey:@"CFBundleIconName"];
+	if ([value isKindOfClass:[NSString class]]) [names addObject:value];
+	value = [info objectForKey:@"CFBundleIconFile"];
+	if ([value isKindOfClass:[NSString class]] && ![names containsObject:value]) [names addObject:value];
+	id files = [info objectForKey:@"CFBundleIconFiles"];
+	if ([files isKindOfClass:[NSArray class]]) for (id item in files) if ([item isKindOfClass:[NSString class]]) [names addObject:item];
+	for (NSString *name in names) {
+		NSString *candidate = [name pathExtension].length ? name : [name stringByAppendingPathExtension:@"icns"];
+		NSString *file = [[path stringByAppendingPathComponent:@"Contents/Resources"] stringByAppendingPathComponent:candidate];
+		NSImage *icon = nil;
+		@try { icon = [[[NSImage alloc] initWithContentsOfFile:file] autorelease]; } @catch (id exception) { icon = nil; }
+		if (icon && (icon.size.width <= 0.0 || icon.size.height <= 0.0)) icon = nil;
+		if (!icon) {
+			NSData *data = [NSData dataWithContentsOfFile:file];
+			const unsigned char *bytes = data.bytes; NSUInteger length = data.length; NSImage *best = nil; CGFloat bestArea = 0;
+			uint32_t declaredLength = length >= 8 ? ((uint32_t)bytes[4] << 24) | ((uint32_t)bytes[5] << 16) | ((uint32_t)bytes[6] << 8) | bytes[7] : 0;
+			if (bytes && length >= 8 && !memcmp(bytes, "icns", 4) && declaredLength >= 8 && declaredLength <= length) {
+				NSUInteger offset = 8;
+				while (offset + 8 <= declaredLength) {
+					uint32_t chunkLength = ((uint32_t)bytes[offset + 4] << 24) | ((uint32_t)bytes[offset + 5] << 16) | ((uint32_t)bytes[offset + 6] << 8) | bytes[offset + 7];
+					if (chunkLength < 8 || chunkLength > declaredLength - offset) break;
+					BOOL pngChunk = (!memcmp(bytes + offset, "ic13", 4) || !memcmp(bytes + offset, "ic12", 4) || !memcmp(bytes + offset, "ic11", 4) || !memcmp(bytes + offset, "ic10", 4) || !memcmp(bytes + offset, "ic09", 4) || !memcmp(bytes + offset, "ic08", 4) || !memcmp(bytes + offset, "ic07", 4));
+					if (pngChunk && chunkLength > 8) {
+						NSData *payload = [data subdataWithRange:NSMakeRange(offset + 8, chunkLength - 8)];
+						const unsigned char *png = payload.bytes;
+						NSImage *candidateImage = nil;
+						if (payload.length >= 8 && png && !memcmp(png, "\x89PNG\r\n\x1a\n", 8)) @try { candidateImage = [[[NSImage alloc] initWithData:payload] autorelease]; } @catch (id exception) { candidateImage = nil; }
+						CGFloat area = candidateImage ? candidateImage.size.width * candidateImage.size.height : 0;
+						if (candidateImage && area > bestArea) { best = candidateImage; bestArea = area; }
+					}
+					offset += chunkLength;
+				}
+				icon = best;
+			}
+		}
+		if (icon) return icon;
+	}
+	return nil;
+}
+
+static NSImage *GenericApplicationIcon(void) {
+	NSImage *icon = [[[NSImage alloc] initWithSize:NSMakeSize(72.0, 72.0)] autorelease];
+	[icon lockFocus];
+	[[NSColor colorWithCalibratedRed:0.30 green:0.48 blue:0.78 alpha:1.0] set];
+	[[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(3.0, 3.0, 66.0, 66.0) xRadius:12.0 yRadius:12.0] fill];
+	NSDictionary *attributes = @{NSFontAttributeName: [NSFont boldSystemFontOfSize:18.0], NSForegroundColorAttributeName: [NSColor whiteColor]};
+	[@"APP" drawAtPoint:NSMakePoint(15.0, 26.0) withAttributes:attributes];
+	[icon unlockFocus];
+	return icon;
+}
+
 static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const char *source, const char *destination, void *opaque) {
 	ImportCopyContext *context = opaque;
 	if (context->controller.importCancelled) return COPYFILE_QUIT;
@@ -252,18 +306,18 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 }
 
 - (void)loadIconUpdate:(NSDictionary *)update {
-	[self.grid setIcon:[update objectForKey:@"icon"] forIndex:[[update objectForKey:@"index"] unsignedIntegerValue] generation:[[update objectForKey:@"generation"] unsignedIntegerValue]];
+	id icon = [update objectForKey:@"icon"];
+	if (icon == (id)[NSNull null] || !icon) icon = GenericApplicationIcon();
+	[self.grid setIcon:icon forIndex:[[update objectForKey:@"index"] unsignedIntegerValue] generation:[[update objectForKey:@"generation"] unsignedIntegerValue]];
 }
 
 - (void)loadIconsInBackground:(NSDictionary *)request {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	NSArray *items = [request objectForKey:@"items"];
 	NSUInteger generation = [[request objectForKey:@"generation"] unsignedIntegerValue];
-	NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
 	for (NSUInteger index = 0; index < items.count; index++) {
 		NSString *path = [@"/Applications" stringByAppendingPathComponent:[items objectAtIndex:index]];
-		NSImage *icon = [workspace iconForFile:path];
-		if (!icon) icon = [workspace iconForFileType:@"app"];
+		NSImage *icon = BundleIconForApplication(path);
 		NSDictionary *update = @{@"icon": icon ?: (id)[NSNull null], @"index": @(index), @"generation": @(generation)};
 		[self performSelectorOnMainThread:@selector(loadIconUpdate:) withObject:update waitUntilDone:NO];
 	}
