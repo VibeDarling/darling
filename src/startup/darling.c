@@ -2177,6 +2177,16 @@ void setupShellspawnEnv(int sockfd)
 	char envShaderCache[4096];
 	snprintf(envShaderCache, sizeof(envShaderCache), "MESA_SHADER_CACHE_DIR=%s", shaderCacheDir);
 	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, envShaderCache);
+
+	// Redirect XDG_CACHE_HOME to /tmp so host Linux libraries (such as Fontconfig or GUI backends)
+	// running within Darling can store cache data on the host without failing against non-existent /Users paths.
+	char xdgCacheDir[4096];
+	snprintf(xdgCacheDir, sizeof(xdgCacheDir), "/tmp/.darling-cache-%u", geteuid());
+	mkdir(xdgCacheDir, 0700);
+
+	char envCache[4096];
+	snprintf(envCache, sizeof(envCache), "XDG_CACHE_HOME=%s", xdgCacheDir);
+	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, envCache);
 	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV,
 		"PERL5LIB=/System/Library/Perl/5.28:"
 		"/System/Library/Perl/5.28/darwin-thread-multi-2level:"
