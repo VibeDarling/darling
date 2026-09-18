@@ -36,7 +36,7 @@ BUILD = IMAGE / "build"
 VARS = required_path("DARLING_VIEWER_VARS")
 OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", BUILD / "darling-applications"))
 RECORDED_ROOT = Path(os.environ.get("DARLING_VIEWER_RECORDED_ROOT", CHECKOUT))
-EXPECTED_SOURCE = "b2fdad187213f932056928df1f35a29eb0e44a541ece3181094a6bcfe31d6d42"
+EXPECTED_SOURCE = "d75429e609b9b3b1cbae0f52632aba1d8b1d526c654ce1d2813ae139bb700726"
 
 def load(path):
     result = {}
