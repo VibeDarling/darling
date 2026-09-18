@@ -14,7 +14,7 @@ IMAGE = Path("/home/cristi/src/darling-integration17")
 BUILD = IMAGE / "build"
 VARS = Path("/home/cristi/src/darling-gui/privbuild/wayland/apps")
 OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", "/home/cristi/.local/share/darling/macos-apps/builds/darling-applications-integration17"))
-EXPECTED_SOURCE = "b2fdad187213f932056928df1f35a29eb0e44a541ece3181094a6bcfe31d6d42"
+EXPECTED_SOURCE = "39892985c110fb29097548c7f6044f9306c9848bbcf783dfa714f41ee49756a5"
 
 def load(path):
     result = {}
