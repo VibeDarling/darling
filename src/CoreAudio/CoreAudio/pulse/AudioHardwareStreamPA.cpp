@@ -69,21 +69,33 @@ AudioHardwareStreamPA::AudioHardwareStreamPA(AudioHardwareImplPA* hw, AudioDevic
 AudioHardwareStreamPA::~AudioHardwareStreamPA()
 {
 	if (m_stream)
+	{
+		pa_stream_disconnect(m_stream);
 		pa_stream_unref(m_stream);
+		m_stream = nullptr;
+	}
 }
 
 void AudioHardwareStreamPA::start()
 {
+	std::unique_lock<std::recursive_mutex> l(m_stopMutex);
 	m_running = true;
+	if (m_stream && pa_stream_get_state(m_stream) == PA_STREAM_READY)
+	{
+		pa_stream_cork(m_stream, false, [](pa_stream*, int, void*) {}, nullptr);
+	}
 }
 
 void AudioHardwareStreamPA::stop()
 {
 	{
-		std::unique_lock<std::mutex> l(m_stopMutex);
+		std::unique_lock<std::recursive_mutex> l(m_stopMutex);
 		m_running = false;
 	}
-	pa_stream_disconnect(m_stream);
+	if (m_stream && pa_stream_get_state(m_stream) == PA_STREAM_READY)
+	{
+		pa_stream_cork(m_stream, true, [](pa_stream*, int, void*) {}, nullptr);
+	}
 }
 
 // This function seems to only convert unsigned to signed, but it works both ways in practice

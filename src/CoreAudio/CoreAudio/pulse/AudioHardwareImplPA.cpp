@@ -23,6 +23,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include "PADispatchMainLoop.h"
 #include <CoreFoundation/CFBundle.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFRunLoop.h>
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -116,6 +117,15 @@ OSStatus AudioHardwareImplPA::getPropertyData(const AudioObjectPropertyAddress* 
 			*ioDataSize = sizeof(Float32);
 			return kAudioHardwareNoError;
 		}
+		case kAudioHardwarePropertyRunLoop:
+		{
+			if (CFRunLoopRef* rl = static_cast<CFRunLoopRef*>(outData); rl && *ioDataSize >= sizeof(CFRunLoopRef))
+			{
+				*rl = nullptr;
+			}
+			*ioDataSize = sizeof(CFRunLoopRef);
+			return kAudioHardwareNoError;
+		}
 	}
 
 	return AudioHardwareImpl::getPropertyData(inAddress, inQualifierDataSize, inQualifierData, ioDataSize, outData);
@@ -124,6 +134,8 @@ OSStatus AudioHardwareImplPA::getPropertyData(const AudioObjectPropertyAddress* 
 OSStatus AudioHardwareImplPA::setPropertyData(const AudioObjectPropertyAddress* inAddress, UInt32 inQualifierDataSize,
 	const void* inQualifierData, UInt32 inDataSize, const void* inData)
 {
+	if (inAddress->mSelector == kAudioHardwarePropertyRunLoop)
+		return kAudioHardwareNoError;
 	return AudioHardwareImpl::setPropertyData(inAddress, inQualifierDataSize, inQualifierData, inDataSize, inData);
 }
 

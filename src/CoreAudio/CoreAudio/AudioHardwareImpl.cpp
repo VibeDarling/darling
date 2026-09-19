@@ -73,6 +73,13 @@ OSStatus AudioHardwareImpl::destroyIOProcID(AudioDeviceIOProcID inIOProcID)
 	if (it == m_proc.end())
 		return paramErr;
 	
+	auto it_stream = m_streams.find(inIOProcID);
+	if (it_stream != m_streams.end())
+	{
+		it_stream->second->stop();
+		m_streams.erase(it_stream);
+	}
+
 	m_proc.erase(it);
 	return noErr;
 }
@@ -80,38 +87,36 @@ OSStatus AudioHardwareImpl::destroyIOProcID(AudioDeviceIOProcID inIOProcID)
 OSStatus AudioHardwareImpl::start(AudioDeviceIOProcID inProcID,
 		AudioTimeStamp* ioRequestedStartTime, UInt32 inFlags)
 {
-	AudioHardwareStream* stream;
 	std::lock_guard<std::mutex> guard(m_procMutex);
 	
-	if (m_streams.find(inProcID) != m_streams.end())
-		return paramErr;
+	auto it_stream = m_streams.find(inProcID);
+	if (it_stream != m_streams.end())
+	{
+		it_stream->second->start();
+		return noErr;
+	}
 
 	auto it = m_proc.find(inProcID);
-	
 	if (it == m_proc.end())
 		return paramErr;
 	
-	stream = createStream(it->second.first, it->second.second);
+	AudioHardwareStream* stream = createStream(it->second.first, it->second.second);
 	if (!stream)
 		return kAudioHardwareBadStreamError;
 	m_streams.emplace(std::make_pair(inProcID, std::unique_ptr<AudioHardwareStream>(stream)));
-	
-	// TODO: time
 	
 	return noErr;
 }
 
 OSStatus AudioHardwareImpl::stop(AudioDeviceIOProcID inProcID)
 {
+	std::lock_guard<std::mutex> guard(m_procMutex);
+
 	auto it = m_streams.find(inProcID);
 	if (it == m_streams.end())
 		return kAudioHardwareNotRunningError;
 	
-	AudioHardwareStream* stream = it->second.release();
-	stream->stop();
-
-	delete stream;
-	m_streams.erase(it);
+	it->second->stop();
 	return noErr;
 }
 
@@ -134,6 +139,8 @@ OSStatus AudioHardwareImpl::isPropertySettable(const AudioObjectPropertyAddress*
 	{
 		case kAudioDevicePropertyVolumeScalar:
 		case kAudioDevicePropertyVolumeDecibels:
+		case kAudioDevicePropertyBufferFrameSize:
+		case kAudioHardwarePropertyRunLoop:
 			*outIsSettable = true;
 			return kAudioHardwareNoError;
 	}
@@ -227,6 +234,42 @@ OSStatus AudioHardwareImpl::getPropertyData(const AudioObjectPropertyAddress* in
 		{
 			return kAudioHardwareNoError;
 		}
+		case kAudioDevicePropertyBufferFrameSize:
+		{
+			if (UInt32* bfs = static_cast<UInt32*>(outData); outData && *ioDataSize >= sizeof(UInt32))
+				*bfs = 512;
+			*ioDataSize = sizeof(UInt32);
+			return kAudioHardwareNoError;
+		}
+		case kAudioDevicePropertyBufferFrameSizeRange:
+		{
+			if (AudioValueRange* avr = static_cast<AudioValueRange*>(outData); avr && *ioDataSize >= sizeof(AudioValueRange))
+			{
+				avr->mMinimum = 64;
+				avr->mMaximum = 4096;
+			}
+			*ioDataSize = sizeof(AudioValueRange);
+			return kAudioHardwareNoError;
+		}
+		case kAudioDevicePropertySafetyOffset:
+		{
+			if (UInt32* so = static_cast<UInt32*>(outData); outData && *ioDataSize >= sizeof(UInt32))
+				*so = 0;
+			*ioDataSize = sizeof(UInt32);
+			return kAudioHardwareNoError;
+		}
+		case kAudioDevicePropertyLatency:
+		{
+			if (UInt32* lat = static_cast<UInt32*>(outData); outData && *ioDataSize >= sizeof(UInt32))
+				*lat = 0;
+			*ioDataSize = sizeof(UInt32);
+			return kAudioHardwareNoError;
+		}
+		case kAudioDevicePropertyStreams:
+		{
+			*ioDataSize = 0;
+			return kAudioHardwareNoError;
+		}
 	}
 	return kAudioHardwareUnknownPropertyError;
 }
@@ -258,6 +301,10 @@ OSStatus AudioHardwareImpl::setPropertyData(const AudioObjectPropertyAddress* in
 		case kAudioDevicePropertyBufferSize:
 		{
 			return setBufferSize(*static_cast<const uint32_t*>(inData));
+		}
+		case kAudioDevicePropertyBufferFrameSize:
+		{
+			return kAudioHardwareNoError;
 		}
 		case kAudioDevicePropertyVolumeScalar:
 		{
@@ -299,13 +346,13 @@ OSStatus AudioHardwareImpl::setPropertyData(const AudioObjectPropertyAddress* in
 OSStatus AudioHardwareImpl::addPropertyListener(const AudioObjectPropertyAddress* inAddress,
 	AudioObjectPropertyListenerProc inListener, void* inClientData)
 {
-	return kAudioHardwareUnknownPropertyError;
+	return kAudioHardwareNoError;
 }
 
 OSStatus AudioHardwareImpl::removePropertyListener(const AudioObjectPropertyAddress* inAddress,
 	AudioObjectPropertyListenerProc inListener, void* inClientData)
 {
-	return kAudioHardwareUnknownPropertyError;
+	return kAudioHardwareNoError;
 }
 
 OSStatus AudioHardwareImpl::setBufferSize(uint32_t bufferSize)

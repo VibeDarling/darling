@@ -40,6 +40,16 @@ AUHAL::AUHAL(AudioComponentInstance inInstance, bool supportRecording)
 AUHAL::~AUHAL()
 {
 	Stop();
+	if (m_outputProcID)
+	{
+		AudioDeviceDestroyIOProcID(m_outputDevice, m_outputProcID);
+		m_outputProcID = 0;
+	}
+	if (m_inputProcID)
+	{
+		AudioDeviceDestroyIOProcID(m_inputDevice, m_inputProcID);
+		m_inputProcID = 0;
+	}
 }
 
 bool AUHAL::CanScheduleParameters() const
@@ -49,7 +59,7 @@ bool AUHAL::CanScheduleParameters() const
 
 bool AUHAL::StreamFormatWritable(AudioUnitScope scope, AudioUnitElement element)
 {
-	return !m_running && IsInitialized();
+	return !m_running;
 }
 
 OSStatus AUHAL::Version()
@@ -82,7 +92,10 @@ OSStatus AUHAL::Start()
 	if (m_enableOutput)
 	{
 		// std::cout << "Output is enabled, starting playback\n";
-		AudioDeviceCreateIOProcID(m_outputDevice, playbackCallback, this, &m_outputProcID);
+		if (!m_outputProcID)
+		{
+			AudioDeviceCreateIOProcID(m_outputDevice, playbackCallback, this, &m_outputProcID);
+		}
 
 		// m_auhalData.open("/tmp/auhal.raw", std::ios_base::binary | std::ios_base::out);
 
@@ -92,13 +105,18 @@ OSStatus AUHAL::Start()
 	}
 	if (m_enableInput)
 	{
-		AudioDeviceCreateIOProcID(m_inputDevice, recordCallback, this, &m_inputProcID);
+		if (!m_inputProcID)
+		{
+			AudioDeviceCreateIOProcID(m_inputDevice, recordCallback, this, &m_inputProcID);
+		}
 		const CAStreamBasicDescription& desc = GetStreamFormat(kAudioUnitScope_Output, kInputBus);
 		AudioDeviceSetProperty(m_inputDevice, nullptr, 0, true, kAudioDevicePropertyStreamFormat, sizeof(AudioStreamBasicDescription), &desc);
 		AudioDeviceStart(m_inputDevice, m_inputProcID);
 	}
 
 	m_running = m_enableOutput || m_enableInput;
+	if (m_running)
+		PropertyChanged(kAudioOutputUnitProperty_IsRunning, kAudioUnitScope_Global, 0);
 	return noErr;
 }
 
@@ -107,15 +125,16 @@ OSStatus AUHAL::Stop()
 	if (!m_running)
 		return noErr;
 
+	m_running = false;
+	PropertyChanged(kAudioOutputUnitProperty_IsRunning, kAudioUnitScope_Global, 0);
+
 	if (m_outputProcID)
 	{
 		AudioDeviceStop(m_outputDevice, m_outputProcID);
-		AudioDeviceDestroyIOProcID(m_outputDevice, m_outputProcID);
 	}
 	if (m_inputProcID)
 	{
 		AudioDeviceStop(m_inputDevice, m_inputProcID);
-		AudioDeviceDestroyIOProcID(m_inputDevice, m_inputProcID);
 	}
 
 	return noErr;
@@ -175,6 +194,12 @@ OSStatus AUHAL::SetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope, Au
 				return kAudioUnitErr_InvalidElement;
 			return noErr;
 		}
+		case kAudioUnitProperty_RenderQuality:
+		{
+			ca_require(inDataSize == sizeof(UInt32), InvalidPropertyValue);
+			m_renderQuality = *static_cast<const UInt32*>(inData);
+			return noErr;
+		}
 	}
 	return AUBase::SetProperty(inID, inScope, inElement, inData, inDataSize);
 InvalidPropertyValue:
@@ -206,6 +231,18 @@ OSStatus AUHAL::GetPropertyInfo(AudioUnitPropertyID inID, AudioUnitScope inScope
 		case kAudioOutputUnitProperty_CurrentDevice:
 		{
 			outDataSize = sizeof(AudioDeviceID);
+			outWritable = true;
+			return noErr;
+		}
+		case kAudioOutputUnitProperty_IsRunning:
+		{
+			outDataSize = sizeof(UInt32);
+			outWritable = false;
+			return noErr;
+		}
+		case kAudioUnitProperty_RenderQuality:
+		{
+			outDataSize = sizeof(UInt32);
 			outWritable = true;
 			return noErr;
 		}
@@ -253,6 +290,17 @@ OSStatus AUHAL::GetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope, Au
 				return kAudioUnitErr_InvalidElement;
 			return noErr;
 		}
+		case kAudioOutputUnitProperty_IsRunning:
+		{
+			UInt32 running = m_running ? 1 : 0;
+			memcpy(outData, &running, sizeof(running));
+			return noErr;
+		}
+		case kAudioUnitProperty_RenderQuality:
+		{
+			memcpy(outData, &m_renderQuality, sizeof(m_renderQuality));
+			return noErr;
+		}
 	}
 	return AUBase::GetProperty(inID, inScope, inElement, outData);
 }
@@ -290,13 +338,43 @@ OSStatus AUHAL::doPlayback(const AudioTimeStamp* inNow, AudioBufferList* outOutp
 	AudioUnitRenderActionFlags flags = kAudioUnitRenderAction_PreRender;
 	const CAStreamBasicDescription& desc = GetStreamFormat(kAudioUnitScope_Input, kOutputBus);
 
-	UInt32 nFrames = outOutputData->mBuffers[0].mDataByteSize / (desc.mBytesPerFrame / outOutputData->mBuffers[0].mNumberChannels);
+	UInt32 origChannels = outOutputData->mBuffers[0].mNumberChannels;
+	UInt32 origByteSize = outOutputData->mBuffers[0].mDataByteSize;
+
+	UInt32 clientChannels = desc.mChannelsPerFrame ? desc.mChannelsPerFrame : origChannels;
+	outOutputData->mBuffers[0].mNumberChannels = clientChannels;
+
+	UInt32 nFrames = 0;
+	if (origChannels == 2 && clientChannels == 1)
+	{
+		nFrames = origByteSize / (2 * sizeof(float));
+		outOutputData->mBuffers[0].mDataByteSize = nFrames * sizeof(float);
+	}
+	else
+	{
+		nFrames = (clientChannels > 0 && sizeof(float) > 0) ? (origByteSize / (clientChannels * sizeof(float))) : 0;
+	}
+
+	if (nFrames == 0)
+		return noErr;
+
 	result = GetInput(kOutputBus)->PullInputWithBufferList(flags, *inNow, kOutputBus, nFrames, outOutputData);
 
-	// std::cout << "Pull result: " << result << std::endl;
-	// std::cout << "Bytes: " << outOutputData->mBuffers[0].mDataByteSize << std::endl;
-	// m_auhalData.write((char*) outOutputData->mBuffers[0].mData, outOutputData->mBuffers[0].mDataByteSize);
-	// m_auhalData.flush();
+	if (origChannels == 2 && clientChannels == 1 && result == noErr)
+	{
+		float* p = static_cast<float*>(outOutputData->mBuffers[0].mData);
+		if (p)
+		{
+			for (int i = (int)nFrames - 1; i >= 0; i--)
+			{
+				p[i * 2 + 1] = p[i];
+				p[i * 2] = p[i];
+			}
+		}
+	}
+
+	outOutputData->mBuffers[0].mDataByteSize = origByteSize;
+	outOutputData->mBuffers[0].mNumberChannels = origChannels;
 
 	return result;
 }

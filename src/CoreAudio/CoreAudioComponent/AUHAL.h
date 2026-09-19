@@ -24,6 +24,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <condition_variable>
 #include <mutex>
 #include <memory>
+#include <atomic>
 #include <stdint.h>
 
 class AUHAL : public AUBase
@@ -68,6 +69,7 @@ protected:
 
 	AudioDeviceID m_outputDevice, m_inputDevice;
 	AudioDeviceIOProcID m_outputProcID = 0, m_inputProcID = 0;
+	UInt32 m_renderQuality = 0;
 
 	bool m_dataAvailable = false;
 	std::condition_variable m_dataAvailableCV;

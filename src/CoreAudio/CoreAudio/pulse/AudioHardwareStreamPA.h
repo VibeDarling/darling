@@ -32,9 +32,9 @@ public:
 	AudioHardwareStreamPA(AudioHardwareImplPA* hw, AudioDeviceIOProc callback, void* clientData);
 	~AudioHardwareStreamPA();
 
+	void start() override;
 	void stop(/*void(^cbDone)()*/) override;
 protected:
-	virtual void start();
 	void transformSignedUnsigned(AudioBufferList* abl) const;
 protected:
 	AudioDeviceIOProc m_callback;
@@ -44,7 +44,7 @@ protected:
 	bool m_convertSignedUnsigned = false;
 
 	bool m_running = false;
-	std::mutex m_stopMutex;
+	std::recursive_mutex m_stopMutex;
 };
 
 #endif /* AUDIOHARDWARESTREAMPA_H */

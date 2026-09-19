@@ -32,7 +32,7 @@ void AudioHardwareStreamPAInput::paStreamReadCB(pa_stream* s, size_t length, voi
 {
 	AudioHardwareStreamPAInput* This = static_cast<AudioHardwareStreamPAInput*>(self);
 
-	std::unique_lock<std::mutex> l(This->m_stopMutex);
+	std::unique_lock<std::recursive_mutex> l(This->m_stopMutex);
 
 	if (!This->m_running)
 		return;

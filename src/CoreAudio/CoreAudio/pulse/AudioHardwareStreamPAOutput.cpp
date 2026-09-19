@@ -30,7 +30,7 @@ AudioHardwareStreamPAOutput::AudioHardwareStreamPAOutput(AudioHardwareImplPA* hw
 void AudioHardwareStreamPAOutput::paStreamWriteCB(pa_stream* s, size_t length, void* self)
 {
 	AudioHardwareStreamPAOutput* This = static_cast<AudioHardwareStreamPAOutput*>(self);
-	std::unique_lock<std::mutex> l(This->m_stopMutex);
+	std::unique_lock<std::recursive_mutex> l(This->m_stopMutex);
 
 	if (!This->m_running)
 	{
@@ -50,7 +50,7 @@ void AudioHardwareStreamPAOutput::paStreamWriteCB(pa_stream* s, size_t length, v
 		// Non-interleaved (planar) audio would have multiple buffers, but PA doesn't even support that AFAIK
 		abl->mNumberBuffers = 1;
 
-		abl->mBuffers[0].mNumberChannels = 2;
+		abl->mBuffers[0].mNumberChannels = This->m_hw->asbd().mChannelsPerFrame ? This->m_hw->asbd().mChannelsPerFrame : 2;
 		// abl->mBuffers[0].mData = This->m_buffer;
 
 		// std::cout << "AudioHardwareStreamPAOutput() length req=" << length << ", done=" << done << std::endl;
@@ -74,26 +74,27 @@ void AudioHardwareStreamPAOutput::paStreamWriteCB(pa_stream* s, size_t length, v
 		OSStatus status = This->m_callback(This->m_hw->id(), &fake, nullptr, nullptr, abl, &fake, This->m_clientData);
 		if (status != noErr || !abl->mBuffers[0].mDataByteSize)
 		{
-			pa_stream_cancel_write(This->m_stream);
-			pa_stream_cork(This->m_stream, true, [](pa_stream*, int, void*) {}, nullptr);
+			memset(pdata, 0, rqsize);
+		}
+		else if (abl->mBuffers[0].mDataByteSize < rqsize)
+		{
+			memset((uint8_t*)pdata + abl->mBuffers[0].mDataByteSize, 0, rqsize - abl->mBuffers[0].mDataByteSize);
+		}
+
+		if (This->m_convertSignedUnsigned)
+			This->transformSignedUnsigned(abl);
+			
+		int rv = pa_stream_write(This->m_stream, pdata, rqsize, nullptr, 0, PA_SEEK_RELATIVE);
+		if (rv != 0)
+		{
+			std::cerr << "[CoreAudio PA] pa_stream_write failed: " << rv << std::endl;
 			break;
 		}
-		else
-		{
-			if (abl->mBuffers[0].mDataByteSize < rqsize)
-			{
-				memset((uint8_t*)pdata + abl->mBuffers[0].mDataByteSize, 0, rqsize - abl->mBuffers[0].mDataByteSize);
-			}
 
-			if (This->m_convertSignedUnsigned)
-				This->transformSignedUnsigned(abl);
-				
-			int rv = pa_stream_write(This->m_stream, pdata, rqsize, nullptr, 0, PA_SEEK_RELATIVE);
-			if (rv != 0)
-			{
-				std::cerr << "[CoreAudio PA] pa_stream_write failed: " << rv << std::endl;
-				break;
-			}
+		if (!This->m_running)
+		{
+			pa_stream_cork(This->m_stream, true, [](pa_stream*, int, void*) {}, nullptr);
+			break;
 		}
 
 		done += rqsize;

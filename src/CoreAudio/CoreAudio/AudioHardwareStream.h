@@ -29,6 +29,7 @@ public:
 	AudioHardwareStream(AudioHardwareImpl* hw, bool needBuffer = true);
 	virtual ~AudioHardwareStream();
 
+	virtual void start() = 0;
 	virtual void stop(/*void(^cbDone)()*/) = 0;
 	//void stop();
 protected:
