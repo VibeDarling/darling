@@ -112,4 +112,39 @@ void* ExtAudioFileWrite(void) {
 	return NULL;
 };
 
+void* AudioQueueAllocateBuffer(void) {
+	if (verbose) LOG_FUNC("STUB: AudioQueueAllocateBuffer called\n");
+	return NULL;
+}
+
+void* AudioQueueDispose(void) {
+	if (verbose) LOG_FUNC("STUB: AudioQueueDispose called\n");
+	return NULL;
+}
+
+void* AudioQueueEnqueueBuffer(void) {
+	if (verbose) LOG_FUNC("STUB: AudioQueueEnqueueBuffer called\n");
+	return NULL;
+}
+
+void* AudioQueueFlush(void) {
+	if (verbose) LOG_FUNC("STUB: AudioQueueFlush called\n");
+	return NULL;
+}
+
+void* AudioQueueNewOutput(void) {
+	if (verbose) LOG_FUNC("STUB: AudioQueueNewOutput called\n");
+	return NULL;
+}
+
+void* AudioQueueSetProperty(void) {
+	if (verbose) LOG_FUNC("STUB: AudioQueueSetProperty called\n");
+	return NULL;
+}
+
+void* AudioQueueStart(void) {
+	if (verbose) LOG_FUNC("STUB: AudioQueueStart called\n");
+	return NULL;
+}
+
 

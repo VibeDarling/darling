@@ -39,6 +39,41 @@ const CFStringRef kVTVideoDecoderSpecification_RequireHardwareAcceleratedVideoDe
 const CFStringRef kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder = CFSTR("EnableHardwareAcceleratedVideoEncoder");
 const CFStringRef kVTPixelTransferPropertyKey_RealTime = CFSTR("RealTime");
 
+const CFStringRef kVTCompressionPropertyKey_ColorPrimaries = CFSTR("ColorPrimaries");
+const CFStringRef kVTCompressionPropertyKey_TransferFunction = CFSTR("TransferFunction");
+const CFStringRef kVTCompressionPropertyKey_YCbCrMatrix = CFSTR("YCbCrMatrix");
+const CFStringRef kVTCompressionPropertyKey_PixelAspectRatio = CFSTR("PixelAspectRatio");
+const CFStringRef kVTCompressionPropertyKey_Quality = CFSTR("Quality");
+const CFStringRef kVTCompressionPropertyKey_MoreFramesAfterEnd = CFSTR("MoreFramesAfterEnd");
+const CFStringRef kVTCompressionPropertyKey_MoreFramesBeforeStart = CFSTR("MoreFramesBeforeStart");
+const CFStringRef kVTCompressionPropertyKey_MaxH264SliceBytes = CFSTR("MaxH264SliceBytes");
+
+const CFStringRef kVTProfileLevel_H264_Baseline_1_3 = CFSTR("H264_Baseline_1_3");
+const CFStringRef kVTProfileLevel_H264_Baseline_3_0 = CFSTR("H264_Baseline_3_0");
+const CFStringRef kVTProfileLevel_H264_Baseline_3_1 = CFSTR("H264_Baseline_3_1");
+const CFStringRef kVTProfileLevel_H264_Baseline_3_2 = CFSTR("H264_Baseline_3_2");
+const CFStringRef kVTProfileLevel_H264_Baseline_4_1 = CFSTR("H264_Baseline_4_1");
+const CFStringRef kVTProfileLevel_H264_High_5_0 = CFSTR("H264_High_5_0");
+const CFStringRef kVTProfileLevel_H264_Main_3_0 = CFSTR("H264_Main_3_0");
+const CFStringRef kVTProfileLevel_H264_Main_3_1 = CFSTR("H264_Main_3_1");
+const CFStringRef kVTProfileLevel_H264_Main_3_2 = CFSTR("H264_Main_3_2");
+const CFStringRef kVTProfileLevel_H264_Main_4_0 = CFSTR("H264_Main_4_0");
+const CFStringRef kVTProfileLevel_H264_Main_4_1 = CFSTR("H264_Main_4_1");
+const CFStringRef kVTProfileLevel_H264_Main_5_0 = CFSTR("H264_Main_5_0");
+
+const CFStringRef kVTPixelRotationPropertyKey_FlipHorizontalOrientation = CFSTR("FlipHorizontalOrientation");
+const CFStringRef kVTPixelRotationPropertyKey_FlipVerticalOrientation = CFSTR("FlipVerticalOrientation");
+const CFStringRef kVTPixelRotationPropertyKey_Rotation = CFSTR("Rotation");
+const CFStringRef kVTPixelTransferPropertyKey_DestinationColorPrimaries = CFSTR("DestinationColorPrimaries");
+const CFStringRef kVTPixelTransferPropertyKey_DestinationTransferFunction = CFSTR("DestinationTransferFunction");
+const CFStringRef kVTPixelTransferPropertyKey_DestinationYCbCrMatrix = CFSTR("DestinationYCbCrMatrix");
+const CFStringRef kVTPixelTransferPropertyKey_ScalingMode = CFSTR("ScalingMode");
+const CFStringRef kVTRotation_0 = CFSTR("0");
+const CFStringRef kVTRotation_180 = CFSTR("180");
+const CFStringRef kVTRotation_CCW90 = CFSTR("CCW90");
+const CFStringRef kVTRotation_CW90 = CFSTR("CW90");
+const CFStringRef kVTScalingMode_CropSourceToCleanAperture = CFSTR("CropSourceToCleanAperture");
+
 static int verbose = 0;
 
 __attribute__((constructor))
@@ -898,6 +933,24 @@ void* VTPixelBufferConformerSetColorProperties(void)
     return NULL;
 }
 
+void* VTPixelRotationSessionCreate(void)
+{
+    if (verbose) puts("STUB: VTPixelRotationSessionCreate called");
+    return NULL;
+}
+
+void* VTPixelRotationSessionInvalidate(void)
+{
+    if (verbose) puts("STUB: VTPixelRotationSessionInvalidate called");
+    return NULL;
+}
+
+void* VTPixelRotationSessionRotateImage(void)
+{
+    if (verbose) puts("STUB: VTPixelRotationSessionRotateImage called");
+    return NULL;
+}
+
 void* VTPixelTransferSessionCanTransfer(void)
 {
     if (verbose) puts("STUB: VTPixelTransferSessionCanTransfer called");
@@ -1051,6 +1104,12 @@ void* VTRegisterProfessionalVideoWorkflowVideoDecoders(void)
 void* VTRegisterProfessionalVideoWorkflowVideoEncoders(void)
 {
     if (verbose) puts("STUB: VTRegisterProfessionalVideoWorkflowVideoEncoders called");
+    return NULL;
+}
+
+void* VTRegisterSupplementalVideoDecoderIfAvailable(unsigned int codecType)
+{
+    if (verbose) puts("STUB: VTRegisterSupplementalVideoDecoderIfAvailable called");
     return NULL;
 }
 

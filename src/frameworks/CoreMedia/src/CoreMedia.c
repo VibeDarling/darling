@@ -24,6 +24,7 @@
 #include <stdio.h>
 
 const CFStringRef kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms = CFSTR("SampleDescriptionExtensionAtoms");
+const CFStringRef kCMFormatDescriptionExtension_VerbatimSampleDescription = CFSTR("VerbatimSampleDescription");
 const CFStringRef kCMSampleAttachmentKey_NotSync = CFSTR("NotSync");
 
 static int verbose = 0;
