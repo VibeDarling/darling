@@ -73,14 +73,15 @@ static NSString *FindHelper(NSString *name) {
 		NSImage *icon = [self.icons objectForKey:[NSNumber numberWithUnsignedInteger:index]];
 		if ((id)icon == [NSNull null]) icon = nil;
 		if (icon) {
+			NSRect iconRect = NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0);
 			CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
 			CGContextSaveGState(context);
 			CGContextClipToRect(context, cell);
 			if ([self isFlipped]) {
-				CGAffineTransform flip = {1, 0, 0, -1, 0, cell.size.height};
+				CGAffineTransform flip = {1, 0, 0, -1, 0, 2.0 * iconRect.origin.y + iconRect.size.height};
 				CGContextConcatCTM(context, flip);
 			}
-			[icon drawInRect:NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+			[icon drawInRect:iconRect fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
 			CGContextRestoreGState(context);
 		}
 		NSString *name = [self.items objectAtIndex:index];
