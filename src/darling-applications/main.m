@@ -49,6 +49,18 @@ static NSString *FindHelper(NSString *name) {
 
 - (BOOL)isFlipped { return YES; }
 
+// The stock NSView scrollWheel path moves deltaY * lineScroll * 3 (30pt per notch),
+// far coarser than 120pt grid rows. Scroll by one cell row per notch instead.
+- (void)scrollWheel:(NSEvent *)event {
+	NSScrollView *scrollView = [self enclosingScrollView];
+	if (scrollView == nil) return;
+	NSRect visible = [self visibleRect];
+	CGFloat deltaY = [event deltaY] != 0.0 ? [event deltaY] * 132.0 : [event deltaX] * 132.0;
+	visible.origin.y -= deltaY;
+	visible.origin.y = MAX(0.0, MIN(NSMaxY(self.bounds) - visible.size.height, visible.origin.y));
+	[self scrollRectToVisible:visible];
+}
+
 - (CGFloat)columnCountForWidth:(CGFloat)width {
 	return MAX(1.0, floor((width + 12.0) / (130.0 + 12.0)));
 }
