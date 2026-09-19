@@ -313,6 +313,15 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)openSelectedApplication:(id)sender {
 	NSInteger row = self.table.clickedRow >= 0 ? self.table.clickedRow : self.table.selectedRow;
 	if (row < 0 || row >= (NSInteger)self.applications.count) return;
+	[self launchApplicationAtRow:row];
+}
+
+- (void)openSelectedApplicationAtIndex:(NSInteger)row {
+	if (row < 0 || row >= (NSInteger)self.applications.count) return;
+	[self launchApplicationAtRow:row];
+}
+
+- (void)launchApplicationAtRow:(NSInteger)row {
 	NSString *bundle = [@"/Applications" stringByAppendingPathComponent:self.applications[row]];
 	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
 	NSError *error = nil;
@@ -348,7 +357,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)grid:(DarlingApplicationsGrid *)grid selectedIndex:(NSInteger)index doubleClicked:(BOOL)doubleClicked {
 	if (index < 0 || index >= (NSInteger)self.applications.count) return;
 	[self.table selectRowIndexes:[NSIndexSet indexSetWithIndex:index] byExtendingSelection:NO];
-	if (doubleClicked) [self openSelectedApplication:grid];
+	if (doubleClicked) [self openSelectedApplicationAtIndex:index];
 }
 
 - (void)loadIconUpdate:(NSDictionary *)update {
