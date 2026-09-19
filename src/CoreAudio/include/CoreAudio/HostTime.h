@@ -8,6 +8,10 @@ extern "C" {
 #endif
 
 UInt64 AudioGetCurrentHostTime(void);
+UInt64 AudioConvertHostTimeToNanos(UInt64 inHostTime);
+UInt64 AudioConvertNanosToHostTime(UInt64 inNanos);
+Float64 AudioGetHostClockFrequency(void);
+UInt32 AudioGetHostClockMinimumTimeDelta(void);
 
 #ifdef __cplusplus
 }
