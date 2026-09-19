@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <math.h>
 
+static NSCache *gIconCache = nil;
+
 static NSString *FindHelper(NSString *name) {
 	NSArray *searchPaths = @[
 		[NSString stringWithFormat:@"/usr/libexec/darling/%@", name],
@@ -47,6 +49,18 @@ static NSString *FindHelper(NSString *name) {
 
 - (BOOL)isFlipped { return YES; }
 
+// The stock NSView scrollWheel path moves deltaY * lineScroll * 3 (30pt per notch),
+// far coarser than 120pt grid rows. Scroll by one cell row per notch instead.
+- (void)scrollWheel:(NSEvent *)event {
+	NSScrollView *scrollView = [self enclosingScrollView];
+	if (scrollView == nil) return;
+	NSRect visible = [self visibleRect];
+	CGFloat deltaY = [event deltaY] != 0.0 ? [event deltaY] * 132.0 : [event deltaX] * 132.0;
+	visible.origin.y -= deltaY;
+	visible.origin.y = MAX(0.0, MIN(NSMaxY(self.bounds) - visible.size.height, visible.origin.y));
+	[self scrollRectToVisible:visible];
+}
+
 - (CGFloat)columnCountForWidth:(CGFloat)width {
 	return MAX(1.0, floor((width + 12.0) / (130.0 + 12.0)));
 }
@@ -73,7 +87,16 @@ static NSString *FindHelper(NSString *name) {
 		NSImage *icon = [self.icons objectForKey:[NSNumber numberWithUnsignedInteger:index]];
 		if ((id)icon == [NSNull null]) icon = nil;
 		if (icon) {
-			[icon drawInRect:NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+			NSRect iconRect = NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0);
+			CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
+			CGContextSaveGState(context);
+			CGContextClipToRect(context, cell);
+			if ([self isFlipped]) {
+				CGAffineTransform flip = {1, 0, 0, -1, 0, 2.0 * iconRect.origin.y + iconRect.size.height};
+				CGContextConcatCTM(context, flip);
+			}
+			[icon drawInRect:iconRect fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+			CGContextRestoreGState(context);
 		}
 		NSString *name = [self.items objectAtIndex:index];
 		NSDictionary *attributes = @{NSFontAttributeName: [NSFont systemFontOfSize:12.0], NSForegroundColorAttributeName: [NSColor textColor]};
@@ -137,6 +160,10 @@ static NSString *ImportByteCount(unsigned long long bytes) {
 }
 
 static NSImage *BundleIconForApplication(NSString *path) {
+	if (gIconCache) {
+		NSImage *cached = [gIconCache objectForKey:path];
+		if (cached) return cached;
+	}
 	NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Contents/Info.plist"]];
 	NSMutableArray *names = [NSMutableArray array];
 	id value = [info objectForKey:@"CFBundleIconName"];
@@ -286,6 +313,15 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)openSelectedApplication:(id)sender {
 	NSInteger row = self.table.clickedRow >= 0 ? self.table.clickedRow : self.table.selectedRow;
 	if (row < 0 || row >= (NSInteger)self.applications.count) return;
+	[self launchApplicationAtRow:row];
+}
+
+- (void)openSelectedApplicationAtIndex:(NSInteger)row {
+	if (row < 0 || row >= (NSInteger)self.applications.count) return;
+	[self launchApplicationAtRow:row];
+}
+
+- (void)launchApplicationAtRow:(NSInteger)row {
 	NSString *bundle = [@"/Applications" stringByAppendingPathComponent:self.applications[row]];
 	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
 	NSError *error = nil;
@@ -321,7 +357,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)grid:(DarlingApplicationsGrid *)grid selectedIndex:(NSInteger)index doubleClicked:(BOOL)doubleClicked {
 	if (index < 0 || index >= (NSInteger)self.applications.count) return;
 	[self.table selectRowIndexes:[NSIndexSet indexSetWithIndex:index] byExtendingSelection:NO];
-	if (doubleClicked) [self openSelectedApplication:grid];
+	if (doubleClicked) [self openSelectedApplicationAtIndex:index];
 }
 
 - (void)loadIconUpdate:(NSDictionary *)update {
@@ -346,6 +382,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)startIconLoading {
 	self.grid.generation++;
 	self.grid.icons = [NSMutableDictionary dictionary];
+	if (!gIconCache) gIconCache = [[NSCache alloc] init];
 	[self.grid setNeedsDisplay:YES];
 	NSDictionary *request = @{@"items": self.applications, @"generation": @(self.grid.generation)};
 	[NSThread detachNewThreadSelector:@selector(loadIconsInBackground:) toTarget:self withObject:request];
