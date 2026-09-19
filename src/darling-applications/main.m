@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <math.h>
 
+static NSCache *gIconCache = nil;
+
 static NSString *FindHelper(NSString *name) {
 	NSArray *searchPaths = @[
 		[NSString stringWithFormat:@"/usr/libexec/darling/%@", name],
@@ -146,6 +148,10 @@ static NSString *ImportByteCount(unsigned long long bytes) {
 }
 
 static NSImage *BundleIconForApplication(NSString *path) {
+	if (gIconCache) {
+		NSImage *cached = [gIconCache objectForKey:path];
+		if (cached) return cached;
+	}
 	NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Contents/Info.plist"]];
 	NSMutableArray *names = [NSMutableArray array];
 	id value = [info objectForKey:@"CFBundleIconName"];
@@ -355,6 +361,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)startIconLoading {
 	self.grid.generation++;
 	self.grid.icons = [NSMutableDictionary dictionary];
+	if (!gIconCache) gIconCache = [[NSCache alloc] init];
 	[self.grid setNeedsDisplay:YES];
 	NSDictionary *request = @{@"items": self.applications, @"generation": @(self.grid.generation)};
 	[NSThread detachNewThreadSelector:@selector(loadIconsInBackground:) toTarget:self withObject:request];
