@@ -21,7 +21,11 @@ def main():
         raise SystemExit(f"no manifest at {manifest_path}; run build-standalone.py first")
     manifest = json.loads(manifest_path.read_text())
 
+    # build-standalone.py records the Contents directory here, not the .app.
+    # Accept either, so this keeps working if that ever changes.
     bundle = Path(manifest["bundle"])
+    if bundle.name == "Contents":
+        bundle = bundle.parent
     executable = bundle / "Contents/MacOS/Darling Applications"
     if not executable.is_file():
         raise SystemExit(f"manifest names {bundle}, but its executable is missing")
