@@ -1,6 +1,10 @@
 #ifndef AUDIOQUEUEOUTPUT_H
 #define	AUDIOQUEUEOUTPUT_H
 #include "AudioQueueBase.h"
+#include <CoreAudio/AudioHardware.h>
+#include <deque>
+#include <vector>
+#include <mutex>
 
 class AudioQueueOutput : public AudioQueue
 {
@@ -19,6 +23,9 @@ public:
 	virtual OSStatus pause() override;
 	virtual OSStatus reset() override;
 	
+	virtual OSStatus enqueueBuffer(AudioQueueBufferRef inBuffer,
+			UInt32 inNumPacketDescs, const AudioStreamPacketDescription *inPacketDescs) override;
+
 	virtual OSStatus setOfflineRenderFormat(const AudioStreamBasicDescription *inFormat, const AudioChannelLayout *inLayout) override;
 	virtual OSStatus offlineRender(const AudioTimeStamp *inTimestamp, AudioQueueBufferRef ioBuffer, UInt32 inNumberFrames) override;
 	
@@ -29,8 +36,27 @@ public:
 		void *inUserData, CFRunLoopRef inCallbackRunLoop,
 		CFStringRef inCallbackRunLoopMode, UInt32 inFlags,
 			AudioQueueOutput** newQueue);
+
 private:
+	static OSStatus ioProcCallback(AudioObjectID inDevice,
+			const AudioTimeStamp* inNow, const AudioBufferList* inInputData,
+			const AudioTimeStamp* inInputTime,
+			AudioBufferList* outOutputData, const AudioTimeStamp* inOutputTime,
+			void* inClientData);
+
+	OSStatus fillOutput(AudioBufferList* outOutputData);
+
+	struct QueuedBuffer
+	{
+		AudioQueueBufferRef buf;
+		size_t bytesConsumed;
+	};
+
 	AudioQueueOutputCallback m_callback;
+	AudioDeviceID m_outputDevice = 0;
+	AudioDeviceIOProcID m_ioProcID = nullptr;
+	std::recursive_mutex m_mutex;
+	std::deque<QueuedBuffer> m_buffers;
 };
 
 #endif	/* AUDIOQUEUEOUTPUT_H */

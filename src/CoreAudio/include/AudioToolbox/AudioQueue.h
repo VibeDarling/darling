@@ -13,6 +13,24 @@ typedef UInt32 AudioQueuePropertyID;
 typedef UInt32 AudioQueueParameterID;
 typedef Float32 AudioQueueParameterValue;
 
+enum {
+	kAudioQueueProperty_IsRunning               = 'aqrn',
+	kAudioQueueDeviceProperty_SampleRate        = 'aqsr',
+	kAudioQueueDeviceProperty_NumberChannels    = 'aqdc',
+	kAudioQueueProperty_CurrentLevelMeter       = 'aqlm',
+	kAudioQueueProperty_CurrentLevelMeterDB     = 'qlmb',
+	kAudioQueueProperty_ConverterError          = 'qcfr',
+	kAudioQueueProperty_EnableLevelMetering     = 'aqme',
+	kAudioQueueProperty_MaximumOutputPacketSize = 'xops',
+	kAudioQueueProperty_StreamDescription       = 'aqft',
+	kAudioQueueProperty_ChannelLayout           = 'aqcl',
+	kAudioQueueProperty_EnableTimePitch         = 'q_tp',
+	kAudioQueueProperty_TimePitchAlgorithm      = 'qtpa',
+	kAudioQueueProperty_TimePitchBypass         = 'qtpb',
+	kAudioQueueProperty_CurrentDevice           = 'aqcd',
+	kAudioQueueProperty_MagicCookie             = 'aqmc'
+};
+
 struct AudioQueueParameterEvent
 {
 	AudioQueueParameterID mID;

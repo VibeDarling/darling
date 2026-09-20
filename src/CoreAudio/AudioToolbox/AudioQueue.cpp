@@ -1,4 +1,5 @@
 #include "AudioQueue.h"
+#include "AudioQueueBase.h"
 #include "AudioQueueOutput.h"
 #include <CarbonCore/MacErrors.h>
 #include <stdlib.h>
@@ -178,9 +179,7 @@ OSStatus AudioQueueEnqueueBuffer(AudioQueueRef inAQ, AudioQueueBufferRef inBuffe
 {
 	if (!inAQ || !inBuffer)
 		return paramErr;
-	if (isStubVerbose())
-		fprintf(stderr, "STUB: AudioQueueEnqueueBuffer called\n");
-	return noErr;
+	return inAQ->enqueueBuffer(inBuffer, inNumPacketDescs, inPacketDescs);
 }
 
 OSStatus AudioQueueEnqueueBufferWithParameters(AudioQueueRef inAQ,
@@ -192,7 +191,5 @@ OSStatus AudioQueueEnqueueBufferWithParameters(AudioQueueRef inAQ,
 {
 	if (!inAQ || !inBuffer)
 		return paramErr;
-	if (isStubVerbose())
-		fprintf(stderr, "STUB: AudioQueueEnqueueBufferWithParameters called\n");
-	return noErr;
+	return inAQ->enqueueBuffer(inBuffer, inNumPacketDescs, inPacketDescs);
 }
