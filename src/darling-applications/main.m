@@ -542,7 +542,15 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	NSString *source = panel.URL.path; NSString *user = NSUserName(); NSString *dir = [NSString stringWithFormat:@"/Users/%@/Library/Application Support/Darling/Brewfiles", user];
 	[[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
 	NSString *target = [dir stringByAppendingPathComponent:source.lastPathComponent];
-	if (![[NSFileManager defaultManager] copyItemAtPath:source toPath:target error:NULL]) { [self showMessage:@"Could not stage the Brewfile inside the Darling prefix."]; return; }
+	/* copyItemAtPath: fails when the destination exists, so re-running the same
+	 * Brewfile used to abort here claiming it could not be staged. Replace our
+	 * own staged copy instead, and leave it alone when the chosen file IS that
+	 * copy, which the open panel can reach. */
+	NSFileManager *files = [NSFileManager defaultManager];
+	if (![[source stringByStandardizingPath] isEqualToString:[target stringByStandardizingPath]]) {
+		[files removeItemAtPath:target error:NULL];
+		if (![files copyItemAtPath:source toPath:target error:NULL]) { [self showMessage:@"Could not stage the Brewfile inside the Darling prefix."]; return; }
+	}
 	NSString *helper = FindHelper(@"brewfile-install");
 	if (!helper) { [self showMessage:@"Brewfile helper is not installed in this prefix; no packages were started."]; return; }
 	NSString *brewText = [NSString stringWithContentsOfFile:source encoding:NSUTF8StringEncoding error:NULL] ?: @"";
