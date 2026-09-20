@@ -53,6 +53,7 @@ def main():
     target = resolve(sys.argv[1])
 
     found = []
+    unattributed = []
     for pid_dir in PROC.glob("[0-9]*"):
         name = process_name(pid_dir)
         if name not in ("darlingserver", "mldr", "darling"):
@@ -73,12 +74,23 @@ def main():
         except OSError:
             pass
 
-        if any(resolve(c) == target for c in candidates):
+        if not candidates:
+            # No evidence at all: /proc entries for a process owned by another
+            # user are unreadable. "Could not attribute" is not "not on this
+            # prefix", and silently treating it as the latter would report a
+            # free prefix while a container is live.
+            unattributed.append(f"  {pid_dir.name} {name}")
+        elif any(resolve(c) == target for c in candidates):
             found.append(f"  {pid_dir.name} {name}")
 
     if found:
         print(f"A Darling container is live on {target}:", file=sys.stderr)
         print("\n".join(sorted(found)), file=sys.stderr)
+        return 1
+    if unattributed:
+        print("Darling processes are running whose prefix could not be determined, "
+              f"so {target} cannot be shown to be free:", file=sys.stderr)
+        print("\n".join(sorted(unattributed)), file=sys.stderr)
         return 1
     return 0
 
