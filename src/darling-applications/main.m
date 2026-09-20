@@ -549,6 +549,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	NSRegularExpression *masPattern = [NSRegularExpression regularExpressionWithPattern:@"mas\\s*\\(?\\s*[\\\"']([^\\\"']+)[\\\"'][\\s\\S]*?\\bid\\s*:\\s*[\\\"']?([0-9]+)" options:0 error:NULL];
 	NSMutableArray *masIDs = [NSMutableArray array]; NSMutableArray *masNames = [NSMutableArray array];
 	for (NSTextCheckingResult *m in [masPattern matchesInString:brewText options:0 range:NSMakeRange(0, brewText.length)]) { [masNames addObject:[brewText substringWithRange:[m rangeAtIndex:1]]]; [masIDs addObject:[brewText substringWithRange:[m rangeAtIndex:2]]]; }
+	/* HOMEBREW_BUNDLE_MAS_SKIP is comma-separated; brewfile-install exports this value verbatim. */
 	NSString *skipIDs = [masIDs componentsJoinedByString:@","];
 	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = helper; task.arguments = @[[@"/" stringByAppendingString:[target substringFromIndex:1]], skipIDs]; task.standardOutput = pipe; task.standardError = pipe; [task launch];
 	NSData *data = [pipe.fileHandleForReading readDataToEndOfFile]; [task waitUntilExit];
