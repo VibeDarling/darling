@@ -109,6 +109,8 @@ OSStatus AudioQueueOutput::stop(Boolean inImmediate)
 		if (m_outputDevice && m_ioProcID)
 		{
 			AudioDeviceStop(m_outputDevice, m_ioProcID);
+			AudioDeviceDestroyIOProcID(m_outputDevice, m_ioProcID);
+			m_ioProcID = nullptr;
 		}
 
 		if (inImmediate)

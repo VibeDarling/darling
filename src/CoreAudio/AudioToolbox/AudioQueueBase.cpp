@@ -1,6 +1,7 @@
 #include "AudioQueueBase.h"
 #include "stub.h"
 #include <CarbonCore/MacErrors.h>
+#include <CoreAudio/AudioHardwareBase.h>
 #include <cstring>
 
 AudioQueue::AudioQueue(const AudioStreamBasicDescription* format, void* userData,
@@ -85,7 +86,7 @@ OSStatus AudioQueue::getProperty(AudioQueuePropertyID inID, void *outData, UInt3
 			return noErr;
 		}
 		default:
-			return noErr;
+			return kAudioHardwareUnknownPropertyError;
 	}
 }
 
@@ -98,7 +99,7 @@ OSStatus AudioQueue::setProperty(AudioQueuePropertyID inID, const void *inData, 
 		case kAudioQueueProperty_MagicCookie:
 			return noErr;
 		default:
-			return noErr;
+			return kAudioHardwareUnknownPropertyError;
 	}
 }
 
@@ -120,8 +121,7 @@ OSStatus AudioQueue::getPropertySize(AudioQueuePropertyID inID, UInt32 *outDataS
 			*outDataSize = sizeof(AudioChannelLayout);
 			return noErr;
 		default:
-			*outDataSize = sizeof(UInt32);
-			return noErr;
+			return kAudioHardwareUnknownPropertyError;
 	}
 }
 
