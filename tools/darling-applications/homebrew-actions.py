@@ -38,7 +38,7 @@ def guest(prefix: Path, argv: list[str], *, timeout: int = 3600) -> int:
     if not argv or argv[0] != "/opt/homebrew/bin/brew":
         raise ValueError("only native /opt/homebrew/bin/brew is permitted")
     brew = confined_child(prefix, prefix / "opt/homebrew/bin/brew")
-    if not brew.is_file() or brew.is_symlink():
+    if not brew.is_file():
         raise SystemExit("native Homebrew is not installed in this prefix")
     env = {k: v for k, v in os.environ.items() if not k.startswith("DYLD_")}
     env["DPREFIX"] = str(prefix)
