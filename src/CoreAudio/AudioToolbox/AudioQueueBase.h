@@ -16,6 +16,9 @@ public:
 	virtual OSStatus pause() = 0;
 	virtual OSStatus reset() = 0;
 
+	virtual OSStatus enqueueBuffer(AudioQueueBufferRef inBuffer,
+			UInt32 inNumPacketDescs, const AudioStreamPacketDescription *inPacketDescs) = 0;
+
 	virtual OSStatus dispose(Boolean inImmediate) = 0;
 
 	virtual OSStatus getParameter(AudioQueueParameterID inParamID, AudioQueueParameterValue *outValue);
@@ -33,9 +36,11 @@ public:
 protected:
 	AudioStreamBasicDescription m_format;
 	void* m_userData;
-	CFRunLoopRef m_runloop;
-	CFStringRef m_runloopMode;
+	CFRunLoopRef m_runloop = nullptr;
+	CFStringRef m_runloopMode = nullptr;
 	UInt32 m_flags;
+	bool m_running = false;
+	bool m_paused = false;
 };
 
 #endif	/* AUDIOQUEUEBASE_H */
