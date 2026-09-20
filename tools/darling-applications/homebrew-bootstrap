@@ -8,6 +8,17 @@ if [ -x /opt/homebrew/bin/brew ]; then
   git=/opt/homebrew/bin/git
   ruby=/opt/homebrew/Library/Homebrew/vendor/portable-ruby/4.0.7/bin/ruby
   if [ -x "$git" ] && [ -x "$ruby" ]; then
+    # Executables alone are not a usable prefix: Library/Homebrew/keg.rb requires
+    # these directories to exist before a keg can be linked, so without them an
+    # install fails at link time and the failure looks like a bad bottle.
+    missing=
+    for dir in bin etc include lib sbin share opt var/homebrew/linked; do
+      [ -d "/opt/homebrew/$dir" ] || missing="$missing $dir"
+    done
+    if [ -n "$missing" ]; then
+      echo "bootstrap: Homebrew prefix cannot link kegs; missing directories:$missing" >&2
+      exit 67
+    fi
     echo "bootstrap: verified native Homebrew paths"
     exec /opt/homebrew/bin/brew --version
   fi
