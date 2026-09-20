@@ -2,17 +2,21 @@
 """Build the native Applications viewer against a verified Darling image.
 
 This intentionally does not configure Darling or rebuild dependencies.  It
-reuses only the recorded compile/link variables from the integration17 image,
+reuses only the recorded compile/link variables from a configured image,
 rewriting every old-tree path to that image and emitting a private bundle.
+
+DARLING_VIEWER_IMAGE selects the configured Darling image to build against and
+DARLING_VIEWER_VARS the directory holding the recorded compile.vars/link.vars,
+so a caller can point the build at a reproducible tree of their own.
 """
 import hashlib, json, os, re, shlex, shutil, subprocess, sys
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[2] / "src/darling-applications/main.m"
 PLIST = SOURCE.with_name("Info.plist")
-IMAGE = Path("/home/cristi/src/darling-integration17")
+IMAGE = Path(os.environ.get("DARLING_VIEWER_IMAGE", "/home/cristi/src/darling-integration17"))
 BUILD = IMAGE / "build"
-VARS = Path("/home/cristi/src/darling-gui/privbuild/wayland/apps")
+VARS = Path(os.environ.get("DARLING_VIEWER_VARS", "/home/cristi/src/darling-gui/privbuild/wayland/apps"))
 OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", "/home/cristi/.local/share/darling/macos-apps/builds/darling-applications-integration17"))
 EXPECTED_SOURCE = "b2fdad187213f932056928df1f35a29eb0e44a541ece3181094a6bcfe31d6d42"
 
