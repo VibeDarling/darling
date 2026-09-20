@@ -11,6 +11,10 @@
 #   DARLING_QA_APPS        optional. Directory holding the .app bundles staged
 #                          for the checklist. Default
 #                          $XDG_DATA_HOME/darling/macos-apps/Applications.
+#   DARLING_VIEWER_IMAGE   optional. A built Darling image supplying the AppKit
+#                          Wayland backend, which the installed runtime's own
+#                          prefix may predate. Same variable build-standalone.py
+#                          uses, so one image serves both.
 #   DARLING_LAUNCHER       optional. Default /usr/local/bin/darling.
 #
 # The QA prefix is disposable and this script stages into it. To make that
@@ -27,6 +31,7 @@
 set -euo pipefail
 
 launcher=${DARLING_LAUNCHER:-/usr/local/bin/darling}
+image=${DARLING_VIEWER_IMAGE:-}
 output=${DARLING_VIEWER_OUTPUT:-}
 prefix=${DARLING_QA_PREFIX:-$HOME/.darling-qa}
 apps=${DARLING_QA_APPS:-${XDG_DATA_HOME:-$HOME/.local/share}/darling/macos-apps/Applications}
@@ -95,6 +100,9 @@ record_run() {
 
 on_exit() {
 	local status=$?
+	# Both the signal trap and the EXIT trap reach here, which would record one
+	# run twice and corrupt the dataset the log exists to build.
+	trap - EXIT INT TERM
 	# Shut down only this prefix's container, never a broader cleanup.
 	if [[ $container_armed == true ]]; then
 		"$launcher" shutdown >/dev/null 2>&1 || true
@@ -144,17 +152,42 @@ done
 rm -rf -- "$prefix/Applications/Darling Applications.app"
 cp -a "$bundle" "$prefix/Applications/Darling Applications.app"
 
+# The prefix is initialized by the INSTALLED runtime, whose framework payload can
+# predate the AppKit Wayland backend; without it the viewer launches with no
+# surface and simply shows nothing. Stage the backend from the configured image,
+# which is a built checkout and so attributable to a commit.
+backends="$prefix/System/Library/Frameworks/AppKit.framework/Versions/C/Resources/Backends"
+# Require the real bundle shape: the build tree also contains a same-named
+# directory of generated protocol sources, which is not loadable and which
+# AppKit reports only as "Cannot find executable for CFBundle".
+backend_src="$image/build/src/external/cocotron/AppKit/Wayland.backend"
+if [[ -n "$image" && -d "$backend_src/Contents/MacOS" ]]; then
+	install -d "$backends"
+	rm -rf -- "$backends/Wayland.backend"
+	cp -a "$backend_src" "$backends/Wayland.backend"
+fi
+[[ -d "$backends/Wayland.backend/Contents/MacOS" ]] || die \
+	"This prefix has no loadable AppKit Wayland backend, so the viewer would start with no window.
+The prefix is initialized by the installed runtime, whose payload may predate it, and a plain
+build tree does not emit the bundle layout: that comes from the install step. Provide one via a
+DESTDIR install of the image, or point DARLING_QA_PREFIX at a prefix from a newer runtime." 
+
 container_armed=true
 
 echo "Launching the QA profile at $prefix"
 echo "Bundle under test: $bundle"
+# Run the viewer in the background and wait on it: bash defers traps until a
+# foreground child exits, so Ctrl-C or a TERM would otherwise not shut the
+# container down until the viewer had already quit by itself.
 set +e
 "$launcher" shell env -u DISPLAY \
 	DARLING_DISABLE_PTRAUTH=1 \
 	DARLING_APPKIT_BACKEND=wayland \
 	WAYLAND_DISPLAY="$runtime_dir/$wayland_display" \
 	XDG_RUNTIME_DIR="$runtime_dir" \
-	"/Applications/Darling Applications.app/Contents/MacOS/Darling Applications"
+	"/Applications/Darling Applications.app/Contents/MacOS/Darling Applications" &
+viewer=$!
+wait "$viewer"
 launch_status=$?
 set -e
 exit "$launch_status"
