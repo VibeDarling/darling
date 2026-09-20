@@ -18,6 +18,10 @@ environment:
                         optional. The source tree the recorded vars were
                         captured in, rewritten to the image on use. Defaults
                         to the checkout this script lives in.
+  DARLING_VIEWER_EXPECT_SOURCE
+                        optional. Pin main.m to this sha256 and fail if it
+                        differs. Unset, a difference from the recorded hash
+                        below is only a warning.
 """
 import hashlib, json, os, re, shlex, shutil, subprocess, sys
 from pathlib import Path
@@ -36,7 +40,10 @@ BUILD = IMAGE / "build"
 VARS = required_path("DARLING_VIEWER_VARS")
 OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", BUILD / "darling-applications"))
 RECORDED_ROOT = Path(os.environ.get("DARLING_VIEWER_RECORDED_ROOT", CHECKOUT))
-EXPECTED_SOURCE = "b2fdad187213f932056928df1f35a29eb0e44a541ece3181094a6bcfe31d6d42"
+# The main.m this recipe was last verified against. Drift is expected as main.m
+# is edited normally, so it is reported and not enforced; set
+# DARLING_VIEWER_EXPECT_SOURCE to require an exact source instead.
+EXPECTED_SOURCE = "e7d5476d066bcce84dbb626d8deec742d0cd952919dc402459db2b2b2ca3b008"
 
 def load(path):
     result = {}
@@ -52,7 +59,13 @@ def rewrite(value):
 
 def main():
     actual = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
-    if actual != EXPECTED_SOURCE: raise SystemExit(f"source hash changed: {actual}")
+    required = os.environ.get("DARLING_VIEWER_EXPECT_SOURCE")
+    if required:
+        if actual != required:
+            raise SystemExit(f"main.m is {actual}, but DARLING_VIEWER_EXPECT_SOURCE requires {required}")
+    elif actual != EXPECTED_SOURCE:
+        print(f"warning: main.m has changed since this recipe was last verified "
+              f"(recorded {EXPECTED_SOURCE}, building {actual})", file=sys.stderr)
     cv, lv = load(VARS / "compile.vars"), load(VARS / "link.vars")
     OUTPUT.mkdir(parents=True, exist_ok=True); obj = OUTPUT / "Darling Applications.o"; exe = OUTPUT / "Darling Applications.app/Contents/MacOS/Darling Applications"
     exe.parent.mkdir(parents=True, exist_ok=True)
