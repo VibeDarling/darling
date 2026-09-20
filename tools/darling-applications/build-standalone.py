@@ -2,18 +2,40 @@
 """Build the native Applications viewer against a verified Darling image.
 
 This intentionally does not configure Darling or rebuild dependencies.  It
-reuses only the recorded compile/link variables from the integration17 image,
+reuses only the recorded compile/link variables from a configured image,
 rewriting every old-tree path to that image and emitting a private bundle.
+
+The script carries no developer-specific paths. Every location comes from the
+environment:
+
+  DARLING_VIEWER_IMAGE  required. The configured Darling image to build
+                        against; its build directory is <image>/build.
+  DARLING_VIEWER_VARS   required. Directory holding the recorded compile.vars
+                        and link.vars.
+  DARLING_VIEWER_OUTPUT optional. Where the bundle is emitted.
+                        Defaults to <image>/build/darling-applications.
+  DARLING_VIEWER_RECORDED_ROOT
+                        optional. The source tree the recorded vars were
+                        captured in, rewritten to the image on use. Defaults
+                        to the checkout this script lives in.
 """
 import hashlib, json, os, re, shlex, shutil, subprocess, sys
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parents[2] / "src/darling-applications/main.m"
+CHECKOUT = Path(__file__).resolve().parents[2]
+SOURCE = CHECKOUT / "src/darling-applications/main.m"
 PLIST = SOURCE.with_name("Info.plist")
-IMAGE = Path("/home/cristi/src/darling-integration17")
+
+def required_path(name):
+    value = os.environ.get(name)
+    if not value: raise SystemExit(f"{name} must be set; it has no portable default.")
+    return Path(value)
+
+IMAGE = required_path("DARLING_VIEWER_IMAGE")
 BUILD = IMAGE / "build"
-VARS = Path("/home/cristi/src/darling-gui/privbuild/wayland/apps")
-OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", "/home/cristi/.local/share/darling/macos-apps/builds/darling-applications-integration17"))
+VARS = required_path("DARLING_VIEWER_VARS")
+OUTPUT = Path(os.environ.get("DARLING_VIEWER_OUTPUT", BUILD / "darling-applications"))
+RECORDED_ROOT = Path(os.environ.get("DARLING_VIEWER_RECORDED_ROOT", CHECKOUT))
 EXPECTED_SOURCE = "b2fdad187213f932056928df1f35a29eb0e44a541ece3181094a6bcfe31d6d42"
 
 def load(path):
@@ -24,7 +46,9 @@ def load(path):
     return result
 
 def rewrite(value):
-    return value.replace("/home/cristi/src/darling", str(IMAGE)).replace(str(IMAGE) + "/build", str(BUILD))
+    # Anchored so a recorded root of .../darling does not also rewrite a
+    # sibling .../darling-gui into <image>-gui.
+    return re.sub(re.escape(str(RECORDED_ROOT)) + r"(?![A-Za-z0-9_.-])", str(IMAGE), value)
 
 def main():
     actual = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
@@ -38,9 +62,9 @@ def main():
     compile_cmd = ["/usr/bin/clang", *defines, *includes, *flags, "-fobjc-exceptions", "-fblocks", "-mmacosx-version-min=11.0", "-o", str(obj), "-c", str(SOURCE)]
     link_flags = shlex.split(rewrite(lv["FLAGS"] + " " + lv["LINK_FLAGS"]))
     # The defaults recipe records optional Swift overlays; omit only mappings
-    # whose concrete integration17 provider is absent, preserving all others.
+    # whose concrete provider is absent from the image, preserving all others.
     link_flags = [flag for flag in link_flags if not (flag.startswith("-Wl,-dylib_file,") and ":" in flag and not Path(flag.rsplit(":", 1)[1]).exists())]
-    # integration17's AppKit has an optional Swift re-export, but this image
+    # The image's AppKit has an optional Swift re-export, but the image
     # intentionally does not ship Swift. Provide a private empty compatibility
     # dylib so ld64 can resolve the recorded install name without host mixing.
     swift_stubs = {
