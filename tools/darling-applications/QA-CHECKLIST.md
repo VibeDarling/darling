@@ -51,5 +51,14 @@ Ruby 4 and the Homebrew packages are not ready; Ruby still raises
 The prefix-initialization work has been validated only as an unprivileged
 candidate binary. Staging a privileged setuid candidate was rejected on review
 and that rejection stands, so no privileged installed-runtime behaviour is
-covered here. The installed launcher is unchanged and nothing in this profile
-modifies it.
+covered here. Nothing in this profile modifies the installed launcher.
+
+**The manual checks above have not been run yet.** The profile is verified up to
+and including launching the viewer, but a prefix takes its frameworks from the
+*installed* runtime, and a runtime whose payload predates the AppKit Wayland
+backend gives the viewer no surface to draw on: the container comes up healthy
+and no window appears. The profile refuses in that case rather than starting an
+invisible viewer, so run it against a runtime that ships `Wayland.backend`, or
+point `DARLING_VIEWER_IMAGE` at an installed image that provides one. Note that
+a plain build tree does not: `AppKit/Wayland.backend` there is generated
+protocol source, and the loadable bundle comes from the install step.
