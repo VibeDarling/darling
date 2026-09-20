@@ -52,15 +52,20 @@ def main():
         raise SystemExit("usage: qa-prefix-busy.py <prefix>")
     target = resolve(sys.argv[1])
 
+    # Authoritative and cheapest: a prefix names its own live container.
+    init_pid = read(Path(target) / ".init.pid").decode(errors="replace").strip()
+    if init_pid.isdigit() and Path(f"/proc/{init_pid}").is_dir():
+        print(f"A Darling container is live on {target}: .init.pid names running process {init_pid}",
+              file=sys.stderr)
+        return 1
+
     found = []
-    unattributed = []
+    unattributable_servers = []
     for pid_dir in PROC.glob("[0-9]*"):
         name = process_name(pid_dir)
         if name not in ("darlingserver", "mldr", "darling"):
             continue
 
-        # The server takes its prefix as the first argument; guest processes
-        # carry it in DPREFIX, and their cwd sits inside it.
         candidates = []
         if name == "darlingserver":
             args = read(pid_dir / "cmdline").split(b"\0")
@@ -74,23 +79,23 @@ def main():
         except OSError:
             pass
 
-        if not candidates:
-            # No evidence at all: /proc entries for a process owned by another
-            # user are unreadable. "Could not attribute" is not "not on this
-            # prefix", and silently treating it as the latter would report a
-            # free prefix while a container is live.
-            unattributed.append(f"  {pid_dir.name} {name}")
-        elif any(resolve(c) == target for c in candidates):
+        if any(resolve(c) == target for c in candidates):
             found.append(f"  {pid_dir.name} {name}")
+        elif name == "darlingserver" and not candidates:
+            # Every container has exactly one server, and a server's prefix is
+            # its first argument, which stays readable. So an unattributable
+            # SERVER is the only case that could hide a container on this
+            # prefix; unattributable guest processes cannot exist without one.
+            unattributable_servers.append(f"  {pid_dir.name} {name}")
 
     if found:
         print(f"A Darling container is live on {target}:", file=sys.stderr)
         print("\n".join(sorted(found)), file=sys.stderr)
         return 1
-    if unattributed:
-        print("Darling processes are running whose prefix could not be determined, "
+    if unattributable_servers:
+        print("A Darling server is running whose prefix could not be determined, "
               f"so {target} cannot be shown to be free:", file=sys.stderr)
-        print("\n".join(sorted(unattributed)), file=sys.stderr)
+        print("\n".join(sorted(unattributable_servers)), file=sys.stderr)
         return 1
     return 0
 

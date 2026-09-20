@@ -54,11 +54,21 @@ and that rejection stands, so no privileged installed-runtime behaviour is
 covered here. Nothing in this profile modifies the installed launcher.
 
 **The manual checks above have not been run yet.** The profile is verified up to
-and including launching the viewer, but a prefix takes its frameworks from the
-*installed* runtime, and a runtime whose payload predates the AppKit Wayland
-backend gives the viewer no surface to draw on: the container comes up healthy
-and no window appears. The profile refuses in that case rather than starting an
-invisible viewer, so run it against a runtime that ships `Wayland.backend`, or
-point `DARLING_VIEWER_IMAGE` at an installed image that provides one. Note that
-a plain build tree does not: `AppKit/Wayland.backend` there is generated
-protocol source, and the loadable bundle comes from the install step.
+and including launching the viewer, but on this machine the viewer starts into a
+healthy container and **no window appears**, so none of the six checks can be
+performed. The cause is not yet established.
+
+What is known: the installed runtime does ship
+`AppKit.framework/.../Backends/Wayland.backend` with its executable, while
+`CoreGraphics.framework/.../Backends` has only `X11.backend`. Whether AppKit's
+Wayland path needs a matching CoreGraphics backend is an open question, not a
+diagnosis.
+
+Do not diagnose this by listing a stopped prefix. A prefix that is not running
+shows only a directory skeleton: the *working* `X11.backend` also appears to have
+an empty `Contents/MacOS` there, so an apparently missing backend binary in a
+stopped prefix is an artifact of the inspection, not a finding.
+
+If you stage a backend yourself, require the bundle layout rather than the name:
+a build tree contains a same-named directory of generated protocol sources, and
+the loadable bundle only exists after the install step.
