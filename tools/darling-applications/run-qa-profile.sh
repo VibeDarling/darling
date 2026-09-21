@@ -11,6 +11,10 @@
 #   DARLING_QA_APPS        optional. Directory holding the .app bundles staged
 #                          for the checklist. Default
 #                          $XDG_DATA_HOME/darling/macos-apps/Applications.
+#   DARLING_QA_STAGE       optional. Which bundles to stage from it: a
+#                          space-separated list, or "all" for every .app there.
+#                          Default "TextEdit.app Stickies.app", the two the
+#                          checklist names.
 #   DARLING_VIEWER_IMAGE   optional. A built Darling image supplying the AppKit
 #                          Wayland backend, which the installed runtime's own
 #                          prefix may predate. Same variable build-standalone.py
@@ -35,6 +39,7 @@ image=${DARLING_VIEWER_IMAGE:-}
 output=${DARLING_VIEWER_OUTPUT:-}
 prefix=${DARLING_QA_PREFIX:-$HOME/.darling-qa}
 apps=${DARLING_QA_APPS:-${XDG_DATA_HOME:-$HOME/.local/share}/darling/macos-apps/Applications}
+stage=${DARLING_QA_STAGE:-TextEdit.app Stickies.app}
 marker=$prefix/.darling-qa-prefix
 lock=$prefix.lock
 # Sibling of the prefix, like the lock, so it is never mistaken for prefix
@@ -144,8 +149,16 @@ fi
 "$launcher" shutdown
 
 install -d "$prefix/Applications"
-for app in TextEdit.app Stickies.app; do
-	[[ -d "$apps/$app" ]] || die "Missing application bundle for the checklist: $apps/$app"
+if [[ "$stage" == all ]]; then
+	mapfile -t staged < <(cd "$apps" 2>/dev/null && printf '%s\n' *.app)
+	[[ ${#staged[@]} -gt 0 && ${staged[0]} != '*.app' ]] ||
+		die "DARLING_QA_STAGE=all but no .app bundles found in $apps"
+else
+	read -r -a staged <<<"$stage"
+fi
+echo "Staging ${#staged[@]} application bundle(s) from $apps"
+for app in "${staged[@]}"; do
+	[[ -d "$apps/$app" ]] || die "Missing application bundle: $apps/$app"
 	rm -rf -- "$prefix/Applications/$app"
 	cp -a "$apps/$app" "$prefix/Applications/$app"
 done
