@@ -28,5 +28,9 @@ if [ -x /usr/local/bin/brew ]; then
   exec /usr/local/bin/brew --version
 fi
 
-echo "bootstrap: Homebrew or Nanobrew payload missing in prefix" >&2
+# Name what was probed, not where we assume we are. This message previously
+# blamed "the prefix" while the helper had in fact inspected whatever
+# filesystem it was run in, which is how a host-side invocation reported an
+# already-populated prefix as empty.
+echo "bootstrap: no Homebrew or Nanobrew payload found. Probed, in this process's filesystem: /opt/homebrew/bin/brew, /opt/nanobrew/prefix/bin/nb, /usr/local/bin/brew. If these exist in the prefix, this helper was not run inside the guest." >&2
 exit 66
