@@ -43,7 +43,7 @@ RECORDED_ROOT = Path(os.environ.get("DARLING_VIEWER_RECORDED_ROOT", CHECKOUT))
 # The main.m this recipe was last verified against. Drift is expected as main.m
 # is edited normally, so it is reported and not enforced; set
 # DARLING_VIEWER_EXPECT_SOURCE to require an exact source instead.
-EXPECTED_SOURCE = "e7d5476d066bcce84dbb626d8deec742d0cd952919dc402459db2b2b2ca3b008"
+EXPECTED_SOURCE = "02d9e7228c85c53aeeb6db080f55d4fa70d4765b3086222773dc6ee3aed07a09"
 
 def load(path):
     result = {}

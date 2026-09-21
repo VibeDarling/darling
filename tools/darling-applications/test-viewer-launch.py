@@ -25,6 +25,16 @@ class ViewerLaunchTests(unittest.TestCase):
         self.assertIsNotNone(match, "could not locate the MAS skip-list join in main.m")
         self.assertEqual(match.group(1), ",")
 
+    def test_repeat_brewfile_staging_replaces_the_previous_copy(self):
+        # copyItemAtPath: fails when the destination exists, so staging the same
+        # Brewfile twice used to abort with "Could not stage the Brewfile".
+        text = SOURCE.read_text()
+        self.assertIn("removeItemAtPath:target error:NULL", text)
+        stage = re.search(r"copyItemAtPath:source toPath:target", text)
+        self.assertIsNotNone(stage, "could not locate the Brewfile staging copy in main.m")
+        # The remove must precede the copy, or it cannot clear the way for it.
+        self.assertLess(text.index("removeItemAtPath:target"), stage.start())
+
     def test_known_apps_are_executable_when_fixture_is_supplied(self):
         root = os.environ.get("DARLING_APPLICATIONS_ROOT")
         if not root:
