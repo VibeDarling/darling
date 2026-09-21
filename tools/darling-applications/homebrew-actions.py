@@ -94,9 +94,21 @@ def install_homebrew(prefix: Path, bootstrap: Path | None) -> int:
         raise SystemExit(f"bootstrap must be the tracked helper under {trusted}")
     if not script.is_file() or not os.access(script, os.X_OK):
         raise SystemExit(f"bootstrap is not executable: {script}")
-    # The bootstrap owns artifact verification and atomic placement.  It receives
-    # only the prefix, so it cannot accidentally target the host filesystem.
-    return subprocess.run([str(script), str(prefix)], timeout=3600).returncode
+    # The bootstrap is a GUEST-side gate: every path it probes is an absolute
+    # /opt/homebrew path and its success branch execs the guest brew.  Running it
+    # on the host made it inspect the host's filesystem and report the prefix as
+    # empty.  Stage the tracked copy into the prefix and run it there, which also
+    # refreshes the prefix-local helper the viewer resolves to.
+    staged = confined_child(prefix, prefix / "usr/libexec/darling/homebrew-bootstrap")
+    staged.parent.mkdir(parents=True, exist_ok=True)
+    staged.write_bytes(script.read_bytes())
+    staged.chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if not k.startswith("DYLD_")}
+    env["DPREFIX"] = str(prefix)
+    return subprocess.run(
+        [DARLING, "shell", "/usr/libexec/darling/homebrew-bootstrap"],
+        env=env, timeout=3600,
+    ).returncode
 
 
 def install_brewfile(prefix: Path, brewfile: Path) -> int:
