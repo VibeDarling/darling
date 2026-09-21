@@ -1434,6 +1434,103 @@ static void ensureKeychains(const char* prefixPath)
 	free(der_lens);
 }
 
+static bool writeSystemVersionPlist(const char* prefixPath, const char* version)
+{
+	char plistPath[4096];
+	snprintf(plistPath, sizeof(plistPath), "%s/System/Library/CoreServices/SystemVersion.plist", prefixPath);
+
+	char dirPath[4096];
+	snprintf(dirPath, sizeof(dirPath), "%s/System/Library/CoreServices", prefixPath);
+	createDir(dirPath);
+
+	FILE* f = fopen(plistPath, "w");
+	if (!f)
+		return false;
+
+	fprintf(f,
+		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+		"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+		"<plist version=\"1.0\">\n"
+		"<dict>\n"
+		"\t<key>ProductBuildVersion</key>\n"
+		"\t<string>Darling</string>\n"
+		"\t<key>ProductCopyright</key>\n"
+		"\t<string>2012-2026 Darling / VibeDarling Team</string>\n"
+		"\t<key>ProductName</key>\n"
+		"\t<string>macOS</string>\n"
+		"\t<key>ProductUserVisibleVersion</key>\n"
+		"\t<string>%s</string>\n"
+		"\t<key>ProductVersion</key>\n"
+		"\t<string>%s</string>\n"
+		"\t<key>iOSSupportVersion</key>\n"
+		"\t<string>%s</string>\n"
+		"</dict>\n"
+		"</plist>\n",
+		version, version, version
+	);
+	fclose(f);
+	return true;
+}
+
+static char* readSystemVersionFromPlist(const char* prefixPath)
+{
+	char plistPath[4096];
+	snprintf(plistPath, sizeof(plistPath), "%s/System/Library/CoreServices/SystemVersion.plist", prefixPath);
+
+	FILE* f = fopen(plistPath, "r");
+	if (!f)
+		return NULL;
+
+	char line[512];
+	bool nextIsVersion = false;
+	char* version = NULL;
+
+	while (fgets(line, sizeof(line), f))
+	{
+		if (strstr(line, "<key>ProductVersion</key>"))
+		{
+			nextIsVersion = true;
+			continue;
+		}
+		if (nextIsVersion)
+		{
+			char* start = strstr(line, "<string>");
+			char* end = strstr(line, "</string>");
+			if (start && end && end > start)
+			{
+				start += 8;
+				*end = '\0';
+				version = strdup(start);
+				break;
+			}
+			nextIsVersion = false;
+		}
+	}
+	fclose(f);
+	return version;
+}
+
+static void ensureSystemVersion(const char* prefixPath)
+{
+	const char* envVersion = getenv("DARLING_OS_VERSION");
+	if (!envVersion)
+		envVersion = getenv("DARLING_MACOS_VERSION");
+
+	if (envVersion && envVersion[0] != '\0')
+	{
+		writeSystemVersionPlist(prefixPath, envVersion);
+	}
+	else
+	{
+		char plistPath[4096];
+		snprintf(plistPath, sizeof(plistPath), "%s/System/Library/CoreServices/SystemVersion.plist", prefixPath);
+		if (access(plistPath, F_OK) != 0)
+		{
+			writeSystemVersionPlist(prefixPath, "26.0");
+		}
+	}
+}
+
 int main(int argc, char ** argv)
 {
 	pid_t pidInit;
@@ -1505,6 +1602,7 @@ int main(int argc, char ** argv)
 	ensureShSymlink(prefix);
 	ensureHomebrewSymlinks(prefix);
 	ensureKeychains(prefix);
+	ensureSystemVersion(prefix);
 	restoreRootIds();
 
 	int c;
@@ -1547,6 +1645,62 @@ int main(int argc, char ** argv)
 	}
 
 	pidInit = getInitProcess();
+
+	if (strcmp(argv[1], "os-version") == 0)
+	{
+		useOriginalIds();
+		if (argc <= 2 || strcmp(argv[2], "get") == 0)
+		{
+			char* cur = readSystemVersionFromPlist(prefix);
+			printf("%s\n", cur ? cur : "26.0");
+			if (cur) free(cur);
+			restoreRootIds();
+			return 0;
+		}
+		else if (strcmp(argv[2], "set") == 0)
+		{
+			if (argc <= 3)
+			{
+				fprintf(stderr, "Usage: %s os-version set <version>\n", argv[0]);
+				restoreRootIds();
+				return 1;
+			}
+			const char* ver = argv[3];
+			if (writeSystemVersionPlist(prefix, ver))
+			{
+				printf("macOS version for prefix %s set to %s\n", prefix, ver);
+				restoreRootIds();
+				return 0;
+			}
+			else
+			{
+				fprintf(stderr, "Failed to write SystemVersion.plist for prefix %s\n", prefix);
+				restoreRootIds();
+				return 1;
+			}
+		}
+		else if (strcmp(argv[2], "reset") == 0)
+		{
+			if (writeSystemVersionPlist(prefix, "26.0"))
+			{
+				printf("macOS version for prefix %s reset to default (26.0)\n", prefix);
+				restoreRootIds();
+				return 0;
+			}
+			else
+			{
+				fprintf(stderr, "Failed to reset SystemVersion.plist for prefix %s\n", prefix);
+				restoreRootIds();
+				return 1;
+			}
+		}
+		else
+		{
+			fprintf(stderr, "Unknown os-version command '%s'. Usage: %s os-version [get | set <version> | reset]\n", argv[2], argv[0]);
+			restoreRootIds();
+			return 1;
+		}
+	}
 
 	if (strcmp(argv[1], "shutdown") == 0)
 	{
@@ -2382,11 +2536,13 @@ void showHelp(const char* argv0)
 	fprintf(stderr, "\t%s shell [arguments...]\n", argv0);
 	fprintf(stderr, "\t%s exec <program-path> [arguments...]\n", argv0);
 	fprintf(stderr, "\t%s toolchain [install <name>]\n", argv0);
+	fprintf(stderr, "\t%s os-version [get | set <version> | reset]\n", argv0);
 	fprintf(stderr, "\t%s shutdown\n", argv0);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Environment variables:\n"
 		"DPREFIX - specifies the location of the Darling prefix, defaults to ~/.darling\n"
-		"DARLING_PROFILE - selects an isolated named prefix at ~/.darling.<name>\n");
+		"DARLING_PROFILE - selects an isolated named prefix at ~/.darling.<name>\n"
+		"DARLING_OS_VERSION - specifies the advertised macOS version (e.g. 11.7.4, 12.7.4, 26.0)\n");
 }
 
 void showVersion(const char* argv0) {
