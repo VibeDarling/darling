@@ -17,6 +17,7 @@ generate_sdk_framework(RecapPerformanceTesting
 )
 
 add_framework(RecapPerformanceTesting
+	IOSSUPPORT_ALIAS
 	CURRENT_VERSION
 	PRIVATE
 	VERSION ${FRAMEWORK_VERSION}
