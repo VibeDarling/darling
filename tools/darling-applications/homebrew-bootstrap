@@ -39,9 +39,26 @@ if [ -x /usr/local/bin/brew ]; then
   exec /usr/local/bin/brew --version
 fi
 
-# Name what was probed, not where we assume we are. This message previously
-# blamed "the prefix" while the helper had in fact inspected whatever
-# filesystem it was run in, which is how a host-side invocation reported an
-# already-populated prefix as empty.
-echo "bootstrap: no Homebrew or Nanobrew payload found. Probed, in this process's filesystem: /opt/homebrew/bin/brew, /opt/nanobrew/prefix/bin/nb, /usr/local/bin/brew. If these exist in the prefix, this helper was not run inside the guest." >&2
+# Every probe above is an absolute guest path, so falling through has two
+# causes with opposite fixes: the helper ran outside the guest and read the
+# host's filesystem, or it ran inside the guest and the prefix really has no
+# payload. Decide which, rather than asserting one: the previous message named
+# only the host case, and the viewer runs this helper in the guest, so an
+# unstaged prefix was reported as a wrong-filesystem bug.
+probed="/opt/homebrew/bin/brew, /opt/nanobrew/prefix/bin/nb, /usr/local/bin/brew"
+# A failed uname must not quietly pick a branch: guessing is the bug being fixed.
+system=$(uname -s 2>/dev/null) || system=
+case "$system" in
+Darwin)
+  echo "bootstrap: no Homebrew or Nanobrew payload is staged in this prefix. Probed: $probed" >&2
+  echo "bootstrap: this helper only verifies an existing payload, it never downloads one. Payloads are staged out of tree; see tools/darling-applications/README.md." >&2
+  ;;
+"")
+  echo "bootstrap: found no payload and could not run uname, so it cannot tell a host run from an unstaged prefix. Probed: $probed" >&2
+  ;;
+*)
+  echo "bootstrap: ran outside the guest, so it probed the host filesystem, not the prefix. Probed: $probed" >&2
+  echo "bootstrap: run it through 'darling shell' with DPREFIX set; a prefix that is in fact populated reports as empty otherwise." >&2
+  ;;
+esac
 exit 66

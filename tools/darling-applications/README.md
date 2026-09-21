@@ -12,7 +12,7 @@ never passed as a host path to a guest process.
 
 `homebrew-actions.py` implements the two viewer actions:
 
-* `install-homebrew` invokes a configured, checksum-verifying guest bootstrap.
+* `install-homebrew` runs the guest bootstrap gate described below.
 * `install-brewfile` stages a Brewfile inside the prefix and runs native
   `/opt/homebrew/bin/brew bundle --file ...` through Darling.
 
@@ -28,6 +28,12 @@ socket/backend. X11 is explicit opt-in via `DARLING_APPKIT_BACKEND=x11`; it is
 never reported as native Wayland. The active image must contain the provenance-
 pinned `Wayland.backend` bundle.
 
-The current native bootstrap evidence is recorded outside the source tree in
-`~/.local/share/darling/macos-apps/brew/PROGRESS.md`; official bottle payloads
-are intentionally not committed.
+`homebrew-bootstrap` is a gate, not an installer. It reports whether a payload
+is already staged at `/opt/homebrew`, `/opt/nanobrew/prefix` or `/usr/local/bin`
+in the prefix, and execs that payload's version command; it never downloads or
+places anything. Exit 66 means nothing is staged, so the viewer's Homebrew
+action reports rather than installs.
+
+Payloads are staged out of tree, because official bottles are intentionally not
+committed. The current native bootstrap evidence and the staging steps are
+recorded in `~/.local/share/darling/macos-apps/brew/PROGRESS.md`.

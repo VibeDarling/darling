@@ -245,7 +245,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	self.grid.gridDelegate = self;
 	scroll.documentView = self.grid; scroll.hasVerticalScroller = YES;
 	[self.window.contentView addSubview:scroll];
-	self.brewButton = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 75, 180, 32)] autorelease]; self.brewButton.title = @"Install Homebrew"; self.brewButton.toolTip = @"Bootstrap the native Homebrew environment in this prefix."; self.brewButton.target = self; self.brewButton.action = @selector(installHomebrew:); [self.window.contentView addSubview:self.brewButton];
+	self.brewButton = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 75, 180, 32)] autorelease]; self.brewButton.title = @"Check Homebrew"; self.brewButton.toolTip = @"Report whether a native Homebrew or Nanobrew payload is staged in this prefix. It never downloads one."; self.brewButton.target = self; self.brewButton.action = @selector(installHomebrew:); [self.window.contentView addSubview:self.brewButton];
 	self.bundleButton = [[[NSButton alloc] initWithFrame:NSMakeRect(215, 75, 180, 32)] autorelease]; self.bundleButton.title = @"Install Brewfile Apps"; self.bundleButton.toolTip = @"Choose a Brewfile and install its supported native packages."; self.bundleButton.target = self; self.bundleButton.action = @selector(installBrewfile:); [self.window.contentView addSubview:self.bundleButton];
 	self.progressLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(20, 42, 680, 22)] autorelease]; self.progressLabel.editable = NO; self.progressLabel.bordered = NO; self.progressLabel.drawsBackground = NO; self.progressLabel.toolTip = @"Current import operation and byte progress."; self.progressLabel.stringValue = @"Ready to import verified macOS apps."; [self.window.contentView addSubview:self.progressLabel];
 	self.progress = [[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(20, 18, 570, 16)] autorelease]; self.progress.minValue = 0; self.progress.maxValue = 1; self.progress.doubleValue = 0; self.progress.indeterminate = NO; self.progress.toolTip = @"Import progress"; [self.window.contentView addSubview:self.progress];
@@ -520,7 +520,13 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	NSPipe *pipe = [NSPipe pipe]; NSTask *task = [[[NSTask alloc] init] autorelease]; task.launchPath = bootstrap; task.arguments = @[@"/opt/homebrew"]; task.standardOutput = pipe; task.standardError = pipe; [task launch];
 	NSData *data = [pipe.fileHandleForReading readDataToEndOfFile]; [task waitUntilExit];
 	NSString *output = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
-	[self showMessage:[NSString stringWithFormat:@"Homebrew bootstrap exited %d:\n%@", task.terminationStatus, output ?: @""]];
+	NSString *text = [(output ?: @"") stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+	/* The helper names what it probed and what to do about it, so lead with a
+	 * verdict and keep its words; leading with a raw exit number buried them. */
+	if (text.length == 0)
+		text = [NSString stringWithFormat:@"The helper exited %d without printing anything.", task.terminationStatus];
+	NSString *verdict = task.terminationStatus == 0 ? @"Homebrew is ready in this prefix." : @"Homebrew is not ready in this prefix.";
+	[self showMessage:[NSString stringWithFormat:@"%@\n\n%@", verdict, text]];
 }
 
 - (void)installBrewfile:(id)sender {
