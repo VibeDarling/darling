@@ -145,7 +145,7 @@ if (TARGET_i386 OR TARGET_x86_64)
 		Source/Intel/s_log1p.S
 		#Source/Intel/s_logb.S
 		Source/Intel/s_rint.S
-		#Source/Intel/s_significand.S
+		Source/Intel/s_significand.S
 		Source/Intel/s_sin.S
 		Source/Intel/s_tan.S
 		Source/Intel/tanf.S

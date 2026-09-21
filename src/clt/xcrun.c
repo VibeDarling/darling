@@ -100,6 +100,15 @@ int main(int argc, char** argv)
 		}
 	}
 
+	// Also check /Library/Developer/Toolchains/swift.xctoolchain/usr/bin if available
+	char swiftToolchainPath[PATH_MAX];
+	snprintf(swiftToolchainPath, sizeof(swiftToolchainPath), "/Library/Developer/Toolchains/swift.xctoolchain/usr/bin/%s", toolName);
+	if (access(swiftToolchainPath, X_OK) == 0)
+	{
+		argv[0] = swiftToolchainPath;
+		execv(swiftToolchainPath, argv);
+	}
+
 	// Also check /usr/libexec/DeveloperTools if available
 	char devToolsPath[PATH_MAX];
 	snprintf(devToolsPath, sizeof(devToolsPath), "/usr/libexec/DeveloperTools/%s", toolName);
@@ -107,6 +116,33 @@ int main(int argc, char** argv)
 	{
 		argv[0] = devToolsPath;
 		execv(devToolsPath, argv);
+	}
+
+	if (strcmp(toolName, "swift") == 0 || strcmp(toolName, "swiftc") == 0 ||
+	    strncmp(toolName, "swift-", 6) == 0)
+	{
+		if (getenv("DARLING_NO_AUTO_INSTALL") == NULL && access("/usr/libexec/darling/swift_install.sh", X_OK) == 0)
+		{
+			fprintf(stderr, "xcrun: Swift toolchain not found. Installing automatically on first use...\n");
+			setenv("FORCE_INSTALL", "1", 1);
+			int status = system("/usr/libexec/darling/swift_install.sh");
+			if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+			{
+				if (access(swiftToolchainPath, X_OK) == 0)
+				{
+					argv[0] = swiftToolchainPath;
+					execv(swiftToolchainPath, argv);
+				}
+			}
+			fprintf(stderr, "xcrun: automatic installation of Swift toolchain failed.\n");
+		}
+
+		fprintf(stderr, "xcrun: error: Swift toolchain is not installed.\n"
+		                "To install the Swift toolchain on demand, run:\n"
+		                "    darling toolchain install swift\n"
+		                "or inside Darling shell:\n"
+		                "    xcode-select --install-swift\n");
+		return 1;
 	}
 
 	fprintf(stderr, "xcrun: error: cannot find tool '%s'\n", toolName);

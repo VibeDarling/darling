@@ -9,10 +9,10 @@
 	<key>ProductName</key>
 	<string>macOS</string>
 	<key>ProductUserVisibleVersion</key>
-	<string>11.7.4</string>
+	<string>12.7.4</string>
 	<key>ProductVersion</key>
-	<string>11.7.4</string>
+	<string>12.7.4</string>
 	<key>iOSSupportVersion</key>
-	<string>14.7</string>
+	<string>15.7</string>
 </dict>
 </plist>

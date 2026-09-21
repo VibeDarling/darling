@@ -80,6 +80,11 @@ int main(int argc, const char** argv)
 				return WEXITSTATUS(status);
 			}
 		}
+		else if (strcmp(argv[1], "--install-swift") == 0)
+		{
+			int status = system("/usr/libexec/darling/swift_install.sh");
+			return WEXITSTATUS(status);
+		}
 		else if (strcmp(argv[1], "-r") == 0 || strcmp(argv[1], "--reset") == 0)
 		{
 			doReset();
@@ -122,6 +127,7 @@ void printUsage(void)
 			"  -p, --print-path            print the path of the active developer directory\n"
 			"  -s <path>, --switch <path>  change the path of the active developer directory\n"
 			"  --install                   trigger the installation of command line developer tools\n"
+			"  --install-swift             download and install Swift toolchain on demand\n"
 			"  -v, --version               print the version of this tool\n"
 			"  -r, --reset                 reset to the default developer directory\n");
 }

@@ -1672,6 +1672,39 @@ int main(int argc, char ** argv)
 
 	useOriginalIds();
 
+	if (strcmp(argv[1], "toolchain") == 0)
+	{
+		if (argc <= 2 || strcmp(argv[2], "help") == 0)
+		{
+			fprintf(stderr, "Usage:\n"
+			                "\t%s toolchain install <swift>\n", argv[0]);
+			return (argc <= 2) ? 1 : 0;
+		}
+
+		if (strcmp(argv[2], "install") == 0)
+		{
+			const char* target = (argc > 3) ? argv[3] : "swift";
+			if (strcmp(target, "swift") == 0)
+			{
+				// Runs swift_install.sh inside the container prefix (requires network access and curl/wget).
+				const char* cmd[] = { "/usr/libexec/darling/swift_install.sh", NULL };
+				spawnShell(cmd);
+				// TODO: propagate exit status from spawnShell once supported by shellspawn protocol
+				return 0;
+			}
+			else
+			{
+				fprintf(stderr, "Unknown toolchain '%s'. Available toolchains: swift\n", target);
+				return 1;
+			}
+		}
+		else
+		{
+			fprintf(stderr, "Unknown toolchain action '%s'. Usage: %s toolchain install <swift>\n", argv[2], argv[0]);
+			return 1;
+		}
+	}
+
 	if (strcmp(argv[1], "shell") == 0)
 	{
 		// Spawn the shell
@@ -2348,6 +2381,7 @@ void showHelp(const char* argv0)
 	fprintf(stderr, "\t%s <program-path> [arguments...]\n", argv0);
 	fprintf(stderr, "\t%s shell [arguments...]\n", argv0);
 	fprintf(stderr, "\t%s exec <program-path> [arguments...]\n", argv0);
+	fprintf(stderr, "\t%s toolchain [install <name>]\n", argv0);
 	fprintf(stderr, "\t%s shutdown\n", argv0);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Environment variables:\n"
