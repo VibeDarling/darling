@@ -1434,6 +1434,53 @@ static void ensureKeychains(const char* prefixPath)
 	free(der_lens);
 }
 
+// Minimal validation: only digits and dots, length <= 32, no leading/trailing/consecutive dots
+static bool isValidVersionFormat(const char* version)
+{
+	if (!version || *version == '\0')
+		return false;
+
+	size_t len = strlen(version);
+	if (len > 32)
+		return false;
+
+	bool has_digit = false;
+	for (size_t i = 0; i < len; i++)
+	{
+		char c = version[i];
+		if (c >= '0' && c <= '9')
+			has_digit = true;
+		else if (c == '.')
+		{
+			if (i == 0 || i == len - 1 || version[i + 1] == '.')
+				return false;
+		}
+		else
+			return false;
+	}
+
+	return has_digit;
+}
+
+// Maps macOS major release to corresponding iOSSupportVersion
+static void getIOSSupportVersion(const char* macosVersion, char* dst, size_t dst_size)
+{
+	int major = 0;
+	if (sscanf(macosVersion, "%d", &major) == 1)
+	{
+		if (major >= 11 && major <= 20)
+			snprintf(dst, dst_size, "%d.0", major + 3);
+		else if (major >= 26)
+			snprintf(dst, dst_size, "19.0");
+		else
+			snprintf(dst, dst_size, "%s", macosVersion);
+	}
+	else
+	{
+		snprintf(dst, dst_size, "%s", macosVersion);
+	}
+}
+
 static bool writeSystemVersionPlist(const char* prefixPath, const char* version)
 {
 	char plistPath[4096];
@@ -1442,6 +1489,9 @@ static bool writeSystemVersionPlist(const char* prefixPath, const char* version)
 	char dirPath[4096];
 	snprintf(dirPath, sizeof(dirPath), "%s/System/Library/CoreServices", prefixPath);
 	createDir(dirPath);
+
+	char iosVersion[64];
+	getIOSSupportVersion(version, iosVersion, sizeof(iosVersion));
 
 	FILE* f = fopen(plistPath, "w");
 	if (!f)
@@ -1455,7 +1505,7 @@ static bool writeSystemVersionPlist(const char* prefixPath, const char* version)
 		"\t<key>ProductBuildVersion</key>\n"
 		"\t<string>Darling</string>\n"
 		"\t<key>ProductCopyright</key>\n"
-		"\t<string>2012-2026 Darling / VibeDarling Team</string>\n"
+		"\t<string>2012-2023 Lubos Dolezel</string>\n"
 		"\t<key>ProductName</key>\n"
 		"\t<string>macOS</string>\n"
 		"\t<key>ProductUserVisibleVersion</key>\n"
@@ -1466,12 +1516,14 @@ static bool writeSystemVersionPlist(const char* prefixPath, const char* version)
 		"\t<string>%s</string>\n"
 		"</dict>\n"
 		"</plist>\n",
-		version, version, version
+		version, version, iosVersion
 	);
 	fclose(f);
 	return true;
 }
 
+// Note: This parser assumes a well-formed single-line plist structure as produced
+// by writeSystemVersionPlist. It is not an arbitrary XML parser.
 static char* readSystemVersionFromPlist(const char* prefixPath)
 {
 	char plistPath[4096];
@@ -1518,7 +1570,19 @@ static void ensureSystemVersion(const char* prefixPath)
 
 	if (envVersion && envVersion[0] != '\0')
 	{
-		writeSystemVersionPlist(prefixPath, envVersion);
+		if (!isValidVersionFormat(envVersion))
+		{
+			fprintf(stderr, "darling: warning: invalid DARLING_OS_VERSION '%s' ignored (must be numeric, e.g. 11.7.4, 26.0)\n", envVersion);
+			return;
+		}
+
+		char* cur = readSystemVersionFromPlist(prefixPath);
+		if (!cur || strcmp(cur, envVersion) != 0)
+		{
+			fprintf(stderr, "darling: Note: DARLING_OS_VERSION overrides advertised macOS version to %s\n", envVersion);
+			writeSystemVersionPlist(prefixPath, envVersion);
+		}
+		if (cur) free(cur);
 	}
 	else
 	{
@@ -1666,6 +1730,12 @@ int main(int argc, char ** argv)
 				return 1;
 			}
 			const char* ver = argv[3];
+			if (!isValidVersionFormat(ver))
+			{
+				fprintf(stderr, "error: invalid macOS version format '%s' (expected numeric, e.g. 11.7.4, 12.0, 26.0)\n", ver);
+				restoreRootIds();
+				return 1;
+			}
 			if (writeSystemVersionPlist(prefix, ver))
 			{
 				printf("macOS version for prefix %s set to %s\n", prefix, ver);
