@@ -51,5 +51,24 @@ Ruby 4 and the Homebrew packages are not ready; Ruby still raises
 The prefix-initialization work has been validated only as an unprivileged
 candidate binary. Staging a privileged setuid candidate was rejected on review
 and that rejection stands, so no privileged installed-runtime behaviour is
-covered here. The installed launcher is unchanged and nothing in this profile
-modifies it.
+covered here. Nothing in this profile modifies the installed launcher.
+
+**The manual checks above have not been run yet.** The profile is verified up to
+and including launching the viewer, but on this machine the viewer starts into a
+healthy container and **no window appears**, so none of the six checks can be
+performed. The cause is not yet established.
+
+What is known: the installed runtime does ship
+`AppKit.framework/.../Backends/Wayland.backend` with its executable, while
+`CoreGraphics.framework/.../Backends` has only `X11.backend`. Whether AppKit's
+Wayland path needs a matching CoreGraphics backend is an open question, not a
+diagnosis.
+
+Do not diagnose this by listing a stopped prefix. A prefix that is not running
+shows only a directory skeleton: the *working* `X11.backend` also appears to have
+an empty `Contents/MacOS` there, so an apparently missing backend binary in a
+stopped prefix is an artifact of the inspection, not a finding.
+
+If you stage a backend yourself, require the bundle layout rather than the name:
+a build tree contains a same-named directory of generated protocol sources, and
+the loadable bundle only exists after the install step.
