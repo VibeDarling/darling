@@ -19,6 +19,13 @@
 
 #include <Foundation/Foundation.h>
 
+// Attribute name values as shipped by Apple's ModelIO.
+extern NSString *const MDLVertexAttributePosition;
+extern NSString *const MDLVertexAttributeNormal;
+extern NSString *const MDLVertexAttributeTangent;
+extern NSString *const MDLVertexAttributeBitangent;
+extern NSString *const MDLVertexAttributeTextureCoordinate;
+
 @interface MDLVertexDescriptor : NSObject
 
 @end
