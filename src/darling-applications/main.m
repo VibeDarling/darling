@@ -47,6 +47,18 @@ static NSString *FindHelper(NSString *name) {
 
 - (BOOL)isFlipped { return YES; }
 
+// The stock NSView scrollWheel path moves deltaY * lineScroll * 3 (30pt per notch),
+// far coarser than 120pt grid rows. Scroll by one cell row per notch instead.
+- (void)scrollWheel:(NSEvent *)event {
+	NSScrollView *scrollView = [self enclosingScrollView];
+	if (scrollView == nil) return;
+	NSRect visible = [self visibleRect];
+	CGFloat deltaY = [event deltaY] != 0.0 ? [event deltaY] * 132.0 : [event deltaX] * 132.0;
+	visible.origin.y -= deltaY;
+	visible.origin.y = MAX(0.0, MIN(NSMaxY(self.bounds) - visible.size.height, visible.origin.y));
+	[self scrollRectToVisible:visible];
+}
+
 - (CGFloat)columnCountForWidth:(CGFloat)width {
 	return MAX(1.0, floor((width + 12.0) / (130.0 + 12.0)));
 }
@@ -73,7 +85,16 @@ static NSString *FindHelper(NSString *name) {
 		NSImage *icon = [self.icons objectForKey:[NSNumber numberWithUnsignedInteger:index]];
 		if ((id)icon == [NSNull null]) icon = nil;
 		if (icon) {
-			[icon drawInRect:NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+			NSRect iconRect = NSMakeRect(NSMidX(cell) - 36.0, cell.origin.y + 4.0, 72.0, 72.0);
+			CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
+			CGContextSaveGState(context);
+			CGContextClipToRect(context, cell);
+			if ([self isFlipped]) {
+				CGAffineTransform flip = {1, 0, 0, -1, 0, 2.0 * iconRect.origin.y + iconRect.size.height};
+				CGContextConcatCTM(context, flip);
+			}
+			[icon drawInRect:iconRect fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+			CGContextRestoreGState(context);
 		}
 		NSString *name = [self.items objectAtIndex:index];
 		NSDictionary *attributes = @{NSFontAttributeName: [NSFont systemFontOfSize:12.0], NSForegroundColorAttributeName: [NSColor textColor]};
@@ -134,49 +155,6 @@ static NSString *ImportByteCount(unsigned long long bytes) {
 	if (bytes >= 1024ULL * 1024ULL) return [NSString stringWithFormat:@"%.1f MB", (double)bytes / (1024.0 * 1024.0)];
 	if (bytes >= 1024ULL) return [NSString stringWithFormat:@"%.1f KB", (double)bytes / 1024.0];
 	return [NSString stringWithFormat:@"%llu bytes", bytes];
-}
-
-static NSImage *BundleIconForApplication(NSString *path) {
-	NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Contents/Info.plist"]];
-	NSMutableArray *names = [NSMutableArray array];
-	id value = [info objectForKey:@"CFBundleIconName"];
-	if ([value isKindOfClass:[NSString class]]) [names addObject:value];
-	value = [info objectForKey:@"CFBundleIconFile"];
-	if ([value isKindOfClass:[NSString class]] && ![names containsObject:value]) [names addObject:value];
-	id files = [info objectForKey:@"CFBundleIconFiles"];
-	if ([files isKindOfClass:[NSArray class]]) for (id item in files) if ([item isKindOfClass:[NSString class]]) [names addObject:item];
-	for (NSString *name in names) {
-		NSString *candidate = [name pathExtension].length ? name : [name stringByAppendingPathExtension:@"icns"];
-		NSString *file = [[path stringByAppendingPathComponent:@"Contents/Resources"] stringByAppendingPathComponent:candidate];
-		NSImage *icon = nil;
-		@try { icon = [[[NSImage alloc] initWithContentsOfFile:file] autorelease]; } @catch (id exception) { icon = nil; }
-		if (icon && (icon.size.width <= 0.0 || icon.size.height <= 0.0)) icon = nil;
-		if (!icon) {
-			NSData *data = [NSData dataWithContentsOfFile:file];
-			const unsigned char *bytes = data.bytes; NSUInteger length = data.length; NSImage *best = nil; CGFloat bestArea = 0;
-			uint32_t declaredLength = length >= 8 ? ((uint32_t)bytes[4] << 24) | ((uint32_t)bytes[5] << 16) | ((uint32_t)bytes[6] << 8) | bytes[7] : 0;
-			if (bytes && length >= 8 && !memcmp(bytes, "icns", 4) && declaredLength >= 8 && declaredLength <= length) {
-				NSUInteger offset = 8;
-				while (offset + 8 <= declaredLength) {
-					uint32_t chunkLength = ((uint32_t)bytes[offset + 4] << 24) | ((uint32_t)bytes[offset + 5] << 16) | ((uint32_t)bytes[offset + 6] << 8) | bytes[offset + 7];
-					if (chunkLength < 8 || chunkLength > declaredLength - offset) break;
-					BOOL pngChunk = (!memcmp(bytes + offset, "ic13", 4) || !memcmp(bytes + offset, "ic12", 4) || !memcmp(bytes + offset, "ic11", 4) || !memcmp(bytes + offset, "ic10", 4) || !memcmp(bytes + offset, "ic09", 4) || !memcmp(bytes + offset, "ic08", 4) || !memcmp(bytes + offset, "ic07", 4));
-					if (pngChunk && chunkLength > 8) {
-						NSData *payload = [data subdataWithRange:NSMakeRange(offset + 8, chunkLength - 8)];
-						const unsigned char *png = payload.bytes;
-						NSImage *candidateImage = nil;
-						if (payload.length >= 8 && png && !memcmp(png, "\x89PNG\r\n\x1a\n", 8)) @try { candidateImage = [[[NSImage alloc] initWithData:payload] autorelease]; } @catch (id exception) { candidateImage = nil; }
-						CGFloat area = candidateImage ? candidateImage.size.width * candidateImage.size.height : 0;
-						if (candidateImage && area > bestArea) { best = candidateImage; bestArea = area; }
-					}
-					offset += chunkLength;
-				}
-				icon = best;
-			}
-		}
-		if (icon) return icon;
-	}
-	return nil;
 }
 
 static NSImage *GenericApplicationIcon(void) {
@@ -286,6 +264,15 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)openSelectedApplication:(id)sender {
 	NSInteger row = self.table.clickedRow >= 0 ? self.table.clickedRow : self.table.selectedRow;
 	if (row < 0 || row >= (NSInteger)self.applications.count) return;
+	[self launchApplicationAtRow:row];
+}
+
+- (void)openSelectedApplicationAtIndex:(NSInteger)row {
+	if (row < 0 || row >= (NSInteger)self.applications.count) return;
+	[self launchApplicationAtRow:row];
+}
+
+- (void)launchApplicationAtRow:(NSInteger)row {
 	NSString *bundle = [@"/Applications" stringByAppendingPathComponent:self.applications[row]];
 	NSURL *url = [NSURL fileURLWithPath:bundle isDirectory:YES];
 	NSError *error = nil;
@@ -321,7 +308,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 - (void)grid:(DarlingApplicationsGrid *)grid selectedIndex:(NSInteger)index doubleClicked:(BOOL)doubleClicked {
 	if (index < 0 || index >= (NSInteger)self.applications.count) return;
 	[self.table selectRowIndexes:[NSIndexSet indexSetWithIndex:index] byExtendingSelection:NO];
-	if (doubleClicked) [self openSelectedApplication:grid];
+	if (doubleClicked) [self openSelectedApplicationAtIndex:index];
 }
 
 - (void)loadIconUpdate:(NSDictionary *)update {
@@ -336,7 +323,7 @@ static int ImportCopyStatus(int what, int stage, copyfile_state_t state, const c
 	NSUInteger generation = [[request objectForKey:@"generation"] unsignedIntegerValue];
 	for (NSUInteger index = 0; index < items.count; index++) {
 		NSString *path = [@"/Applications" stringByAppendingPathComponent:[items objectAtIndex:index]];
-		NSImage *icon = BundleIconForApplication(path);
+		NSImage *icon = [[NSWorkspace sharedWorkspace] iconForFile:path];
 		NSDictionary *update = @{@"icon": icon ?: (id)[NSNull null], @"index": @(index), @"generation": @(generation)};
 		[self performSelectorOnMainThread:@selector(loadIconUpdate:) withObject:update waitUntilDone:NO];
 	}
