@@ -16,8 +16,10 @@ never passed as a host path to a guest process.
 * `install-brewfile` stages a Brewfile inside the prefix and runs native
   `/opt/homebrew/bin/brew bundle --file ...` through Darling.
 
-The helper refuses a missing/stopped prefix, symlink escapes, host `brew`, and
-MAS entries unless the caller explicitly confirms the Apple ID/login step.
+The helper refuses a missing/stopped prefix, symlink escapes, and host `brew`.
+MAS entries are always skipped: installing one needs an Apple ID and an App Store
+purchase, neither of which is available under Darling, so there is deliberately no
+option to attempt them.
 It does not delete existing Applications, Homebrew, or user data.
 
 On an Omarchy Wayland session the native viewer selects Wayland by default when

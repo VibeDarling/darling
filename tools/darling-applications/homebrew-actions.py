@@ -99,7 +99,7 @@ def install_homebrew(prefix: Path, bootstrap: Path | None) -> int:
     return subprocess.run([str(script), str(prefix)], timeout=3600).returncode
 
 
-def install_brewfile(prefix: Path, brewfile: Path, confirm_mas: bool) -> int:
+def install_brewfile(prefix: Path, brewfile: Path) -> int:
     source = brewfile.expanduser().resolve(strict=True)
     text = source.read_text(encoding="utf-8")
     mas = mas_entries(text)
@@ -131,14 +131,13 @@ def main() -> int:
     parser.add_argument("--prefix", default=str(DEFAULT_PREFIX))
     parser.add_argument("--bootstrap")
     parser.add_argument("--brewfile")
-    parser.add_argument("--confirm-mas", action="store_true")
     args = parser.parse_args()
     prefix = confined_prefix(args.prefix)
     if args.action == "install-homebrew":
         return install_homebrew(prefix, Path(args.bootstrap) if args.bootstrap else None)
     if not args.brewfile:
         parser.error("install-brewfile requires --brewfile")
-    return install_brewfile(prefix, Path(args.brewfile), args.confirm_mas)
+    return install_brewfile(prefix, Path(args.brewfile))
 
 
 if __name__ == "__main__":
