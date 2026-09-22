@@ -30,6 +30,10 @@ struct load_results {
 	size_t envc;
 	char** argv;
 	char** envp;
+
+	// Set when the executable has MH_HAS_TLV_DESCRIPTORS; mldr will log a
+	// warning on Android where __tlv_bootstrap is not yet implemented in dyld.
+	bool has_tlv_descriptors;
 };
 
 #endif // _MLDR_LOADER_H_

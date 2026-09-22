@@ -20,6 +20,57 @@ static void* compatible_mmap(void *addr, size_t length, int prot, int flags, int
 #	define PAGE_ROUNDUP(x) (((x) + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1))
 #endif
 
+#ifndef MLDR_PAGE_SIZE_HELPERS_DEFINED
+#define MLDR_PAGE_SIZE_HELPERS_DEFINED
+
+/*
+ * Dynamic page size helper for Mach-O loading.
+ *
+ * On Apple Silicon (and any aarch64 macOS target) the standard ABI uses 16 KB
+ * segment alignment. When running under a Linux kernel with 4 KB pages, using a
+ * plain 4 KB host page size would leave gaps between adjacent Mach-O segments
+ * unmapped (the file-backed mmap of segment N ends at filesize rounded to 4 KB,
+ * but segment N+1 starts at vmaddr rounded to 16 KB — leaving 12 KB unmapped,
+ * triggering an immediate SIGSEGV on any access).
+ *
+ * Conversely, on host kernels configured with 64 KB pages (e.g. some RHEL or
+ * Asahi Linux kernels), the host page size is larger than 16 KB.
+ *
+ * We dynamically query the host kernel page size at runtime via
+ * sysconf(_SC_PAGESIZE) and use max(host_page_size, abi_page_size) so that
+ * the alignment is never smaller than either the kernel requires or the Mach-O
+ * ABI expects.
+ */
+static inline size_t mldr_get_host_page_size(void) {
+	static size_t hps = 0;
+	size_t cached = __atomic_load_n(&hps, __ATOMIC_RELAXED);
+	if (__builtin_expect(!cached, 0)) {
+		long ps = sysconf(_SC_PAGESIZE);
+		cached = (ps > 0) ? (size_t)ps : (size_t)PAGE_SIZE;
+		__atomic_store_n(&hps, cached, __ATOMIC_RELAXED);
+	}
+	return cached;
+}
+
+static inline size_t mldr_get_macho_page_size(uint32_t cputype) {
+	size_t host_ps = mldr_get_host_page_size();
+#if defined(__aarch64__) || defined(__arm64__)
+	/* On aarch64, standard macOS Mach-O segment alignment is 16 KB.
+	 * If the host kernel has larger pages (e.g. 64 KB), host_ps takes precedence. */
+	size_t abi_ps = (cputype == CPU_TYPE_ARM64) ? 0x4000UL : host_ps;
+	return (host_ps > abi_ps) ? host_ps : abi_ps;
+#else
+	(void)cputype;
+	return host_ps;
+#endif
+}
+
+static inline size_t mldr_page_roundup(size_t val, size_t ps) {
+	return (val + ps - 1) & ~(ps - 1);
+}
+
+#endif /* MLDR_PAGE_SIZE_HELPERS_DEFINED */
+
 // Definitions:
 // FUNCTION_NAME (load32/load64)
 // SEGMENT_STRUCT (segment_command/SEGMENT_STRUCT)
@@ -85,6 +136,34 @@ void FUNCTION_NAME(int fd, bool expect_dylinker, struct load_results* lr)
 	{
 		fprintf(stderr, "Found unexpected Mach-O file type: %u\n", header.filetype);
 		exit(1);
+	}
+
+	/*
+	 * MH_HAS_TLV_DESCRIPTORS — Thread Local Variable support.
+	 *
+	 * On real macOS dyld handles TLV bootstrap entirely in userspace via
+	 * __tlv_bootstrap.  Darling's dyld inherits this code, but on Linux ARM64
+	 * (especially Android with bionic) the TLV thunk relies on a pthread_key
+	 * mechanism that requires the full pthreads init sequence to have run.
+	 * If the binary has TLV descriptors but dyld cannot resolve __tlv_bootstrap,
+	 * it will crash.  Record the flag so mldr can emit an early warning; the
+	 * actual fix is in dyld's threadLocalVariables.c (ARM64 already uses the
+	 * hash-table TSD path from tls.c, so modern builds should survive).
+	 */
+	if (!expect_dylinker && (header.flags & MH_HAS_TLV_DESCRIPTORS))
+	{
+		lr->has_tlv_descriptors = true;
+#if defined(__aarch64__) || defined(__arm64__)
+		/* On Android/aarch64 we cannot guarantee __tlv_bootstrap works.  Warn
+		 * early so the user gets a useful message instead of a bare SIGSEGV. */
+		if (getenv("DARLING_TLV_NOWARN") == NULL) {
+			fprintf(stderr,
+				"[mldr/arm64] warning: executable uses Thread-Local Variables "
+				"(MH_HAS_TLV_DESCRIPTORS). If it crashes with SIGSEGV, set "
+				"DARLING_TLV_NOWARN=1 to suppress this message. "
+				"TLV support on ARM64 Linux requires Darling 0.2+.\n");
+		}
+#endif
 	}
 
 	tmp_map_base = mmap(NULL, PAGE_ROUNDUP(sizeof(header) + header.sizeofcmds), PROT_READ, MAP_PRIVATE, fd, fat_offset);
@@ -206,6 +285,9 @@ no_slide:
 				if (seg_addr != 0)
 					seg_addr += slide;
 
+				const size_t host_ps = mldr_get_host_page_size();
+				const size_t page_sz = mldr_get_macho_page_size(header.cputype);
+
 				// 1. Map the file-backed portion of the segment
 				if (seg->filesize > 0)
 				{
@@ -220,29 +302,36 @@ no_slide:
 					if (seg->fileoff == 0)
 						mappedHeader = (struct MACH_HEADER_STRUCT*) seg_addr;
 
-					// Mach-O ABI: zero-fill the remainder of the last file-backed page
-					if (seg->filesize < seg->vmsize)
+					// Mach-O ABI: zero-fill the remainder of the last file-backed host page.
+					// We can only zero memory that was actually mapped by the kernel above,
+					// which extends up to the host page boundary (host_ps). Any pages beyond
+					// that will be mapped as zero-filled anonymous BSS in step 2 below.
+					if (seg->filesize < seg->vmsize && (useprot & (PROT_READ | PROT_WRITE)))
 					{
-						size_t page_rem = PAGE_ROUNDUP(seg->filesize) - seg->filesize;
-						if (page_rem > 0 && page_rem < PAGE_SIZE) {
+						size_t host_rem = (host_ps - (seg->filesize % host_ps)) % host_ps;
+						if (host_rem > 0) {
 							if (useprot & PROT_WRITE) {
-								memset((char*)seg_addr + seg->filesize, 0, page_rem);
+								memset((char*)seg_addr + seg->filesize, 0, host_rem);
 							} else {
-								void* page_start = (void*)(seg_addr + seg->filesize - (seg->filesize % PAGE_SIZE));
-								mprotect(page_start, PAGE_SIZE, PROT_READ | PROT_WRITE);
-								memset((char*)seg_addr + seg->filesize, 0, page_rem);
-								mprotect(page_start, PAGE_SIZE, useprot);
+								void* page_start = (void*)(seg_addr + seg->filesize - (seg->filesize % host_ps));
+								if (mprotect(page_start, host_ps, PROT_READ | PROT_WRITE) == 0) {
+									memset((char*)seg_addr + seg->filesize, 0, host_rem);
+									mprotect(page_start, host_ps, useprot);
+								}
 							}
 						}
 					}
 				}
 
-				// 2. Map the remaining BSS/anonymous pages (if any) beyond the file-backed pages
-				size_t file_pages = seg->filesize > 0 ? PAGE_ROUNDUP(seg->filesize) : 0;
-				if (PAGE_ROUNDUP(seg->vmsize) > file_pages)
+				// 2. Map the remaining BSS/anonymous pages (if any) beyond the file-backed pages.
+				// Round the total segment size up to the Mach-O target page size (page_sz)
+				// so that the gap between adjacent segments is completely covered by BSS mappings.
+				size_t file_pages = seg->filesize > 0 ? mldr_page_roundup(seg->filesize, host_ps) : 0;
+				size_t total_segment_size = mldr_page_roundup(seg->vmsize, page_sz);
+				if (total_segment_size > file_pages)
 				{
 					uintptr_t bss_addr = seg_addr + file_pages;
-					size_t bss_size = PAGE_ROUNDUP(seg->vmsize) - file_pages;
+					size_t bss_size = total_segment_size - file_pages;
 
 					rv = compatible_mmap((void*)bss_addr, bss_size, useprot,
 							MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE, -1, 0);

@@ -2,6 +2,16 @@ project(mldr)
 
 cmake_minimum_required(VERSION 3.13)
 
+# Auto-detect Android (Termux) if the variable is not already set:
+# when CMAKE_SYSTEM_NAME is "Linux" and the sysroot/linker reference bionic
+# or libandroid-posix-semaphore is available, we are almost certainly on Android.
+if (NOT DEFINED ANDROID)
+	if (EXISTS "/system/lib64/libc.so" OR EXISTS "/system/lib/libc.so")
+		set(ANDROID TRUE)
+		message(STATUS "mldr: Android detected automatically (bionic libc present). Use -DANDROID=FALSE to override.")
+	endif()
+endif()
+
 include_directories(include)
 
 set_source_files_properties(${CMAKE_BINARY_DIR}/src/external/darlingserver/src/rpc.c PROPERTIES
