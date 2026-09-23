@@ -115,6 +115,15 @@ With Combine staged, the transitive scanner walked 132 available Mach-O images r
 
 The current Cocotron source declares and implements five CALayer properties that OpenSwiftUI uses (`contentsScale`, `contentsCenter`, `contentsFormat`, `allowsEdgeAntialiasing`, and `isOpaque`), but the saved Darling SDK snapshot contains older QuartzCore headers. A Darwin Swift typecheck probe fails on all five with the snapshot and passes with a QuartzCore module generated from current Cocotron headers. [OpenSwiftUI fork PR #3](https://github.com/cristim/OpenSwiftUI/pull/3) lets the module generator use that current source. This clears a measured import gap; the full SwiftUI.framework build and AppZapper runtime remain open.
 
+### SwiftUI dependency build after the baseline scan
+
+- Current OpenAttributeGraph source produced arm64 macOS `OpenAttributeGraph` and `OpenAttributeGraphShims` Swift modules (26 and 9 Swift files). This is a module build, not a runtime validation.
+- [Darling PR #812](https://github.com/VibeDarling/darling/pull/812) exports `Darwin.os.lock` to Swift. `import Observation` typechecks with the regenerated SDK.
+- [Cocotron PR #139](https://github.com/VibeDarling/darling-cocotron/pull/139) adds `CTRunDelegate` lifetime and callback handling. Its guest runtime test passes with the relinked CoreText in the combined prefix. CoreText text layout metrics remain stubbed elsewhere.
+- [Foundation PR #50](https://github.com/VibeDarling/darling-foundation/pull/50) defines `NS_SWIFT_SENDABLE`. Current Foundation source already declares `NSAttributedStringKey`; the older SDK snapshot omitted it. OpenSwiftUI PR #3 now permits current Foundation headers in the module overlay. The older snapshot also omitted a visionOS availability macro that current Darling source already has.
+- The MIT-licensed OpenCoreGraphics source is forked at [cristim/OpenCoreGraphics](https://github.com/cristim/OpenCoreGraphics). Its `OpenCoreGraphicsShims` and `OpenQuartzCoreShims` modules compile for arm64 macOS against this SDK and framework overlay.
+- The combined OpenSwiftUI typecheck now reaches a missing `CADisplayLink` declaration in Cocotron QuartzCore. An explicit `OPENSWIFTUI_NO_CADISPLAYLINK` probe flag can expose further compile gaps, but it does not replace the missing implementation.
+
 ## Next checks
 
 1. Exercise TextEdit and Stickies core workflows, then launch the nine still-untested zero-gap apps in a combined integration prefix.
