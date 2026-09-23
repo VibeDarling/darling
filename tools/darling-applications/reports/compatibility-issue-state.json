@@ -395,6 +395,12 @@
     "title": "App compatibility: Audio MIDI Setup",
     "url": "https://github.com/VibeDarling/darling/issues/167"
   },
+  "lib:0003d37a6a70": {
+    "body_file": "libraries/homeui-0003d37a.md",
+    "number": 716,
+    "title": "Library gap: iOSSupport private HomeUI [0003d37a]",
+    "url": "https://github.com/VibeDarling/darling/issues/716"
+  },
   "lib:00903b86e8f0": {
     "body_file": "libraries/calendarlink-00903b86.md",
     "number": 362,
@@ -412,6 +418,12 @@
     "number": 465,
     "title": "Library gap: private IDS [018b78b0]",
     "url": "https://github.com/VibeDarling/darling/issues/465"
+  },
+  "lib:021879ac89f3": {
+    "body_file": "libraries/voiceshortcutclient-021879ac.md",
+    "number": 640,
+    "title": "Library gap: private VoiceShortcutClient [021879ac]",
+    "url": "https://github.com/VibeDarling/darling/issues/640"
   },
   "lib:021ba7cd6f3f": {
     "body_file": "libraries/emailcore-021ba7cd.md",
@@ -449,11 +461,23 @@
     "title": "Library gap: private Portrait [037c988a]",
     "url": "https://github.com/VibeDarling/darling/issues/556"
   },
+  "lib:03bf5f5f36bd": {
+    "body_file": "libraries/libdiskunlock-dylib-03bf5f5f.md",
+    "number": 779,
+    "title": "Library gap: libDiskUnlock.dylib [03bf5f5f]",
+    "url": "https://github.com/VibeDarling/darling/issues/779"
+  },
   "lib:03c76fef206d": {
     "body_file": "libraries/photosui-03c76fef.md",
     "number": 267,
     "title": "Library gap: PhotosUI [03c76fef]",
     "url": "https://github.com/VibeDarling/darling/issues/267"
+  },
+  "lib:04098a1b4e52": {
+    "body_file": "libraries/mapsdesign-04098a1b.md",
+    "number": 724,
+    "title": "Library gap: iOSSupport private MapsDesign [04098a1b]",
+    "url": "https://github.com/VibeDarling/darling/issues/724"
   },
   "lib:040df854fb62": {
     "body_file": "libraries/videotoolbox-040df854.md",
@@ -461,11 +485,23 @@
     "title": "Library gap: VideoToolbox [040df854]",
     "url": "https://github.com/VibeDarling/darling/issues/287"
   },
+  "lib:048f56728c3b": {
+    "body_file": "libraries/appintents-uikit-048f5672.md",
+    "number": 688,
+    "title": "Library gap: iOSSupport _AppIntents_UIKit [048f5672]",
+    "url": "https://github.com/VibeDarling/darling/issues/688"
+  },
   "lib:05b697c237ae": {
     "body_file": "libraries/diskarbitration-05b697c2.md",
     "number": 233,
     "title": "Library gap: DiskArbitration [05b697c2]",
     "url": "https://github.com/VibeDarling/darling/issues/233"
+  },
+  "lib:05c0b4f44190": {
+    "body_file": "libraries/pencilkit-05c0b4f4.md",
+    "number": 677,
+    "title": "Library gap: iOSSupport PencilKit [05c0b4f4]",
+    "url": "https://github.com/VibeDarling/darling/issues/677"
   },
   "lib:05e34e5e15e9": {
     "body_file": "libraries/appsupport-05e34e5e.md",
@@ -479,6 +515,12 @@
     "title": "Library gap: GeoToolbox [05fd19fc]",
     "url": "https://github.com/VibeDarling/darling/issues/239"
   },
+  "lib:0636aeea278c": {
+    "body_file": "libraries/managedconfiguration-0636aeea.md",
+    "number": 723,
+    "title": "Library gap: iOSSupport private ManagedConfiguration [0636aeea]",
+    "url": "https://github.com/VibeDarling/darling/issues/723"
+  },
   "lib:063b1ba58534": {
     "body_file": "libraries/deviceregulatoryinfo-063b1ba5.md",
     "number": 412,
@@ -490,6 +532,12 @@
     "number": 569,
     "title": "Library gap: private RemoteServiceDiscovery [069f14be]",
     "url": "https://github.com/VibeDarling/darling/issues/569"
+  },
+  "lib:06c3c25f97b5": {
+    "body_file": "libraries/homerecommendationengine-06c3c25f.md",
+    "number": 715,
+    "title": "Library gap: iOSSupport private HomeRecommendationEngine [06c3c25f]",
+    "url": "https://github.com/VibeDarling/darling/issues/715"
   },
   "lib:06da64c64051": {
     "body_file": "libraries/skylight-06da64c6.md",
@@ -508,6 +556,18 @@
     "number": 223,
     "title": "Library gap: CoreML [0761d42a]",
     "url": "https://github.com/VibeDarling/darling/issues/223"
+  },
+  "lib:07bf12d9bc5f": {
+    "body_file": "libraries/weatherdaemon-07bf12d9.md",
+    "number": 644,
+    "title": "Library gap: private WeatherDaemon [07bf12d9]",
+    "url": "https://github.com/VibeDarling/darling/issues/644"
+  },
+  "lib:08b3e2846a3d": {
+    "body_file": "libraries/cinematic-08b3e284.md",
+    "number": 665,
+    "title": "Library gap: iOSSupport Cinematic [08b3e284]",
+    "url": "https://github.com/VibeDarling/darling/issues/665"
   },
   "lib:08fe54f9afa7": {
     "body_file": "libraries/peoplesuggester-08fe54f9.md",
@@ -545,6 +605,18 @@
     "title": "Library gap: private PhotoFoundation [0a721a7c]",
     "url": "https://github.com/VibeDarling/darling/issues/539"
   },
+  "lib:0a96824710f9": {
+    "body_file": "libraries/conversationkit-0a968247.md",
+    "number": 702,
+    "title": "Library gap: iOSSupport private ConversationKit [0a968247]",
+    "url": "https://github.com/VibeDarling/darling/issues/702"
+  },
+  "lib:0ab8218d120b": {
+    "body_file": "libraries/podcastsui-0ab8218d.md",
+    "number": 746,
+    "title": "Library gap: iOSSupport private PodcastsUI [0ab8218d]",
+    "url": "https://github.com/VibeDarling/darling/issues/746"
+  },
   "lib:0b23a0313391": {
     "body_file": "libraries/mobileobliteration-0b23a031.md",
     "number": 502,
@@ -562,6 +634,12 @@
     "number": 607,
     "title": "Library gap: private StoreFoundation [0c5502f3]",
     "url": "https://github.com/VibeDarling/darling/issues/607"
+  },
+  "lib:0ca91b4372f4": {
+    "body_file": "libraries/translationui-0ca91b43.md",
+    "number": 627,
+    "title": "Library gap: private TranslationUI [0ca91b43]",
+    "url": "https://github.com/VibeDarling/darling/issues/627"
   },
   "lib:0cdcb92f77f2": {
     "body_file": "libraries/mapssuggestions-0cdcb92f.md",
@@ -587,11 +665,29 @@
     "title": "Library gap: CoreImage [0de13ab2]",
     "url": "https://github.com/VibeDarling/darling/issues/220"
   },
+  "lib:0e15bd782798": {
+    "body_file": "libraries/stocksanalytics-0e15bd78.md",
+    "number": 756,
+    "title": "Library gap: iOSSupport private StocksAnalytics [0e15bd78]",
+    "url": "https://github.com/VibeDarling/darling/issues/756"
+  },
   "lib:0e5a1edfad9e": {
     "body_file": "libraries/dataaccessexpress-0e5a1edf.md",
     "number": 409,
     "title": "Library gap: private DataAccessExpress [0e5a1edf]",
     "url": "https://github.com/VibeDarling/darling/issues/409"
+  },
+  "lib:0e736babd39a": {
+    "body_file": "libraries/newsui-0e736bab.md",
+    "number": 740,
+    "title": "Library gap: iOSSupport private NewsUI [0e736bab]",
+    "url": "https://github.com/VibeDarling/darling/issues/740"
+  },
+  "lib:0e9c954622ab": {
+    "body_file": "libraries/storekit-0e9c9546.md",
+    "number": 681,
+    "title": "Library gap: iOSSupport StoreKit [0e9c9546]",
+    "url": "https://github.com/VibeDarling/darling/issues/681"
   },
   "lib:0f0f7737f7df": {
     "body_file": "libraries/facetimemachelpercore-0f0f7737.md",
@@ -605,6 +701,12 @@
     "title": "Library gap: StoreKit [0f583558]",
     "url": "https://github.com/VibeDarling/darling/issues/279"
   },
+  "lib:0fb744201d30": {
+    "body_file": "libraries/callssearch-0fb74420.md",
+    "number": 697,
+    "title": "Library gap: iOSSupport private CallsSearch [0fb74420]",
+    "url": "https://github.com/VibeDarling/darling/issues/697"
+  },
   "lib:0fe77e2ee287": {
     "body_file": "libraries/javascriptcore-0fe77e2e.md",
     "number": 247,
@@ -617,6 +719,12 @@
     "title": "Library gap: CoreMedia [105bd25a]",
     "url": "https://github.com/VibeDarling/darling/issues/224"
   },
+  "lib:107f7b3950cf": {
+    "body_file": "libraries/appintents-swiftui-107f7b39.md",
+    "number": 687,
+    "title": "Library gap: iOSSupport _AppIntents_SwiftUI [107f7b39]",
+    "url": "https://github.com/VibeDarling/darling/issues/687"
+  },
   "lib:108027b37920": {
     "body_file": "libraries/classkit-108027b3.md",
     "number": 207,
@@ -628,6 +736,24 @@
     "number": 590,
     "title": "Library gap: private SetupAssistantFramework [10bff66f]",
     "url": "https://github.com/VibeDarling/darling/issues/590"
+  },
+  "lib:10c158de1271": {
+    "body_file": "libraries/uiaccessibility-10c158de.md",
+    "number": 766,
+    "title": "Library gap: iOSSupport private UIAccessibility [10c158de]",
+    "url": "https://github.com/VibeDarling/darling/issues/766"
+  },
+  "lib:11b4caeffc72": {
+    "body_file": "libraries/libfontregistry-11b4caef.md",
+    "number": 806,
+    "title": "Library gap: libFontRegistry [11b4caef]",
+    "url": "https://github.com/VibeDarling/darling/issues/806"
+  },
+  "lib:11d3777e9745": {
+    "body_file": "libraries/newsuserevents-11d3777e.md",
+    "number": 742,
+    "title": "Library gap: iOSSupport private NewsUserEvents [11d3777e]",
+    "url": "https://github.com/VibeDarling/darling/issues/742"
   },
   "lib:11e6cb8477e6": {
     "body_file": "libraries/screenreader-11e6cb84.md",
@@ -647,6 +773,24 @@
     "title": "Library gap: private BluetoothServices [13582fce]",
     "url": "https://github.com/VibeDarling/darling/issues/347"
   },
+  "lib:135ab908e395": {
+    "body_file": "libraries/libmobilegestalt-dylib-135ab908.md",
+    "number": 782,
+    "title": "Library gap: libMobileGestalt.dylib [135ab908]",
+    "url": "https://github.com/VibeDarling/darling/issues/782"
+  },
+  "lib:1394a8475e29": {
+    "body_file": "libraries/workflowkit-1394a847.md",
+    "number": 646,
+    "title": "Library gap: private WorkflowKit [1394a847]",
+    "url": "https://github.com/VibeDarling/darling/issues/646"
+  },
+  "lib:13dc7fea28f7": {
+    "body_file": "libraries/promotedcontentui-13dc7fea.md",
+    "number": 748,
+    "title": "Library gap: iOSSupport private PromotedContentUI [13dc7fea]",
+    "url": "https://github.com/VibeDarling/darling/issues/748"
+  },
   "lib:1496810049a2": {
     "body_file": "libraries/carbon-14968100.md",
     "number": 206,
@@ -665,6 +809,36 @@
     "title": "Library gap: private GameCenterFoundation [156412b6]",
     "url": "https://github.com/VibeDarling/darling/issues/447"
   },
+  "lib:15e536eab6f4": {
+    "body_file": "libraries/imsharedutilities-15e536ea.md",
+    "number": 719,
+    "title": "Library gap: iOSSupport private IMSharedUtilities [15e536ea]",
+    "url": "https://github.com/VibeDarling/darling/issues/719"
+  },
+  "lib:1643732429a6": {
+    "body_file": "libraries/home-16437324.md",
+    "number": 713,
+    "title": "Library gap: iOSSupport private Home [16437324]",
+    "url": "https://github.com/VibeDarling/darling/issues/713"
+  },
+  "lib:16a0abda1539": {
+    "body_file": "libraries/jetengine-swiftui-16a0abda.md",
+    "number": 773,
+    "title": "Library gap: iOSSupport private _JetEngine_SwiftUI [16a0abda]",
+    "url": "https://github.com/VibeDarling/darling/issues/773"
+  },
+  "lib:16a512184ba6": {
+    "body_file": "libraries/libgnsdk-dsp-3-06-16a51218.md",
+    "number": 807,
+    "title": "Library gap: libgnsdk_dsp.3.06 [16a51218]",
+    "url": "https://github.com/VibeDarling/darling/issues/807"
+  },
+  "lib:16b80eef82d9": {
+    "body_file": "libraries/libswiftcoremedia-dylib-16b80eef.md",
+    "number": 791,
+    "title": "Library gap: libswiftCoreMedia.dylib [16b80eef]",
+    "url": "https://github.com/VibeDarling/darling/issues/791"
+  },
   "lib:173bdac4663e": {
     "body_file": "libraries/socialappscore-173bdac4.md",
     "number": 599,
@@ -676,6 +850,12 @@
     "number": 235,
     "title": "Library gap: ExtensionFoundation [195af258]",
     "url": "https://github.com/VibeDarling/darling/issues/235"
+  },
+  "lib:19b5a4eab4b5": {
+    "body_file": "libraries/libswiftscenekit-dylib-19b5a4ea.md",
+    "number": 795,
+    "title": "Library gap: libswiftSceneKit.dylib [19b5a4ea]",
+    "url": "https://github.com/VibeDarling/darling/issues/795"
   },
   "lib:19b651b43c98": {
     "body_file": "libraries/mapssync-19b651b4.md",
@@ -694,6 +874,18 @@
     "number": 534,
     "title": "Library gap: private PassKitUI [1a344897]",
     "url": "https://github.com/VibeDarling/darling/issues/534"
+  },
+  "lib:1a50184f854b": {
+    "body_file": "libraries/applemediaservicesui-1a50184f.md",
+    "number": 691,
+    "title": "Library gap: iOSSupport private AppleMediaServicesUI [1a50184f]",
+    "url": "https://github.com/VibeDarling/darling/issues/691"
+  },
+  "lib:1a9371f2b3f6": {
+    "body_file": "libraries/weathermaps-1a9371f2.md",
+    "number": 771,
+    "title": "Library gap: iOSSupport private WeatherMaps [1a9371f2]",
+    "url": "https://github.com/VibeDarling/darling/issues/771"
   },
   "lib:1b48b2e226fc": {
     "body_file": "libraries/coresymbolication-1b48b2e2.md",
@@ -719,11 +911,23 @@
     "title": "Library gap: private NotesAnalytics [1cc3a926]",
     "url": "https://github.com/VibeDarling/darling/issues/520"
   },
+  "lib:1d8690d185e2": {
+    "body_file": "libraries/libc-1-dylib-1d8690d1.md",
+    "number": 784,
+    "title": "Library gap: libc++.1.dylib [1d8690d1]",
+    "url": "https://github.com/VibeDarling/darling/issues/784"
+  },
   "lib:1e4fcd11509b": {
     "body_file": "libraries/coremediastream-1e4fcd11.md",
     "number": 396,
     "title": "Library gap: private CoreMediaStream [1e4fcd11]",
     "url": "https://github.com/VibeDarling/darling/issues/396"
+  },
+  "lib:1e68addd1633": {
+    "body_file": "libraries/contactsautocompleteui-1e68addd.md",
+    "number": 700,
+    "title": "Library gap: iOSSupport private ContactsAutocompleteUI [1e68addd]",
+    "url": "https://github.com/VibeDarling/darling/issues/700"
   },
   "lib:1fa82b972fbc": {
     "body_file": "libraries/ftclientservices-1fa82b97.md",
@@ -749,6 +953,12 @@
     "title": "Library gap: private StocksCore [20cd68a0]",
     "url": "https://github.com/VibeDarling/darling/issues/605"
   },
+  "lib:20d648d4b2e1": {
+    "body_file": "libraries/musickitinternal-mediaplayer-20d648d4.md",
+    "number": 653,
+    "title": "Library gap: private _MusicKitInternal_MediaPlayer [20d648d4]",
+    "url": "https://github.com/VibeDarling/darling/issues/653"
+  },
   "lib:20f0be426814": {
     "body_file": "libraries/healthkit-20f0be42.md",
     "number": 241,
@@ -760,6 +970,24 @@
     "number": 582,
     "title": "Library gap: private ScreenReader [215a462d]",
     "url": "https://github.com/VibeDarling/darling/issues/582"
+  },
+  "lib:22f621c87562": {
+    "body_file": "libraries/workflowuiservices-22f621c8.md",
+    "number": 649,
+    "title": "Library gap: private WorkflowUIServices [22f621c8]",
+    "url": "https://github.com/VibeDarling/darling/issues/649"
+  },
+  "lib:238807fd6f9f": {
+    "body_file": "libraries/libsystem-b-dylib-238807fd.md",
+    "number": 783,
+    "title": "Library gap: libSystem.B.dylib [238807fd]",
+    "url": "https://github.com/VibeDarling/darling/issues/783"
+  },
+  "lib:2471f08cc2be": {
+    "body_file": "libraries/silexweb-2471f08c.md",
+    "number": 754,
+    "title": "Library gap: iOSSupport private SilexWeb [2471f08c]",
+    "url": "https://github.com/VibeDarling/darling/issues/754"
   },
   "lib:247873bf7960": {
     "body_file": "libraries/imageio-247873bf.md",
@@ -797,6 +1025,12 @@
     "title": "Library gap: private PhotosUIFoundation [26218ef7]",
     "url": "https://github.com/VibeDarling/darling/issues/552"
   },
+  "lib:264f056713c1": {
+    "body_file": "libraries/workfloweditor-264f0567.md",
+    "number": 645,
+    "title": "Library gap: private WorkflowEditor [264f0567]",
+    "url": "https://github.com/VibeDarling/darling/issues/645"
+  },
   "lib:2681924e92d1": {
     "body_file": "libraries/saobjects-2681924e.md",
     "number": 573,
@@ -827,6 +1061,12 @@
     "title": "Library gap: Accounts [274610fe]",
     "url": "https://github.com/VibeDarling/darling/issues/194"
   },
+  "lib:2747adec33ab": {
+    "body_file": "libraries/libaudiostatistics-dylib-2747adec.md",
+    "number": 777,
+    "title": "Library gap: libAudioStatistics.dylib [2747adec]",
+    "url": "https://github.com/VibeDarling/darling/issues/777"
+  },
   "lib:27e0195b1750": {
     "body_file": "libraries/mediastream-27e0195b.md",
     "number": 499,
@@ -838,6 +1078,24 @@
     "number": 454,
     "title": "Library gap: private GenerativeModelsFoundation [28af780f]",
     "url": "https://github.com/VibeDarling/darling/issues/454"
+  },
+  "lib:297283379996": {
+    "body_file": "libraries/libaxsafecategorybundle-dylib-29728337.md",
+    "number": 775,
+    "title": "Library gap: libAXSafeCategoryBundle.dylib [29728337]",
+    "url": "https://github.com/VibeDarling/darling/issues/775"
+  },
+  "lib:29f382c5cd5c": {
+    "body_file": "libraries/teafoundation-29f382c5.md",
+    "number": 617,
+    "title": "Library gap: private TeaFoundation [29f382c5]",
+    "url": "https://github.com/VibeDarling/darling/issues/617"
+  },
+  "lib:29f6f48c1691": {
+    "body_file": "libraries/facetimemac-29f6f48c.md",
+    "number": 709,
+    "title": "Library gap: iOSSupport private FaceTimeMac [29f6f48c]",
+    "url": "https://github.com/VibeDarling/darling/issues/709"
   },
   "lib:2a754ab5de03": {
     "body_file": "libraries/corelocation-2a754ab5.md",
@@ -869,6 +1127,18 @@
     "title": "Library gap: private MailCore [2b5d818c]",
     "url": "https://github.com/VibeDarling/darling/issues/486"
   },
+  "lib:2b995a8a8b5f": {
+    "body_file": "libraries/libswiftnaturallanguage-dylib-2b995a8a.md",
+    "number": 793,
+    "title": "Library gap: libswiftNaturalLanguage.dylib [2b995a8a]",
+    "url": "https://github.com/VibeDarling/darling/issues/793"
+  },
+  "lib:2ba7a514591b": {
+    "body_file": "libraries/sharesheet-2ba7a514.md",
+    "number": 751,
+    "title": "Library gap: iOSSupport private ShareSheet [2ba7a514]",
+    "url": "https://github.com/VibeDarling/darling/issues/751"
+  },
   "lib:2bc810636c07": {
     "body_file": "libraries/modelcatalog-2bc81063.md",
     "number": 505,
@@ -899,6 +1169,12 @@
     "title": "Library gap: private Calculate [3014a1f3]",
     "url": "https://github.com/VibeDarling/darling/issues/357"
   },
+  "lib:3069bcfc0b38": {
+    "body_file": "libraries/callsdialer-3069bcfc.md",
+    "number": 696,
+    "title": "Library gap: iOSSupport private CallsDialer [3069bcfc]",
+    "url": "https://github.com/VibeDarling/darling/issues/696"
+  },
   "lib:3121ade295e7": {
     "body_file": "libraries/emailaddressing-3121ade2.md",
     "number": 415,
@@ -910,6 +1186,24 @@
     "number": 381,
     "title": "Library gap: private ConsoleKit [318ef466]",
     "url": "https://github.com/VibeDarling/darling/issues/381"
+  },
+  "lib:3193a270663d": {
+    "body_file": "libraries/silex-3193a270.md",
+    "number": 752,
+    "title": "Library gap: iOSSupport private Silex [3193a270]",
+    "url": "https://github.com/VibeDarling/darling/issues/752"
+  },
+  "lib:3204fb438c89": {
+    "body_file": "libraries/webkit-3204fb43.md",
+    "number": 685,
+    "title": "Library gap: iOSSupport WebKit [3204fb43]",
+    "url": "https://github.com/VibeDarling/darling/issues/685"
+  },
+  "lib:32255862696e": {
+    "body_file": "libraries/newsengagement-32255862.md",
+    "number": 734,
+    "title": "Library gap: iOSSupport private NewsEngagement [32255862]",
+    "url": "https://github.com/VibeDarling/darling/issues/734"
   },
   "lib:32efb8dd09e5": {
     "body_file": "libraries/photolibraryservices-32efb8dd.md",
@@ -959,6 +1253,12 @@
     "title": "Library gap: SystemConfiguration [35f9ff7e]",
     "url": "https://github.com/VibeDarling/darling/issues/281"
   },
+  "lib:36faeaff73c9": {
+    "body_file": "libraries/mediaplaybackcore-36faeaff.md",
+    "number": 727,
+    "title": "Library gap: iOSSupport private MediaPlaybackCore [36faeaff]",
+    "url": "https://github.com/VibeDarling/darling/issues/727"
+  },
   "lib:370c3d50ec6d": {
     "body_file": "libraries/appstate-370c3d50.md",
     "number": 321,
@@ -994,6 +1294,12 @@
     "number": 498,
     "title": "Library gap: private MediaServices [38c3a00b]",
     "url": "https://github.com/VibeDarling/darling/issues/498"
+  },
+  "lib:39c34bc24ee6": {
+    "body_file": "libraries/intentsui-39c34bc2.md",
+    "number": 669,
+    "title": "Library gap: iOSSupport IntentsUI [39c34bc2]",
+    "url": "https://github.com/VibeDarling/darling/issues/669"
   },
   "lib:39e066d46798": {
     "body_file": "libraries/remindersappintents-39e066d4.md",
@@ -1031,11 +1337,23 @@
     "title": "Library gap: private IconFoundation [3b28efd9]",
     "url": "https://github.com/VibeDarling/darling/issues/470"
   },
+  "lib:3b4b7fb4de67": {
+    "body_file": "libraries/callsappui-3b4b7fb4.md",
+    "number": 695,
+    "title": "Library gap: iOSSupport private CallsAppUI [3b4b7fb4]",
+    "url": "https://github.com/VibeDarling/darling/issues/695"
+  },
   "lib:3c3a0ad84e0d": {
     "body_file": "libraries/cloudsharing-3c3a0ad8.md",
     "number": 373,
     "title": "Library gap: private CloudSharing [3c3a0ad8]",
     "url": "https://github.com/VibeDarling/darling/issues/373"
+  },
+  "lib:3c834227caab": {
+    "body_file": "libraries/silexvideo-3c834227.md",
+    "number": 753,
+    "title": "Library gap: iOSSupport private SilexVideo [3c834227]",
+    "url": "https://github.com/VibeDarling/darling/issues/753"
   },
   "lib:3c962db25b2c": {
     "body_file": "libraries/geoservices-3c962db2.md",
@@ -1049,6 +1367,12 @@
     "title": "Library gap: CoreGraphics [3cb803da]",
     "url": "https://github.com/VibeDarling/darling/issues/218"
   },
+  "lib:3d42a544beda": {
+    "body_file": "libraries/libfontparser-3d42a544.md",
+    "number": 805,
+    "title": "Library gap: libFontParser [3d42a544]",
+    "url": "https://github.com/VibeDarling/darling/issues/805"
+  },
   "lib:3d4b7ac4f257": {
     "body_file": "libraries/groupactivities-3d4b7ac4.md",
     "number": 240,
@@ -1061,11 +1385,29 @@
     "title": "Library gap: private NeutrinoKit [3e1a0af0]",
     "url": "https://github.com/VibeDarling/darling/issues/515"
   },
+  "lib:3e2dd70f6d2c": {
+    "body_file": "libraries/workflowui-3e2dd70f.md",
+    "number": 647,
+    "title": "Library gap: private WorkflowUI [3e2dd70f]",
+    "url": "https://github.com/VibeDarling/darling/issues/647"
+  },
   "lib:3e8e58b821cb": {
     "body_file": "libraries/passwordmanagerui-3e8e58b8.md",
     "number": 535,
     "title": "Library gap: private PasswordManagerUI [3e8e58b8]",
     "url": "https://github.com/VibeDarling/darling/issues/535"
+  },
+  "lib:3ed9d9fea7b3": {
+    "body_file": "libraries/iconservices-swiftui-3ed9d9fe.md",
+    "number": 651,
+    "title": "Library gap: private _IconServices_SwiftUI [3ed9d9fe]",
+    "url": "https://github.com/VibeDarling/darling/issues/651"
+  },
+  "lib:3f4276f952e0": {
+    "body_file": "libraries/tokengenerationcore-3f4276f9.md",
+    "number": 624,
+    "title": "Library gap: private TokenGenerationCore [3f4276f9]",
+    "url": "https://github.com/VibeDarling/darling/issues/624"
   },
   "lib:410aa6e2b3ca": {
     "body_file": "libraries/corehaptics-410aa6e2.md",
@@ -1115,6 +1457,24 @@
     "title": "Library gap: private ApplePushService [4596ab49]",
     "url": "https://github.com/VibeDarling/darling/issues/332"
   },
+  "lib:45a21e3bcd03": {
+    "body_file": "libraries/libsqlite3-dylib-45a21e3b.md",
+    "number": 786,
+    "title": "Library gap: libsqlite3.dylib [45a21e3b]",
+    "url": "https://github.com/VibeDarling/darling/issues/786"
+  },
+  "lib:45c1a4283a77": {
+    "body_file": "libraries/vcard-45c1a428.md",
+    "number": 659,
+    "title": "Library gap: private vCard [45c1a428]",
+    "url": "https://github.com/VibeDarling/darling/issues/659"
+  },
+  "lib:4648696cb100": {
+    "body_file": "libraries/teaui-4648696c.md",
+    "number": 764,
+    "title": "Library gap: iOSSupport private TeaUI [4648696c]",
+    "url": "https://github.com/VibeDarling/darling/issues/764"
+  },
   "lib:475a823139dc": {
     "body_file": "libraries/quartz-475a8231.md",
     "number": 269,
@@ -1145,11 +1505,23 @@
     "title": "Library gap: private SPShared [49ea2742]",
     "url": "https://github.com/VibeDarling/darling/issues/575"
   },
+  "lib:49ff1d9a1875": {
+    "body_file": "libraries/facetimesettingsui-49ff1d9a.md",
+    "number": 710,
+    "title": "Library gap: iOSSupport private FaceTimeSettingsUI [49ff1d9a]",
+    "url": "https://github.com/VibeDarling/darling/issues/710"
+  },
   "lib:4a215e431f4a": {
     "body_file": "libraries/commonutilities-4a215e43.md",
     "number": 377,
     "title": "Library gap: private CommonUtilities [4a215e43]",
     "url": "https://github.com/VibeDarling/darling/issues/377"
+  },
+  "lib:4a9bb5757a54": {
+    "body_file": "libraries/vectorkit-4a9bb575.md",
+    "number": 636,
+    "title": "Library gap: private VectorKit [4a9bb575]",
+    "url": "https://github.com/VibeDarling/darling/issues/636"
   },
   "lib:4b1e1ad2aac2": {
     "body_file": "libraries/communicationtrust-4b1e1ad2.md",
@@ -1163,11 +1535,29 @@
     "title": "Library gap: private CorePhoneNumbers [4c0ca2f0]",
     "url": "https://github.com/VibeDarling/darling/issues/398"
   },
+  "lib:4d2cde97af7c": {
+    "body_file": "libraries/videosui-4d2cde97.md",
+    "number": 637,
+    "title": "Library gap: private VideosUI [4d2cde97]",
+    "url": "https://github.com/VibeDarling/darling/issues/637"
+  },
+  "lib:4d56d8466525": {
+    "body_file": "libraries/helpkit-4d56d846.md",
+    "number": 712,
+    "title": "Library gap: iOSSupport private HelpKit [4d56d846]",
+    "url": "https://github.com/VibeDarling/darling/issues/712"
+  },
   "lib:4d770f8a35b4": {
     "body_file": "libraries/corerecents-4d770f8a.md",
     "number": 400,
     "title": "Library gap: private CoreRecents [4d770f8a]",
     "url": "https://github.com/VibeDarling/darling/issues/400"
+  },
+  "lib:4ed7cd9c1cb1": {
+    "body_file": "libraries/libgnsdk-manager-3-06-4ed7cd9c.md",
+    "number": 808,
+    "title": "Library gap: libgnsdk_manager.3.06 [4ed7cd9c]",
+    "url": "https://github.com/VibeDarling/darling/issues/808"
   },
   "lib:4ef410220ae7": {
     "body_file": "libraries/mailservice-4ef41022.md",
@@ -1229,6 +1619,12 @@
     "title": "Library gap: private CorePDF [52486728]",
     "url": "https://github.com/VibeDarling/darling/issues/397"
   },
+  "lib:526380b81f9b": {
+    "body_file": "libraries/cookingkit-526380b8.md",
+    "number": 703,
+    "title": "Library gap: iOSSupport private CookingKit [526380b8]",
+    "url": "https://github.com/VibeDarling/darling/issues/703"
+  },
   "lib:52b892b2e255": {
     "body_file": "libraries/mediaremote-52b892b2.md",
     "number": 497,
@@ -1253,6 +1649,18 @@
     "title": "Library gap: private Recap [53b67698]",
     "url": "https://github.com/VibeDarling/darling/issues/563"
   },
+  "lib:54aa05cf320e": {
+    "body_file": "libraries/mobilecoreservices-54aa05cf.md",
+    "number": 675,
+    "title": "Library gap: iOSSupport MobileCoreServices [54aa05cf]",
+    "url": "https://github.com/VibeDarling/darling/issues/675"
+  },
+  "lib:54b8ed3b1cf9": {
+    "body_file": "libraries/fmcoreui-54b8ed3b.md",
+    "number": 707,
+    "title": "Library gap: iOSSupport private FMCoreUI [54b8ed3b]",
+    "url": "https://github.com/VibeDarling/darling/issues/707"
+  },
   "lib:5541261863ba": {
     "body_file": "libraries/pencilkit-55412618.md",
     "number": 265,
@@ -1270,6 +1678,12 @@
     "number": 212,
     "title": "Library gap: CoreAudio [558b6600]",
     "url": "https://github.com/VibeDarling/darling/issues/212"
+  },
+  "lib:559152ece733": {
+    "body_file": "libraries/eventkitui-559152ec.md",
+    "number": 667,
+    "title": "Library gap: iOSSupport EventKitUI [559152ec]",
+    "url": "https://github.com/VibeDarling/darling/issues/667"
   },
   "lib:55b3854a1c3c": {
     "body_file": "libraries/baseboard-55b3854a.md",
@@ -1295,6 +1709,12 @@
     "title": "Library gap: AddressBook [572737d2]",
     "url": "https://github.com/VibeDarling/darling/issues/196"
   },
+  "lib:580bbd994a80": {
+    "body_file": "libraries/tungsten-580bbd99.md",
+    "number": 629,
+    "title": "Library gap: private Tungsten [580bbd99]",
+    "url": "https://github.com/VibeDarling/darling/issues/629"
+  },
   "lib:584340c6be41": {
     "body_file": "libraries/geoservicescore-584340c6.md",
     "number": 458,
@@ -1307,6 +1727,12 @@
     "title": "Library gap: PreferencePanes [586dd8ba]",
     "url": "https://github.com/VibeDarling/darling/issues/268"
   },
+  "lib:58fc8303f6e2": {
+    "body_file": "libraries/virtualgarage-58fc8303.md",
+    "number": 638,
+    "title": "Library gap: private VirtualGarage [58fc8303]",
+    "url": "https://github.com/VibeDarling/darling/issues/638"
+  },
   "lib:5918ed746e7b": {
     "body_file": "libraries/newstransport-5918ed74.md",
     "number": 519,
@@ -1318,6 +1744,12 @@
     "number": 226,
     "title": "Library gap: CoreServices [59ca4656]",
     "url": "https://github.com/VibeDarling/darling/issues/226"
+  },
+  "lib:59e0e8552758": {
+    "body_file": "libraries/contactsui-59e0e855.md",
+    "number": 666,
+    "title": "Library gap: iOSSupport ContactsUI [59e0e855]",
+    "url": "https://github.com/VibeDarling/darling/issues/666"
   },
   "lib:59e1bf2b7f53": {
     "body_file": "libraries/bookkit-59e1bf2b.md",
@@ -1343,11 +1775,35 @@
     "title": "Library gap: private CoreBluetoothUI [5b01dc40]",
     "url": "https://github.com/VibeDarling/darling/issues/390"
   },
+  "lib:5b9474eb99f1": {
+    "body_file": "libraries/booklibrary-5b9474eb.md",
+    "number": 693,
+    "title": "Library gap: iOSSupport private BookLibrary [5b9474eb]",
+    "url": "https://github.com/VibeDarling/darling/issues/693"
+  },
+  "lib:5be9543eda49": {
+    "body_file": "libraries/uikit-5be9543e.md",
+    "number": 684,
+    "title": "Library gap: iOSSupport UIKit [5be9543e]",
+    "url": "https://github.com/VibeDarling/darling/issues/684"
+  },
+  "lib:5cac062b66a5": {
+    "body_file": "libraries/itunescloud-5cac062b.md",
+    "number": 658,
+    "title": "Library gap: private iTunesCloud [5cac062b]",
+    "url": "https://github.com/VibeDarling/darling/issues/658"
+  },
   "lib:5d1b2cedbe96": {
     "body_file": "libraries/softlinking-5d1b2ced.md",
     "number": 602,
     "title": "Library gap: private SoftLinking [5d1b2ced]",
     "url": "https://github.com/VibeDarling/darling/issues/602"
+  },
+  "lib:5dfb0a9f340e": {
+    "body_file": "libraries/arkit-5dfb0a9f.md",
+    "number": 660,
+    "title": "Library gap: iOSSupport ARKit [5dfb0a9f]",
+    "url": "https://github.com/VibeDarling/darling/issues/660"
   },
   "lib:5e4a0f575a1d": {
     "body_file": "libraries/backup-5e4a0f57.md",
@@ -1360,6 +1816,12 @@
     "number": 522,
     "title": "Library gap: private NotesHTML [5e8027d8]",
     "url": "https://github.com/VibeDarling/darling/issues/522"
+  },
+  "lib:5eb556f490da": {
+    "body_file": "libraries/messageui-5eb556f4.md",
+    "number": 674,
+    "title": "Library gap: iOSSupport MessageUI [5eb556f4]",
+    "url": "https://github.com/VibeDarling/darling/issues/674"
   },
   "lib:5f204b5c7775": {
     "body_file": "libraries/safeejectgpu-5f204b5c.md",
@@ -1409,6 +1871,12 @@
     "title": "Library gap: private AppStoreFoundation [63193d49]",
     "url": "https://github.com/VibeDarling/darling/issues/323"
   },
+  "lib:636e217d78c4": {
+    "body_file": "libraries/mediaplayer-636e217d.md",
+    "number": 673,
+    "title": "Library gap: iOSSupport MediaPlayer [636e217d]",
+    "url": "https://github.com/VibeDarling/darling/issues/673"
+  },
   "lib:63709ec3a641": {
     "body_file": "libraries/mapkit-63709ec3.md",
     "number": 252,
@@ -1432,6 +1900,12 @@
     "number": 475,
     "title": "Library gap: private InternalSwiftProtobuf [647d5f6b]",
     "url": "https://github.com/VibeDarling/darling/issues/475"
+  },
+  "lib:6480d40faa6b": {
+    "body_file": "libraries/contactsuicore-6480d40f.md",
+    "number": 701,
+    "title": "Library gap: iOSSupport private ContactsUICore [6480d40f]",
+    "url": "https://github.com/VibeDarling/darling/issues/701"
   },
   "lib:64a200997c44": {
     "body_file": "libraries/locationessentials-64a20099.md",
@@ -1481,11 +1955,23 @@
     "title": "Library gap: private MobileAsset [676c64c6]",
     "url": "https://github.com/VibeDarling/darling/issues/500"
   },
+  "lib:6777cbb28866": {
+    "body_file": "libraries/callsappservices-6777cbb2.md",
+    "number": 694,
+    "title": "Library gap: iOSSupport private CallsAppServices [6777cbb2]",
+    "url": "https://github.com/VibeDarling/darling/issues/694"
+  },
   "lib:678e07c6947d": {
     "body_file": "libraries/aoskit-678e07c6.md",
     "number": 304,
     "title": "Library gap: private AOSKit [678e07c6]",
     "url": "https://github.com/VibeDarling/darling/issues/304"
+  },
+  "lib:685e67defc50": {
+    "body_file": "libraries/mediacoreui-685e67de.md",
+    "number": 726,
+    "title": "Library gap: iOSSupport private MediaCoreUI [685e67de]",
+    "url": "https://github.com/VibeDarling/darling/issues/726"
   },
   "lib:6933cde32e3e": {
     "body_file": "libraries/corefollowupui-6933cde3.md",
@@ -1498,6 +1984,18 @@
     "number": 565,
     "title": "Library gap: private ReminderKit [6955c6e6]",
     "url": "https://github.com/VibeDarling/darling/issues/565"
+  },
+  "lib:696a90024a0a": {
+    "body_file": "libraries/homekit-696a9002.md",
+    "number": 668,
+    "title": "Library gap: iOSSupport HomeKit [696a9002]",
+    "url": "https://github.com/VibeDarling/darling/issues/668"
+  },
+  "lib:6a1477d4b277": {
+    "body_file": "libraries/newsads-6a1477d4.md",
+    "number": 731,
+    "title": "Library gap: iOSSupport private NewsAds [6a1477d4]",
+    "url": "https://github.com/VibeDarling/darling/issues/731"
   },
   "lib:6a1fb014a2dc": {
     "body_file": "libraries/netappsutilities-6a1fb014.md",
@@ -1523,11 +2021,23 @@
     "title": "Library gap: private FMF [6bafbe52]",
     "url": "https://github.com/VibeDarling/darling/issues/424"
   },
+  "lib:6d442264c1d7": {
+    "body_file": "libraries/telephonyutilities-6d442264.md",
+    "number": 619,
+    "title": "Library gap: private TelephonyUtilities [6d442264]",
+    "url": "https://github.com/VibeDarling/darling/issues/619"
+  },
   "lib:6d9e38e7d0b7": {
     "body_file": "libraries/emailfoundation-6d9e38e7.md",
     "number": 418,
     "title": "Library gap: private EmailFoundation [6d9e38e7]",
     "url": "https://github.com/VibeDarling/darling/issues/418"
+  },
+  "lib:6dd056659613": {
+    "body_file": "libraries/authenticationservices-6dd05665.md",
+    "number": 662,
+    "title": "Library gap: iOSSupport AuthenticationServices [6dd05665]",
+    "url": "https://github.com/VibeDarling/darling/issues/662"
   },
   "lib:6e0c8f0503ac": {
     "body_file": "libraries/applesysteminfo-6e0c8f05.md",
@@ -1547,11 +2057,23 @@
     "title": "Library gap: private GameServices [6e8b4971]",
     "url": "https://github.com/VibeDarling/darling/issues/449"
   },
+  "lib:6f0d72853fab": {
+    "body_file": "libraries/javascriptcore-6f0d7285.md",
+    "number": 670,
+    "title": "Library gap: iOSSupport JavaScriptCore [6f0d7285]",
+    "url": "https://github.com/VibeDarling/darling/issues/670"
+  },
   "lib:6f9e5514526d": {
     "body_file": "libraries/imageplayground-6f9e5514.md",
     "number": 245,
     "title": "Library gap: ImagePlayground [6f9e5514]",
     "url": "https://github.com/VibeDarling/darling/issues/245"
+  },
+  "lib:70252521f4ac": {
+    "body_file": "libraries/photosui-70252521.md",
+    "number": 678,
+    "title": "Library gap: iOSSupport PhotosUI [70252521]",
+    "url": "https://github.com/VibeDarling/darling/issues/678"
   },
   "lib:70409c002b15": {
     "body_file": "libraries/assistantservices-70409c00.md",
@@ -1607,6 +2129,12 @@
     "title": "Library gap: private CloudKitCode [72be05e2]",
     "url": "https://github.com/VibeDarling/darling/issues/371"
   },
+  "lib:72cf167645b3": {
+    "body_file": "libraries/weatherui-72cf1676.md",
+    "number": 772,
+    "title": "Library gap: iOSSupport private WeatherUI [72cf1676]",
+    "url": "https://github.com/VibeDarling/darling/issues/772"
+  },
   "lib:73280fc3808c": {
     "body_file": "libraries/feedback-73280fc3.md",
     "number": 436,
@@ -1637,11 +2165,23 @@
     "title": "Library gap: UserNotifications [75476e78]",
     "url": "https://github.com/VibeDarling/darling/issues/285"
   },
+  "lib:76d8af198a81": {
+    "body_file": "libraries/screentimeui-76d8af19.md",
+    "number": 750,
+    "title": "Library gap: iOSSupport private ScreenTimeUI [76d8af19]",
+    "url": "https://github.com/VibeDarling/darling/issues/750"
+  },
   "lib:77742ca69b09": {
     "body_file": "libraries/contactspersistence-77742ca6.md",
     "number": 386,
     "title": "Library gap: private ContactsPersistence [77742ca6]",
     "url": "https://github.com/VibeDarling/darling/issues/386"
+  },
+  "lib:781856d3be02": {
+    "body_file": "libraries/teacharts-781856d3.md",
+    "number": 761,
+    "title": "Library gap: iOSSupport private TeaCharts [781856d3]",
+    "url": "https://github.com/VibeDarling/darling/issues/761"
   },
   "lib:783e430bffc4": {
     "body_file": "libraries/calculateui-783e430b.md",
@@ -1649,11 +2189,23 @@
     "title": "Library gap: private CalculateUI [783e430b]",
     "url": "https://github.com/VibeDarling/darling/issues/358"
   },
+  "lib:785701227b25": {
+    "body_file": "libraries/brailletranslation-78570122.md",
+    "number": 801,
+    "title": "Library gap: BrailleTranslation [78570122]",
+    "url": "https://github.com/VibeDarling/darling/issues/801"
+  },
   "lib:79488e249eb2": {
     "body_file": "libraries/applicationfirewall-79488e24.md",
     "number": 335,
     "title": "Library gap: private ApplicationFirewall [79488e24]",
     "url": "https://github.com/VibeDarling/darling/issues/335"
+  },
+  "lib:796c1a8b61db": {
+    "body_file": "libraries/tipkit-796c1a8b.md",
+    "number": 683,
+    "title": "Library gap: iOSSupport TipKit [796c1a8b]",
+    "url": "https://github.com/VibeDarling/darling/issues/683"
   },
   "lib:798d1462da7d": {
     "body_file": "libraries/avfoundationcf-798d1462.md",
@@ -1666,6 +2218,12 @@
     "number": 518,
     "title": "Library gap: private NewsFoundation [79effc80]",
     "url": "https://github.com/VibeDarling/darling/issues/518"
+  },
+  "lib:7a2d39d8ab70": {
+    "body_file": "libraries/mapkit-7a2d39d8.md",
+    "number": 672,
+    "title": "Library gap: iOSSupport MapKit [7a2d39d8]",
+    "url": "https://github.com/VibeDarling/darling/issues/672"
   },
   "lib:7a33f72c03b2": {
     "body_file": "libraries/applemediaserviceskitinternal-7a33f72c.md",
@@ -1691,6 +2249,12 @@
     "title": "Library gap: private SPSupport [7c31eaee]",
     "url": "https://github.com/VibeDarling/darling/issues/576"
   },
+  "lib:7e7bb3e26589": {
+    "body_file": "libraries/onboardingkit-7e7bb3e2.md",
+    "number": 743,
+    "title": "Library gap: iOSSupport private OnBoardingKit [7e7bb3e2]",
+    "url": "https://github.com/VibeDarling/darling/issues/743"
+  },
   "lib:7ea205f51443": {
     "body_file": "libraries/audiotoolbox-7ea205f5.md",
     "number": 201,
@@ -1703,11 +2267,29 @@
     "title": "Library gap: private IntelligencePlatform [7ec758a1]",
     "url": "https://github.com/VibeDarling/darling/issues/473"
   },
+  "lib:7f217f8cafe1": {
+    "body_file": "libraries/imagekit-7f217f8c.md",
+    "number": 802,
+    "title": "Library gap: ImageKit [7f217f8c]",
+    "url": "https://github.com/VibeDarling/darling/issues/802"
+  },
   "lib:7f21f1c6a83b": {
     "body_file": "libraries/coreduet-7f21f1c6.md",
     "number": 393,
     "title": "Library gap: private CoreDuet [7f21f1c6]",
     "url": "https://github.com/VibeDarling/darling/issues/393"
+  },
+  "lib:7f2dbe81fdc9": {
+    "body_file": "libraries/jetui-7f2dbe81.md",
+    "number": 721,
+    "title": "Library gap: iOSSupport private JetUI [7f2dbe81]",
+    "url": "https://github.com/VibeDarling/darling/issues/721"
+  },
+  "lib:7f684518707c": {
+    "body_file": "libraries/teasnappy-7f684518.md",
+    "number": 762,
+    "title": "Library gap: iOSSupport private TeaSnappy [7f684518]",
+    "url": "https://github.com/VibeDarling/darling/issues/762"
   },
   "lib:808d0e05b9ed": {
     "body_file": "libraries/cpanalytics-808d0e05.md",
@@ -1727,6 +2309,18 @@
     "title": "Library gap: private AccountsUI [823a9f5a]",
     "url": "https://github.com/VibeDarling/darling/issues/316"
   },
+  "lib:832e00e85073": {
+    "body_file": "libraries/imcore-832e00e8.md",
+    "number": 718,
+    "title": "Library gap: iOSSupport private IMCore [832e00e8]",
+    "url": "https://github.com/VibeDarling/darling/issues/718"
+  },
+  "lib:83fbfe427856": {
+    "body_file": "libraries/chatkit-83fbfe42.md",
+    "number": 698,
+    "title": "Library gap: iOSSupport private ChatKit [83fbfe42]",
+    "url": "https://github.com/VibeDarling/darling/issues/698"
+  },
   "lib:8431e61bbfa4": {
     "body_file": "libraries/generativefunctions-8431e61b.md",
     "number": 451,
@@ -1739,17 +2333,53 @@
     "title": "Library gap: private OnBoardingKit [85063110]",
     "url": "https://github.com/VibeDarling/darling/issues/529"
   },
+  "lib:85db843bb8c1": {
+    "body_file": "libraries/libswift-darwinfoundation1-dylib-85db843b.md",
+    "number": 798,
+    "title": "Library gap: libswift_DarwinFoundation1.dylib [85db843b]",
+    "url": "https://github.com/VibeDarling/darling/issues/798"
+  },
+  "lib:86012a2c3d2a": {
+    "body_file": "libraries/visionkitcore-86012a2c.md",
+    "number": 639,
+    "title": "Library gap: private VisionKitCore [86012a2c]",
+    "url": "https://github.com/VibeDarling/darling/issues/639"
+  },
+  "lib:86684cd48027": {
+    "body_file": "libraries/mapkit-swiftui-86684cd4.md",
+    "number": 689,
+    "title": "Library gap: iOSSupport _MapKit_SwiftUI [86684cd4]",
+    "url": "https://github.com/VibeDarling/darling/issues/689"
+  },
+  "lib:8696bfd0d555": {
+    "body_file": "libraries/workflowuicore-8696bfd0.md",
+    "number": 648,
+    "title": "Library gap: private WorkflowUICore [8696bfd0]",
+    "url": "https://github.com/VibeDarling/darling/issues/648"
+  },
   "lib:871e0dfa6d2f": {
     "body_file": "libraries/coretransferable-871e0dfa.md",
     "number": 228,
     "title": "Library gap: CoreTransferable [871e0dfa]",
     "url": "https://github.com/VibeDarling/darling/issues/228"
   },
+  "lib:8768f23e70ee": {
+    "body_file": "libraries/newsservicesinternal-8768f23e.md",
+    "number": 738,
+    "title": "Library gap: iOSSupport private NewsServicesInternal [8768f23e]",
+    "url": "https://github.com/VibeDarling/darling/issues/738"
+  },
   "lib:877661483b51": {
     "body_file": "libraries/vision-87766148.md",
     "number": 288,
     "title": "Library gap: Vision [87766148]",
     "url": "https://github.com/VibeDarling/darling/issues/288"
+  },
+  "lib:879ac1ad7c3a": {
+    "body_file": "libraries/telephonyui-879ac1ad.md",
+    "number": 765,
+    "title": "Library gap: iOSSupport private TelephonyUI [879ac1ad]",
+    "url": "https://github.com/VibeDarling/darling/issues/765"
   },
   "lib:87b2d7f96c94": {
     "body_file": "libraries/mediaaccessibility-87b2d7f9.md",
@@ -1793,6 +2423,12 @@
     "title": "Library gap: private RevealCore [887cec33]",
     "url": "https://github.com/VibeDarling/darling/issues/571"
   },
+  "lib:8927ebc56922": {
+    "body_file": "libraries/libswiftavfoundation-dylib-8927ebc5.md",
+    "number": 788,
+    "title": "Library gap: libswiftAVFoundation.dylib [8927ebc5]",
+    "url": "https://github.com/VibeDarling/darling/issues/788"
+  },
   "lib:898c7282aec0": {
     "body_file": "libraries/teadb-898c7282.md",
     "number": 616,
@@ -1829,11 +2465,29 @@
     "title": "Library gap: private PhotosIntelligence [8bd27dd3]",
     "url": "https://github.com/VibeDarling/darling/issues/547"
   },
+  "lib:8c5f2d2ed85b": {
+    "body_file": "libraries/libswiftquartzcore-dylib-8c5f2d2e.md",
+    "number": 794,
+    "title": "Library gap: libswiftQuartzCore.dylib [8c5f2d2e]",
+    "url": "https://github.com/VibeDarling/darling/issues/794"
+  },
   "lib:8cca1b869932": {
     "body_file": "libraries/fmfcore-8cca1b86.md",
     "number": 425,
     "title": "Library gap: private FMFCore [8cca1b86]",
     "url": "https://github.com/VibeDarling/darling/issues/425"
+  },
+  "lib:8d785a140062": {
+    "body_file": "libraries/newspersonalization-8d785a14.md",
+    "number": 737,
+    "title": "Library gap: iOSSupport private NewsPersonalization [8d785a14]",
+    "url": "https://github.com/VibeDarling/darling/issues/737"
+  },
+  "lib:8ef332d51c0f": {
+    "body_file": "libraries/translationuiservices-8ef332d5.md",
+    "number": 628,
+    "title": "Library gap: private TranslationUIServices [8ef332d5]",
+    "url": "https://github.com/VibeDarling/darling/issues/628"
   },
   "lib:8ef612ea0b39": {
     "body_file": "libraries/magnifiersupport-8ef612ea.md",
@@ -1841,11 +2495,35 @@
     "title": "Library gap: private MagnifierSupport [8ef612ea]",
     "url": "https://github.com/VibeDarling/darling/issues/484"
   },
+  "lib:8ef8cf6c45da": {
+    "body_file": "libraries/cookingsupport-8ef8cf6c.md",
+    "number": 704,
+    "title": "Library gap: iOSSupport private CookingSupport [8ef8cf6c]",
+    "url": "https://github.com/VibeDarling/darling/issues/704"
+  },
+  "lib:8f519595e65e": {
+    "body_file": "libraries/tipscore-8f519595.md",
+    "number": 621,
+    "title": "Library gap: private TipsCore [8f519595]",
+    "url": "https://github.com/VibeDarling/darling/issues/621"
+  },
+  "lib:8f6b16ecba53": {
+    "body_file": "libraries/tsreading-8f6b16ec.md",
+    "number": 759,
+    "title": "Library gap: iOSSupport private TSReading [8f6b16ec]",
+    "url": "https://github.com/VibeDarling/darling/issues/759"
+  },
   "lib:8fcf3724156c": {
     "body_file": "libraries/livecommunicationkit-8fcf3724.md",
     "number": 249,
     "title": "Library gap: LiveCommunicationKit [8fcf3724]",
     "url": "https://github.com/VibeDarling/darling/issues/249"
+  },
+  "lib:8fff7d047493": {
+    "body_file": "libraries/carplay-8fff7d04.md",
+    "number": 663,
+    "title": "Library gap: iOSSupport CarPlay [8fff7d04]",
+    "url": "https://github.com/VibeDarling/darling/issues/663"
   },
   "lib:904583423547": {
     "body_file": "libraries/applicationservices-90458342.md",
@@ -1895,17 +2573,35 @@
     "title": "Library gap: private MapsSupport [975c690b]",
     "url": "https://github.com/VibeDarling/darling/issues/492"
   },
+  "lib:976f762b422d": {
+    "body_file": "libraries/weatherappsupport-976f762b.md",
+    "number": 770,
+    "title": "Library gap: iOSSupport private WeatherAppSupport [976f762b]",
+    "url": "https://github.com/VibeDarling/darling/issues/770"
+  },
   "lib:97721fa450e8": {
     "body_file": "libraries/paperkit-97721fa4.md",
     "number": 264,
     "title": "Library gap: PaperKit [97721fa4]",
     "url": "https://github.com/VibeDarling/darling/issues/264"
   },
+  "lib:9851ea2f74ed": {
+    "body_file": "libraries/homeui2-9851ea2f.md",
+    "number": 717,
+    "title": "Library gap: iOSSupport private HomeUI2 [9851ea2f]",
+    "url": "https://github.com/VibeDarling/darling/issues/717"
+  },
   "lib:98a692c50399": {
     "body_file": "libraries/annotationkit-98a692c5.md",
     "number": 319,
     "title": "Library gap: private AnnotationKit [98a692c5]",
     "url": "https://github.com/VibeDarling/darling/issues/319"
+  },
+  "lib:9967784b0c4e": {
+    "body_file": "libraries/caulk-9967784b.md",
+    "number": 655,
+    "title": "Library gap: private caulk [9967784b]",
+    "url": "https://github.com/VibeDarling/darling/issues/655"
   },
   "lib:99c4feb08761": {
     "body_file": "libraries/fmcorelite-99c4feb0.md",
@@ -1931,17 +2627,35 @@
     "title": "Library gap: private FrontBoardServices [9aedd801]",
     "url": "https://github.com/VibeDarling/darling/issues/446"
   },
+  "lib:9b8920b4b4a3": {
+    "body_file": "libraries/tsutility-9b8920b4.md",
+    "number": 760,
+    "title": "Library gap: iOSSupport private TSUtility [9b8920b4]",
+    "url": "https://github.com/VibeDarling/darling/issues/760"
+  },
   "lib:9d87e2bde4d6": {
     "body_file": "libraries/email-9d87e2bd.md",
     "number": 414,
     "title": "Library gap: private Email [9d87e2bd]",
     "url": "https://github.com/VibeDarling/darling/issues/414"
   },
+  "lib:9ddf4f679c66": {
+    "body_file": "libraries/photosuicore-9ddf4f67.md",
+    "number": 745,
+    "title": "Library gap: iOSSupport private PhotosUICore [9ddf4f67]",
+    "url": "https://github.com/VibeDarling/darling/issues/745"
+  },
   "lib:9e3f0e99fbe1": {
     "body_file": "libraries/pegasusapi-9e3f0e99.md",
     "number": 536,
     "title": "Library gap: private PegasusAPI [9e3f0e99]",
     "url": "https://github.com/VibeDarling/darling/issues/536"
+  },
+  "lib:9f9260629616": {
+    "body_file": "libraries/datadetectorsui-9f926062.md",
+    "number": 706,
+    "title": "Library gap: iOSSupport private DataDetectorsUI [9f926062]",
+    "url": "https://github.com/VibeDarling/darling/issues/706"
   },
   "lib:9fbb92bdfeb5": {
     "body_file": "libraries/corerecognition-9fbb92bd.md",
@@ -1961,17 +2675,35 @@
     "title": "Library gap: private DFRFoundation [a0239d29]",
     "url": "https://github.com/VibeDarling/darling/issues/407"
   },
+  "lib:a02a2e42c240": {
+    "body_file": "libraries/mapsui-a02a2e42.md",
+    "number": 725,
+    "title": "Library gap: iOSSupport private MapsUI [a02a2e42]",
+    "url": "https://github.com/VibeDarling/darling/issues/725"
+  },
   "lib:a094afbbc3d2": {
     "body_file": "libraries/contactsautocompleteui-a094afbb.md",
     "number": 383,
     "title": "Library gap: private ContactsAutocompleteUI [a094afbb]",
     "url": "https://github.com/VibeDarling/darling/issues/383"
   },
+  "lib:a19d3a1e229f": {
+    "body_file": "libraries/widgetkit-a19d3a1e.md",
+    "number": 686,
+    "title": "Library gap: iOSSupport WidgetKit [a19d3a1e]",
+    "url": "https://github.com/VibeDarling/darling/issues/686"
+  },
   "lib:a1a8a168923d": {
     "body_file": "libraries/intentscore-a1a8a168.md",
     "number": 474,
     "title": "Library gap: private IntentsCore [a1a8a168]",
     "url": "https://github.com/VibeDarling/darling/issues/474"
+  },
+  "lib:a2cc7e66159c": {
+    "body_file": "libraries/toolkit-a2cc7e66.md",
+    "number": 626,
+    "title": "Library gap: private ToolKit [a2cc7e66]",
+    "url": "https://github.com/VibeDarling/darling/issues/626"
   },
   "lib:a4106aea3927": {
     "body_file": "libraries/fileprovider-a4106aea.md",
@@ -2015,11 +2747,23 @@
     "title": "Library gap: private MobileTimerSupport [a7667251]",
     "url": "https://github.com/VibeDarling/darling/issues/504"
   },
+  "lib:a78d0f0e693e": {
+    "body_file": "libraries/apfs-boot-mount-a78d0f0e.md",
+    "number": 654,
+    "title": "Library gap: private apfs_boot_mount [a78d0f0e]",
+    "url": "https://github.com/VibeDarling/darling/issues/654"
+  },
   "lib:a7f65fbb436a": {
     "body_file": "libraries/characterpicker-a7f65fbb.md",
     "number": 368,
     "title": "Library gap: private CharacterPicker [a7f65fbb]",
     "url": "https://github.com/VibeDarling/darling/issues/368"
+  },
+  "lib:a80e1761c337": {
+    "body_file": "libraries/teasettings-a80e1761.md",
+    "number": 618,
+    "title": "Library gap: private TeaSettings [a80e1761]",
+    "url": "https://github.com/VibeDarling/darling/issues/618"
   },
   "lib:a979e978b6b4": {
     "body_file": "libraries/uniformtypeidentifiers-a979e978.md",
@@ -2032,6 +2776,18 @@
     "number": 214,
     "title": "Library gap: CoreBluetooth [a9e2b063]",
     "url": "https://github.com/VibeDarling/darling/issues/214"
+  },
+  "lib:a9fa447eb684": {
+    "body_file": "libraries/sociallayer-a9fa447e.md",
+    "number": 755,
+    "title": "Library gap: iOSSupport private SocialLayer [a9fa447e]",
+    "url": "https://github.com/VibeDarling/darling/issues/755"
+  },
+  "lib:aa1203cedc02": {
+    "body_file": "libraries/homeaccessorycontrolui-aa1203ce.md",
+    "number": 714,
+    "title": "Library gap: iOSSupport private HomeAccessoryControlUI [aa1203ce]",
+    "url": "https://github.com/VibeDarling/darling/issues/714"
   },
   "lib:aa1b8aa63abf": {
     "body_file": "libraries/musickitinternal-aa1b8aa6.md",
@@ -2081,6 +2837,24 @@
     "title": "Library gap: private ScreenSharing [ac6dd09c]",
     "url": "https://github.com/VibeDarling/darling/issues/584"
   },
+  "lib:acd5681abcd3": {
+    "body_file": "libraries/printkitui-acd5681a.md",
+    "number": 747,
+    "title": "Library gap: iOSSupport private PrintKitUI [acd5681a]",
+    "url": "https://github.com/VibeDarling/darling/issues/747"
+  },
+  "lib:ad57f0e587bc": {
+    "body_file": "libraries/paperkit-ad57f0e5.md",
+    "number": 676,
+    "title": "Library gap: iOSSupport PaperKit [ad57f0e5]",
+    "url": "https://github.com/VibeDarling/darling/issues/676"
+  },
+  "lib:ad942b42d869": {
+    "body_file": "libraries/libswiftmapkit-dylib-ad942b42.md",
+    "number": 774,
+    "title": "Library gap: iOSSupport libswiftMapKit.dylib [ad942b42]",
+    "url": "https://github.com/VibeDarling/darling/issues/774"
+  },
   "lib:add477bd98c2": {
     "body_file": "libraries/cfnetwork-add477bd.md",
     "number": 205,
@@ -2093,11 +2867,29 @@
     "title": "Library gap: private GenerativeModels [ae0a74a6]",
     "url": "https://github.com/VibeDarling/darling/issues/453"
   },
+  "lib:ae26966bc9af": {
+    "body_file": "libraries/facetimeauthentication-ae26966b.md",
+    "number": 708,
+    "title": "Library gap: iOSSupport private FaceTimeAuthentication [ae26966b]",
+    "url": "https://github.com/VibeDarling/darling/issues/708"
+  },
+  "lib:ae94e7ed0826": {
+    "body_file": "libraries/libswiftuniformtypeidentifiers-dylib-ae94e7ed.md",
+    "number": 797,
+    "title": "Library gap: libswiftUniformTypeIdentifiers.dylib [ae94e7ed]",
+    "url": "https://github.com/VibeDarling/darling/issues/797"
+  },
   "lib:aebf5edb85e9": {
     "body_file": "libraries/photos-aebf5edb.md",
     "number": 266,
     "title": "Library gap: Photos [aebf5edb]",
     "url": "https://github.com/VibeDarling/darling/issues/266"
+  },
+  "lib:aee307bdfad4": {
+    "body_file": "libraries/tipsui-aee307bd.md",
+    "number": 622,
+    "title": "Library gap: private TipsUI [aee307bd]",
+    "url": "https://github.com/VibeDarling/darling/issues/622"
   },
   "lib:af1428e0b9b6": {
     "body_file": "libraries/caldav-af1428e0.md",
@@ -2129,6 +2921,18 @@
     "title": "Library gap: private MobileTimer [b10dcd02]",
     "url": "https://github.com/VibeDarling/darling/issues/503"
   },
+  "lib:b1bf4a868eb9": {
+    "body_file": "libraries/libswiftcoreaudio-dylib-b1bf4a86.md",
+    "number": 789,
+    "title": "Library gap: libswiftCoreAudio.dylib [b1bf4a86]",
+    "url": "https://github.com/VibeDarling/darling/issues/789"
+  },
+  "lib:b256b104c2c7": {
+    "body_file": "libraries/mobiletimerui-b256b104.md",
+    "number": 728,
+    "title": "Library gap: iOSSupport private MobileTimerUI [b256b104]",
+    "url": "https://github.com/VibeDarling/darling/issues/728"
+  },
   "lib:b284c72b0432": {
     "body_file": "libraries/contactsfoundation-b284c72b.md",
     "number": 385,
@@ -2147,11 +2951,23 @@
     "title": "Library gap: private HelpData [b3731e6f]",
     "url": "https://github.com/VibeDarling/darling/issues/463"
   },
+  "lib:b3bd6de74990": {
+    "body_file": "libraries/teatemplate-b3bd6de7.md",
+    "number": 763,
+    "title": "Library gap: iOSSupport private TeaTemplate [b3bd6de7]",
+    "url": "https://github.com/VibeDarling/darling/issues/763"
+  },
   "lib:b3e6d4aefe13": {
     "body_file": "libraries/geotoolbox-appintents-b3e6d4ae.md",
     "number": 293,
     "title": "Library gap: _GeoToolbox_AppIntents [b3e6d4ae]",
     "url": "https://github.com/VibeDarling/darling/issues/293"
+  },
+  "lib:b474fd59e98f": {
+    "body_file": "libraries/universalaccess-b474fd59.md",
+    "number": 633,
+    "title": "Library gap: private UniversalAccess [b474fd59]",
+    "url": "https://github.com/VibeDarling/darling/issues/633"
   },
   "lib:b4a9250809c6": {
     "body_file": "libraries/paimaging-b4a92508.md",
@@ -2195,6 +3011,12 @@
     "title": "Library gap: private CacheDelete [b839ed9a]",
     "url": "https://github.com/VibeDarling/darling/issues/355"
   },
+  "lib:b885d4873a19": {
+    "body_file": "libraries/swiftui-b885d487.md",
+    "number": 682,
+    "title": "Library gap: iOSSupport SwiftUI [b885d487]",
+    "url": "https://github.com/VibeDarling/darling/issues/682"
+  },
   "lib:b8d8a8132053": {
     "body_file": "libraries/imfoundation-b8d8a813.md",
     "number": 469,
@@ -2218,6 +3040,18 @@
     "number": 346,
     "title": "Library gap: private BluetoothManager [b989d219]",
     "url": "https://github.com/VibeDarling/darling/issues/346"
+  },
+  "lib:ba0087461cc0": {
+    "body_file": "libraries/weatheranalytics-ba008746.md",
+    "number": 642,
+    "title": "Library gap: private WeatherAnalytics [ba008746]",
+    "url": "https://github.com/VibeDarling/darling/issues/642"
+  },
+  "lib:ba0b4ef99bba": {
+    "body_file": "libraries/authkitui-ba0b4ef9.md",
+    "number": 692,
+    "title": "Library gap: iOSSupport private AuthKitUI [ba0b4ef9]",
+    "url": "https://github.com/VibeDarling/darling/issues/692"
   },
   "lib:ba14e3848f2f": {
     "body_file": "libraries/oseligibility-ba14e384.md",
@@ -2249,6 +3083,12 @@
     "title": "Library gap: private CallHistory [ba9958d0]",
     "url": "https://github.com/VibeDarling/darling/issues/367"
   },
+  "lib:bc41f3be5c78": {
+    "body_file": "libraries/newsarticles-bc41f3be.md",
+    "number": 733,
+    "title": "Library gap: iOSSupport private NewsArticles [bc41f3be]",
+    "url": "https://github.com/VibeDarling/darling/issues/733"
+  },
   "lib:bc4a0b40e630": {
     "body_file": "libraries/coreui-bc4a0b40.md",
     "number": 406,
@@ -2266,6 +3106,12 @@
     "number": 374,
     "title": "Library gap: private Coherence [bce13730]",
     "url": "https://github.com/VibeDarling/darling/issues/374"
+  },
+  "lib:bd060578d461": {
+    "body_file": "libraries/newsui2-bd060578.md",
+    "number": 741,
+    "title": "Library gap: iOSSupport private NewsUI2 [bd060578]",
+    "url": "https://github.com/VibeDarling/darling/issues/741"
   },
   "lib:bd4a4c8f5eab": {
     "body_file": "libraries/sociallayer-bd4a4c8f.md",
@@ -2285,6 +3131,12 @@
     "title": "Library gap: private SPOwner [bd72aa75]",
     "url": "https://github.com/VibeDarling/darling/issues/574"
   },
+  "lib:bdcf426f1c9a": {
+    "body_file": "libraries/communicationsui-bdcf426f.md",
+    "number": 699,
+    "title": "Library gap: iOSSupport private CommunicationsUI [bdcf426f]",
+    "url": "https://github.com/VibeDarling/darling/issues/699"
+  },
   "lib:bdcf967f3c61": {
     "body_file": "libraries/preferencepanessupport-bdcf967f.md",
     "number": 557,
@@ -2296,6 +3148,12 @@
     "number": 121,
     "title": "Library gap: SwiftUI [bdee903f]",
     "url": "https://github.com/VibeDarling/darling/issues/121"
+  },
+  "lib:bf6888c906b0": {
+    "body_file": "libraries/appsupportui-bf6888c9.md",
+    "number": 690,
+    "title": "Library gap: iOSSupport private AppSupportUI [bf6888c9]",
+    "url": "https://github.com/VibeDarling/darling/issues/690"
   },
   "lib:c065c47c9a23": {
     "body_file": "libraries/backgroundtasks-c065c47c.md",
@@ -2399,6 +3257,12 @@
     "title": "Library gap: private MultitouchSupport [c7015990]",
     "url": "https://github.com/VibeDarling/darling/issues/508"
   },
+  "lib:c72a90808925": {
+    "body_file": "libraries/safariservices-c72a9080.md",
+    "number": 680,
+    "title": "Library gap: iOSSupport SafariServices [c72a9080]",
+    "url": "https://github.com/VibeDarling/darling/issues/680"
+  },
   "lib:c836aaaa912a": {
     "body_file": "libraries/findmydeviceui-c836aaaa.md",
     "number": 441,
@@ -2410,6 +3274,12 @@
     "number": 341,
     "title": "Library gap: private AuthKit [c8c38d24]",
     "url": "https://github.com/VibeDarling/darling/issues/341"
+  },
+  "lib:c90e528891b9": {
+    "body_file": "libraries/avkit-c90e5288.md",
+    "number": 661,
+    "title": "Library gap: iOSSupport AVKit [c90e5288]",
+    "url": "https://github.com/VibeDarling/darling/issues/661"
   },
   "lib:c91c6bfa3687": {
     "body_file": "libraries/calendaruikitinternal-c91c6bfa.md",
@@ -2459,11 +3329,47 @@
     "title": "Library gap: private FeatureFlags [cdc10749]",
     "url": "https://github.com/VibeDarling/darling/issues/435"
   },
+  "lib:cdcacea0877a": {
+    "body_file": "libraries/coresuggestionsui-cdcacea0.md",
+    "number": 705,
+    "title": "Library gap: iOSSupport private CoreSuggestionsUI [cdcacea0]",
+    "url": "https://github.com/VibeDarling/darling/issues/705"
+  },
+  "lib:cdfaf3de9346": {
+    "body_file": "libraries/charts-cdfaf3de.md",
+    "number": 664,
+    "title": "Library gap: iOSSupport Charts [cdfaf3de]",
+    "url": "https://github.com/VibeDarling/darling/issues/664"
+  },
+  "lib:cf6dac2fb0b9": {
+    "body_file": "libraries/newsanalytics-cf6dac2f.md",
+    "number": 732,
+    "title": "Library gap: iOSSupport private NewsAnalytics [cf6dac2f]",
+    "url": "https://github.com/VibeDarling/darling/issues/732"
+  },
+  "lib:cf86a28a53e7": {
+    "body_file": "libraries/libswiftsystem-dylib-cf86a28a.md",
+    "number": 796,
+    "title": "Library gap: libswiftSystem.dylib [cf86a28a]",
+    "url": "https://github.com/VibeDarling/darling/issues/796"
+  },
+  "lib:cfa977e3bb55": {
+    "body_file": "libraries/libgnsdk-musicid-3-06-cfa977e3.md",
+    "number": 809,
+    "title": "Library gap: libgnsdk_musicid.3.06 [cfa977e3]",
+    "url": "https://github.com/VibeDarling/darling/issues/809"
+  },
   "lib:cff2c8cb62ad": {
     "body_file": "libraries/libraryrepair-cff2c8cb.md",
     "number": 480,
     "title": "Library gap: private LibraryRepair [cff2c8cb]",
     "url": "https://github.com/VibeDarling/darling/issues/480"
+  },
+  "lib:cff74470552d": {
+    "body_file": "libraries/vfx-cff74470.md",
+    "number": 767,
+    "title": "Library gap: iOSSupport private VFX [cff74470]",
+    "url": "https://github.com/VibeDarling/darling/issues/767"
   },
   "lib:d0b1aa5960b5": {
     "body_file": "libraries/applemediaservices-d0b1aa59.md",
@@ -2482,6 +3388,12 @@
     "number": 483,
     "title": "Library gap: private LoginUIKit [d0d27c90]",
     "url": "https://github.com/VibeDarling/darling/issues/483"
+  },
+  "lib:d0e7041d49b2": {
+    "body_file": "libraries/coherence-cloudkit-private-d0e7041d.md",
+    "number": 650,
+    "title": "Library gap: private _Coherence_CloudKit_Private [d0e7041d]",
+    "url": "https://github.com/VibeDarling/darling/issues/650"
   },
   "lib:d2ddf66afefd": {
     "body_file": "libraries/slideshows-d2ddf66a.md",
@@ -2506,6 +3418,18 @@
     "number": 428,
     "title": "Library gap: private FTServices [d3f4c2e2]",
     "url": "https://github.com/VibeDarling/darling/issues/428"
+  },
+  "lib:d4748a36669d": {
+    "body_file": "libraries/stocksui-d4748a36.md",
+    "number": 758,
+    "title": "Library gap: iOSSupport private StocksUI [d4748a36]",
+    "url": "https://github.com/VibeDarling/darling/issues/758"
+  },
+  "lib:d4959134fab6": {
+    "body_file": "libraries/newsfeed-d4959134.md",
+    "number": 735,
+    "title": "Library gap: iOSSupport private NewsFeed [d4959134]",
+    "url": "https://github.com/VibeDarling/darling/issues/735"
   },
   "lib:d4bfc721680f": {
     "body_file": "libraries/photolibraryservicescore-d4bfc721.md",
@@ -2537,11 +3461,29 @@
     "title": "Library gap: private SystemDesktopAppearance [d5a9728c]",
     "url": "https://github.com/VibeDarling/darling/issues/613"
   },
+  "lib:d61bad34cf31": {
+    "body_file": "libraries/watchlistkit-d61bad34.md",
+    "number": 641,
+    "title": "Library gap: private WatchListKit [d61bad34]",
+    "url": "https://github.com/VibeDarling/darling/issues/641"
+  },
   "lib:d62d6bca061d": {
     "body_file": "libraries/journalshared-d62d6bca.md",
     "number": 479,
     "title": "Library gap: private JournalShared [d62d6bca]",
     "url": "https://github.com/VibeDarling/darling/issues/479"
+  },
+  "lib:d668c1e59472": {
+    "body_file": "libraries/weather-d668c1e5.md",
+    "number": 769,
+    "title": "Library gap: iOSSupport private Weather [d668c1e5]",
+    "url": "https://github.com/VibeDarling/darling/issues/769"
+  },
+  "lib:d67d4d4527aa": {
+    "body_file": "libraries/icalendar-d67d4d45.md",
+    "number": 656,
+    "title": "Library gap: private iCalendar [d67d4d45]",
+    "url": "https://github.com/VibeDarling/darling/issues/656"
   },
   "lib:d69482c29b95": {
     "body_file": "libraries/findmymessaging-d69482c2.md",
@@ -2561,6 +3503,12 @@
     "title": "Library gap: private GeoKit [d7e634e2]",
     "url": "https://github.com/VibeDarling/darling/issues/456"
   },
+  "lib:d7eb51c5932e": {
+    "body_file": "libraries/nanoregistry-d7eb51c5.md",
+    "number": 729,
+    "title": "Library gap: iOSSupport private NanoRegistry [d7eb51c5]",
+    "url": "https://github.com/VibeDarling/darling/issues/729"
+  },
   "lib:d9b910a7bdf1": {
     "body_file": "libraries/amplibrary-d9b910a7.md",
     "number": 303,
@@ -2573,11 +3521,53 @@
     "title": "Library gap: _AppIntents_AppKit [d9d1633a]",
     "url": "https://github.com/VibeDarling/darling/issues/291"
   },
+  "lib:da44fdcfb640": {
+    "body_file": "libraries/voicememos-da44fdcf.md",
+    "number": 768,
+    "title": "Library gap: iOSSupport private VoiceMemos [da44fdcf]",
+    "url": "https://github.com/VibeDarling/darling/issues/768"
+  },
+  "lib:daaa2fa2369c": {
+    "body_file": "libraries/libswiftsimd-dylib-daaa2fa2.md",
+    "number": 799,
+    "title": "Library gap: libswiftsimd.dylib [daaa2fa2]",
+    "url": "https://github.com/VibeDarling/darling/issues/799"
+  },
+  "lib:daafb64258d2": {
+    "body_file": "libraries/stockspersonalization-daafb642.md",
+    "number": 757,
+    "title": "Library gap: iOSSupport private StocksPersonalization [daafb642]",
+    "url": "https://github.com/VibeDarling/darling/issues/757"
+  },
+  "lib:daebbbd4f74a": {
+    "body_file": "libraries/newssubscription-daebbbd4.md",
+    "number": 739,
+    "title": "Library gap: iOSSupport private NewsSubscription [daebbbd4]",
+    "url": "https://github.com/VibeDarling/darling/issues/739"
+  },
+  "lib:db0de0884f38": {
+    "body_file": "libraries/tonelibrary-db0de088.md",
+    "number": 625,
+    "title": "Library gap: private ToneLibrary [db0de088]",
+    "url": "https://github.com/VibeDarling/darling/issues/625"
+  },
   "lib:dbc4494605be": {
     "body_file": "libraries/appanalytics-dbc44946.md",
     "number": 320,
     "title": "Library gap: private AppAnalytics [dbc44946]",
     "url": "https://github.com/VibeDarling/darling/issues/320"
+  },
+  "lib:dbe8306fe433": {
+    "body_file": "libraries/jetengine-swiftui-dbe8306f.md",
+    "number": 652,
+    "title": "Library gap: private _JetEngine_SwiftUI [dbe8306f]",
+    "url": "https://github.com/VibeDarling/darling/issues/652"
+  },
+  "lib:dc3eb320cb76": {
+    "body_file": "libraries/libobjc-a-dylib-dc3eb320.md",
+    "number": 785,
+    "title": "Library gap: libobjc.A.dylib [dc3eb320]",
+    "url": "https://github.com/VibeDarling/darling/issues/785"
   },
   "lib:dc93105b1168": {
     "body_file": "libraries/restore-dc93105b.md",
@@ -2615,6 +3605,12 @@
     "title": "Library gap: AudioUnit [de36710d]",
     "url": "https://github.com/VibeDarling/darling/issues/202"
   },
+  "lib:de6b6cde9558": {
+    "body_file": "libraries/usernotificationssettings-de6b6cde.md",
+    "number": 635,
+    "title": "Library gap: private UserNotificationsSettings [de6b6cde]",
+    "url": "https://github.com/VibeDarling/darling/issues/635"
+  },
   "lib:de8201fb1652": {
     "body_file": "libraries/newscore-de8201fb.md",
     "number": 516,
@@ -2633,6 +3629,18 @@
     "title": "Library gap: QuartzCore [df5d447e]",
     "url": "https://github.com/VibeDarling/darling/issues/270"
   },
+  "lib:df6678691aa8": {
+    "body_file": "libraries/tokengeneration-df667869.md",
+    "number": 623,
+    "title": "Library gap: private TokenGeneration [df667869]",
+    "url": "https://github.com/VibeDarling/darling/issues/623"
+  },
+  "lib:df9d5162cca4": {
+    "body_file": "libraries/uikitservices-df9d5162.md",
+    "number": 631,
+    "title": "Library gap: private UIKitServices [df9d5162]",
+    "url": "https://github.com/VibeDarling/darling/issues/631"
+  },
   "lib:dfceb7e9d8b9": {
     "body_file": "libraries/familycircleui-dfceb7e9.md",
     "number": 434,
@@ -2644,6 +3652,12 @@
     "number": 611,
     "title": "Library gap: private SymptomDiagnosticReporter [e0870dd6]",
     "url": "https://github.com/VibeDarling/darling/issues/611"
+  },
+  "lib:e0e451531397": {
+    "body_file": "libraries/libswiftdispatch-dylib-e0e45153.md",
+    "number": 792,
+    "title": "Library gap: libswiftDispatch.dylib [e0e45153]",
+    "url": "https://github.com/VibeDarling/darling/issues/792"
   },
   "lib:e0ff9ae9f9d9": {
     "body_file": "libraries/corevideo-e0ff9ae9.md",
@@ -2681,11 +3695,23 @@
     "title": "Library gap: private ExchangeSyncExpress [e2ff9c1c]",
     "url": "https://github.com/VibeDarling/darling/issues/419"
   },
+  "lib:e34b3f3b7cdf": {
+    "body_file": "libraries/texttospeech-e34b3f3b.md",
+    "number": 620,
+    "title": "Library gap: private TextToSpeech [e34b3f3b]",
+    "url": "https://github.com/VibeDarling/darling/issues/620"
+  },
   "lib:e462cf866c80": {
     "body_file": "libraries/photosimagingfoundation-e462cf86.md",
     "number": 546,
     "title": "Library gap: private PhotosImagingFoundation [e462cf86]",
     "url": "https://github.com/VibeDarling/darling/issues/546"
+  },
+  "lib:e49a9fe7139e": {
+    "body_file": "libraries/newskit-e49a9fe7.md",
+    "number": 736,
+    "title": "Library gap: iOSSupport private NewsKit [e49a9fe7]",
+    "url": "https://github.com/VibeDarling/darling/issues/736"
   },
   "lib:e4c42d96aca2": {
     "body_file": "libraries/chronoservices-e4c42d96.md",
@@ -2693,11 +3719,23 @@
     "title": "Library gap: private ChronoServices [e4c42d96]",
     "url": "https://github.com/VibeDarling/darling/issues/369"
   },
+  "lib:e5ee3ec3aff1": {
+    "body_file": "libraries/netappsutilitiesui-e5ee3ec3.md",
+    "number": 730,
+    "title": "Library gap: iOSSupport private NetAppsUtilitiesUI [e5ee3ec3]",
+    "url": "https://github.com/VibeDarling/darling/issues/730"
+  },
   "lib:e5fadf8df659": {
     "body_file": "libraries/accountsdaemon-e5fadf8d.md",
     "number": 315,
     "title": "Library gap: private AccountsDaemon [e5fadf8d]",
     "url": "https://github.com/VibeDarling/darling/issues/315"
+  },
+  "lib:e72e41cf053e": {
+    "body_file": "libraries/libaccessibility-dylib-e72e41cf.md",
+    "number": 776,
+    "title": "Library gap: libAccessibility.dylib [e72e41cf]",
+    "url": "https://github.com/VibeDarling/darling/issues/776"
   },
   "lib:e757236415b9": {
     "body_file": "libraries/cloudkit-e7572364.md",
@@ -2710,6 +3748,18 @@
     "number": 297,
     "title": "Library gap: private AMPDesktopUI [e7ca5f6d]",
     "url": "https://github.com/VibeDarling/darling/issues/297"
+  },
+  "lib:e9277d10f479": {
+    "body_file": "libraries/icloudquotaui-e9277d10.md",
+    "number": 657,
+    "title": "Library gap: private iCloudQuotaUI [e9277d10]",
+    "url": "https://github.com/VibeDarling/darling/issues/657"
+  },
+  "lib:e952f0da15e8": {
+    "body_file": "libraries/libgnsdk-submit-3-06-e952f0da.md",
+    "number": 810,
+    "title": "Library gap: libgnsdk_submit.3.06 [e952f0da]",
+    "url": "https://github.com/VibeDarling/darling/issues/810"
   },
   "lib:e962f58bf7c5": {
     "body_file": "libraries/coredisplay-e962f58b.md",
@@ -2729,6 +3779,12 @@
     "title": "Library gap: RealityKit [ea10d8c6]",
     "url": "https://github.com/VibeDarling/darling/issues/275"
   },
+  "lib:ea3a00f29bee": {
+    "body_file": "libraries/recapperformancetesting-ea3a00f2.md",
+    "number": 749,
+    "title": "Library gap: iOSSupport private RecapPerformanceTesting [ea3a00f2]",
+    "url": "https://github.com/VibeDarling/darling/issues/749"
+  },
   "lib:eaf8e27020f1": {
     "body_file": "libraries/emaildaemon-eaf8e270.md",
     "number": 417,
@@ -2740,6 +3796,18 @@
     "number": 189,
     "title": "Library gap: AVFoundation [eb3979a5]",
     "url": "https://github.com/VibeDarling/darling/issues/189"
+  },
+  "lib:ec145922168a": {
+    "body_file": "libraries/screensharingui-ec145922.md",
+    "number": 804,
+    "title": "Library gap: ScreenSharingUI [ec145922]",
+    "url": "https://github.com/VibeDarling/darling/issues/804"
+  },
+  "lib:ec4ded97c652": {
+    "body_file": "libraries/libusd-ms-dylib-ec4ded97.md",
+    "number": 800,
+    "title": "Library gap: libusd_ms.dylib [ec4ded97]",
+    "url": "https://github.com/VibeDarling/darling/issues/800"
   },
   "lib:ecb5b4a39a90": {
     "body_file": "libraries/appstorekit-ecb5b4a3.md",
@@ -2764,6 +3832,18 @@
     "number": 363,
     "title": "Library gap: private CalendarUI [edb3d4b7]",
     "url": "https://github.com/VibeDarling/darling/issues/363"
+  },
+  "lib:ee16abfa4559": {
+    "body_file": "libraries/liblaunchservicessupport-dylib-ee16abfa.md",
+    "number": 781,
+    "title": "Library gap: libLaunchServicesSupport.dylib [ee16abfa]",
+    "url": "https://github.com/VibeDarling/darling/issues/781"
+  },
+  "lib:ee1e6c0d3126": {
+    "body_file": "libraries/uikitmachelper-ee1e6c0d.md",
+    "number": 630,
+    "title": "Library gap: private UIKitMacHelper [ee1e6c0d]",
+    "url": "https://github.com/VibeDarling/darling/issues/630"
   },
   "lib:ee30e3cfb46d": {
     "body_file": "libraries/photoprintproduct-ee30e3cf.md",
@@ -2801,6 +3881,12 @@
     "title": "Library gap: private AXAssetLoader [ef43f7e9]",
     "url": "https://github.com/VibeDarling/darling/issues/308"
   },
+  "lib:efb18699fbbb": {
+    "body_file": "libraries/weathercore-efb18699.md",
+    "number": 643,
+    "title": "Library gap: private WeatherCore [efb18699]",
+    "url": "https://github.com/VibeDarling/darling/issues/643"
+  },
   "lib:efdd75fac14f": {
     "body_file": "libraries/accessibilitysettingsui-efdd75fa.md",
     "number": 312,
@@ -2819,11 +3905,23 @@
     "title": "Library gap: private RemindersUICore [f08aa808]",
     "url": "https://github.com/VibeDarling/darling/issues/568"
   },
+  "lib:f090fc6cc73e": {
+    "body_file": "libraries/screenreaderoutput-f090fc6c.md",
+    "number": 803,
+    "title": "Library gap: ScreenReaderOutput [f090fc6c]",
+    "url": "https://github.com/VibeDarling/darling/issues/803"
+  },
   "lib:f0f185b655d6": {
     "body_file": "libraries/mailui-f0f185b6.md",
     "number": 489,
     "title": "Library gap: private MailUI [f0f185b6]",
     "url": "https://github.com/VibeDarling/darling/issues/489"
+  },
+  "lib:f14b342be4cf": {
+    "body_file": "libraries/usermanagement-f14b342b.md",
+    "number": 634,
+    "title": "Library gap: private UserManagement [f14b342b]",
+    "url": "https://github.com/VibeDarling/darling/issues/634"
   },
   "lib:f1e7101f0397": {
     "body_file": "libraries/neutrinocore-f1e7101f.md",
@@ -2873,6 +3971,18 @@
     "title": "Library gap: private SearchFoundation [f39a04e8]",
     "url": "https://github.com/VibeDarling/darling/issues/587"
   },
+  "lib:f48d7c5e629d": {
+    "body_file": "libraries/quicklook-f48d7c5e.md",
+    "number": 679,
+    "title": "Library gap: iOSSupport QuickLook [f48d7c5e]",
+    "url": "https://github.com/VibeDarling/darling/issues/679"
+  },
+  "lib:f50757b92e7f": {
+    "body_file": "libraries/uxkit-f50757b9.md",
+    "number": 632,
+    "title": "Library gap: private UXKit [f50757b9]",
+    "url": "https://github.com/VibeDarling/darling/issues/632"
+  },
   "lib:f542d5e52c3c": {
     "body_file": "libraries/avkit-f542d5e5.md",
     "number": 190,
@@ -2884,6 +3994,24 @@
     "number": 580,
     "title": "Library gap: private ScreenReader [f59bd7c8]",
     "url": "https://github.com/VibeDarling/darling/issues/580"
+  },
+  "lib:f5ab35c45bc4": {
+    "body_file": "libraries/libswiftcorelocation-dylib-f5ab35c4.md",
+    "number": 790,
+    "title": "Library gap: libswiftCoreLocation.dylib [f5ab35c4]",
+    "url": "https://github.com/VibeDarling/darling/issues/790"
+  },
+  "lib:f5d0af397cbf": {
+    "body_file": "libraries/libioreport-dylib-f5d0af39.md",
+    "number": 780,
+    "title": "Library gap: libIOReport.dylib [f5d0af39]",
+    "url": "https://github.com/VibeDarling/darling/issues/780"
+  },
+  "lib:f5db4b752870": {
+    "body_file": "libraries/libctgreentealogger-dylib-f5db4b75.md",
+    "number": 778,
+    "title": "Library gap: libCTGreenTeaLogger.dylib [f5db4b75]",
+    "url": "https://github.com/VibeDarling/darling/issues/778"
   },
   "lib:f641abff7d43": {
     "body_file": "libraries/storagekit-f641abff.md",
@@ -2933,6 +4061,18 @@
     "title": "Library gap: private AboutSettings [f93d09ac]",
     "url": "https://github.com/VibeDarling/darling/issues/311"
   },
+  "lib:f95eba80416b": {
+    "body_file": "libraries/jetengine-f95eba80.md",
+    "number": 720,
+    "title": "Library gap: iOSSupport private JetEngine [f95eba80]",
+    "url": "https://github.com/VibeDarling/darling/issues/720"
+  },
+  "lib:f9ca8bd1dd81": {
+    "body_file": "libraries/libsystemstats-dylib-f9ca8bd1.md",
+    "number": 787,
+    "title": "Library gap: libsystemstats.dylib [f9ca8bd1]",
+    "url": "https://github.com/VibeDarling/darling/issues/787"
+  },
   "lib:f9e396ff2eff": {
     "body_file": "libraries/navigation-f9e396ff.md",
     "number": 511,
@@ -2944,6 +4084,18 @@
     "number": 317,
     "title": "Library gap: private AccountsUISettings [fa638d8f]",
     "url": "https://github.com/VibeDarling/darling/issues/317"
+  },
+  "lib:fc319557a37f": {
+    "body_file": "libraries/findmyuicore-fc319557.md",
+    "number": 711,
+    "title": "Library gap: iOSSupport private FindMyUICore [fc319557]",
+    "url": "https://github.com/VibeDarling/darling/issues/711"
+  },
+  "lib:fc333a44e3e4": {
+    "body_file": "libraries/journalui-fc333a44.md",
+    "number": 722,
+    "title": "Library gap: iOSSupport private JournalUI [fc333a44]",
+    "url": "https://github.com/VibeDarling/darling/issues/722"
   },
   "lib:fd2196732479": {
     "body_file": "libraries/imcore-fd219673.md",
@@ -2963,6 +4115,12 @@
     "title": "Library gap: CoreMotion [fe3b9131]",
     "url": "https://github.com/VibeDarling/darling/issues/225"
   },
+  "lib:fe6df7328137": {
+    "body_file": "libraries/phonekit-fe6df732.md",
+    "number": 744,
+    "title": "Library gap: iOSSupport private PhoneKit [fe6df732]",
+    "url": "https://github.com/VibeDarling/darling/issues/744"
+  },
   "lib:fec6a2a8a8e9": {
     "body_file": "libraries/network-fec6a2a8.md",
     "number": 262,
@@ -2980,5 +4138,11 @@
     "number": 421,
     "title": "Library gap: private ExpansionSlotSupport [ff8625c6]",
     "url": "https://github.com/VibeDarling/darling/issues/421"
+  },
+  "lib:ff9ec5a58941": {
+    "body_file": "libraries/linkpresentation-ff9ec5a5.md",
+    "number": 671,
+    "title": "Library gap: iOSSupport LinkPresentation [ff9ec5a5]",
+    "url": "https://github.com/VibeDarling/darling/issues/671"
   }
 }
