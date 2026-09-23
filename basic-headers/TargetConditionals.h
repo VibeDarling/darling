@@ -368,4 +368,9 @@
     
 #endif
 
+/* Current CoreFoundation headers test this target even on Darwin. */
+#ifndef TARGET_OS_WASI
+    #define TARGET_OS_WASI 0
+#endif
+
 #endif  /* __TARGETCONDITIONALS__ */
