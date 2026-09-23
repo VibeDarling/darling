@@ -26,6 +26,10 @@ def short_library(path):
     return path.rsplit("/", 1)[-1]
 
 
+def noun(count, singular):
+    return f"{count} {singular}{'' if count == 1 else 's'}"
+
+
 def library_title(path):
     prefix = "iOSSupport " if "/iOSSupport/" in path else ""
     prefix += "private " if "/PrivateFrameworks/" in path else ""
@@ -55,23 +59,23 @@ def app_body(app, guide_url, scan_date):
         f"## {app['app']} compatibility",
         "",
         f"Scan: {scan_date}; executable: `{app['path']}`; selected architecture: `{app['arch']}`.",
-        f"Direct gaps: **{len(missing)} absent libraries**, **{len(wrong)} wrong-architecture libraries**, **{count} unresolved nonweak imports**.",
+        f"Direct gaps: **{noun(len(missing), 'absent library')}**, **{noun(len(wrong), 'wrong-architecture library')}**, **{noun(count, 'unresolved nonweak import')}**.",
         "This is static binding evidence, not a claim that the app launches or its workflow works.",
         "",
         "### Absent direct libraries",
         "",
     ]
-    lines.extend(f"- `{p}` — {len(symbols.get(p, []))} direct imports" for p in missing)
+    lines.extend(f"- `{p}` — {noun(len(symbols.get(p, [])), 'direct import')}" for p in missing)
     if not missing:
         lines.append("- None in this scan.")
     lines += ["", "### Wrong-architecture direct libraries", ""]
-    lines.extend(f"- `{p}` — {len(symbols.get(p, []))} direct imports" for p in wrong)
+    lines.extend(f"- `{p}` — {noun(len(symbols.get(p, [])), 'direct import')}" for p in wrong)
     if not wrong:
         lines.append("- None in this scan.")
     present = [(p, len(v)) for p, v in symbols.items() if p not in missing and p not in wrong]
     present.sort(key=lambda item: (-item[1], item[0]))
     lines += ["", "### Present libraries with missing exports", ""]
-    lines.extend(f"- `{p}` — {n} imports" for p, n in present)
+    lines.extend(f"- `{p}` — {noun(n, 'import')}" for p, n in present)
     if not present:
         lines.append("- None in this scan.")
     lines += [
@@ -95,10 +99,10 @@ def library_body(path, data, guide_url, scan_date):
         f"## {short_library(path)} at `{path}`",
         "",
         f"Scan: {scan_date}. Status: **{', '.join(statuses)}**. {len(apps)} imported apps load this path; their executables import **{len(symbols)} distinct nonweak symbols** from it.",
-        "An absent library's own dependencies cannot be known from this scan. Recheck the current binary and prefix before coding.",
+        "Recheck the current binary and prefix before coding. If this library is absent, its own dependencies cannot be known from this scan.",
         "", "### Apps needing it", "",
     ]
-    lines.extend(f"- {app} — {count} direct imports" for app, count in apps)
+    lines.extend(f"- {app} — {noun(count, 'direct import')}" for app, count in apps)
     lines += ["", "### Imported symbol sample", ""]
     lines.extend(f"- `{sym}`" for sym in symbols[:25])
     if not symbols:
