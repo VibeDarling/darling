@@ -10,12 +10,13 @@ not modules or completion percentage.
 The arm64 Darwin diagnostic build passes its C/Objective-C `OpenSwiftUI_SPI`
 sources and enters `OpenSwiftUICore` Swift compilation. It fails there. With
 the current Swift overlay modules and CoreText descriptor declarations, the
-latest run reported 586 distinct file/line/column/message diagnostics across 59
-OpenSwiftUICore source files. Immediately before the QuartzCore layer work,
+latest run reported 559 distinct file/line/column/message diagnostics across 59
+OpenSwiftUICore source files, after `FormatStyleCapitalizationContext`
+([darling-swift #55](https://github.com/VibeDarling/darling-swift/pull/55)) removed 27. Immediately before the QuartzCore layer work,
 the same counter reported 610 across 62 files. The earlier run reported 652 across 64 files;
 the inputs differ, so the difference cannot be attributed solely to one fix.
 Many diagnostics are follow-on errors, not independent fixes. The latest log
-is `/tmp/vd-openswiftui-after-layer-constants.log` on the build machine.
+is `/tmp/vd-openswiftui-after-capitalization.log` on the build machine.
 
 Representative primary gaps include Foundation `Date.ComponentsFormatStyle`
 and `Duration.UnitsFormatStyle`, Swift Foundation API import mismatches such as
@@ -33,19 +34,18 @@ still need runtime and rendering verification.
 CoreText now exposes `CTFontDescriptorCreateCopyWithSymbolicTraits`,
 `CTFontDescriptorGetSymbolicTraits`, and the trait dictionary keys. Its masked
 trait update passed a focused guest test, and a Swift probe imported the new
-declarations. The local Cocotron commit is `ec9e3023`, pinned by the Darling
-integration commit `edb9a523f`. Those missing-name diagnostics are absent in
+declarations ([darling-cocotron #150](https://github.com/VibeDarling/darling-cocotron/pull/150)). Those missing-name diagnostics are absent in
 the latest OpenSwiftUI run. Descriptor feature and variation copies also pass
-the focused guest test and import from Swift; `b4e43132` is pinned by
-`f0975104c`. The diagnostic count fell from 629 to 625 after those two APIs.
+the focused guest test and import from Swift; see
+[darling-cocotron #151](https://github.com/VibeDarling/darling-cocotron/pull/151). The diagnostic count fell from 629 to 625 after those two APIs.
 CoreText stylistic classes and UI font cases now import from Swift
-(`c3c698d4`, pinned by `0eb7184ec`), reducing the count to 620 across 63
+([darling-cocotron #152](https://github.com/VibeDarling/darling-cocotron/pull/152)), reducing the count to 620 across 63
 files. A guest-tested `NSNumber(value: CGFloat)` overlay initializer
-(`18a1571`) then reduced the count to 610 across 62 files with the current
+([darling-swift #56](https://github.com/VibeDarling/darling-swift/pull/56)) then reduced the count to 610 across 62 files with the current
 file/line/column/message counter. QuartzCore now imports `CALayer` layout,
 gravity, corner curve, group opacity, shadow path, and the RGBA8 format into
 Swift. Its guest layout/state test passes, and the diagnostic fell to 586
-across 59 files (`22a2a312`, pinned by `9f1a685da`).
+across 59 files ([darling-cocotron #148](https://github.com/VibeDarling/darling-cocotron/pull/148) and [#149](https://github.com/VibeDarling/darling-cocotron/pull/149)).
 Its largest remaining compile cluster is
 Foundation date and duration format styles. The diagnostic build script now
 selects the current integration overlays by default; the older minimal overlay
@@ -88,11 +88,11 @@ The Swift Foundation URL resource test passes in the disposable guest for a
 regular file, directory, and symbolic link, including size and unrequested
 values. This required CoreFoundation to return `NSURLFileSizeKey` and the Swift
 overlay to convert the returned `NSNumber` booleans. The local commits are
-`42f9f46` (Swift overlay), `1843067` (CoreFoundation), and `264c51102`
-(parent pin). The CoreGraphics and AppKit overlay commits are `30c3eff` and
-`9f2a318`. Foundation URL path standardization and symlink resolution passed
-a focused guest test (`e3b8cd7`), as did `StringProtocol.data(using:)` for
-`String` and `Substring` with UTF-8 and Latin-1 (`749139a`).
+[darling-swift #59](https://github.com/VibeDarling/darling-swift/pull/59) (Swift overlay) and
+[darling-corefoundation #14](https://github.com/VibeDarling/darling-corefoundation/pull/14). The CoreGraphics and AppKit overlay changes are
+[darling-swift #60](https://github.com/VibeDarling/darling-swift/pull/60) and [#61](https://github.com/VibeDarling/darling-swift/pull/61). Foundation URL path standardization and symlink resolution passed
+a focused guest test ([darling-swift #58](https://github.com/VibeDarling/darling-swift/pull/58)), as did `StringProtocol.data(using:)` for
+`String` and `Substring` with UTF-8 and Latin-1 ([darling-swift #57](https://github.com/VibeDarling/darling-swift/pull/57)).
 
 The four remaining non-SwiftUI Foundation imports are three `Decimal` APIs
 (integer literal, division, and `isZero`) and generic `Numeric.formatted()`.
