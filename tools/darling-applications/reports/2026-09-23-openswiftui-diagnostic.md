@@ -10,16 +10,16 @@ not modules or completion percentage.
 The arm64 Darwin diagnostic build passes its C/Objective-C `OpenSwiftUI_SPI`
 sources and enters `OpenSwiftUICore` Swift compilation. It fails there. With
 the current Swift overlay modules and CoreText descriptor declarations, the
-latest run reported 625 distinct file/line/message diagnostics across 64
+latest run reported 605 distinct file/line/message diagnostics across 62
 OpenSwiftUICore source files. The earlier run reported 652 across 64 files;
 the inputs differ, so the difference cannot be attributed solely to one fix.
 Many diagnostics are follow-on errors, not independent fixes. The latest log
-is `/tmp/vd-openswiftui-after-ctfont-features.log` on the build machine.
+is `/tmp/vd-openswiftui-after-number-cgfloat.log` on the build machine.
 
 Representative primary gaps include Foundation `Date.ComponentsFormatStyle`
 and `Duration.UnitsFormatStyle`, Swift Foundation API import mismatches such as
 `NSString(cString:encoding:)`, graphics types such as `IOSurface`, CoreText
-symbols such as `CTFontStylisticClass`, and layer APIs such
+types such as `AttributedString.AdaptiveImageGlyph`, and layer APIs such
 as `cornerCurve`.
 
 Two temporary declarations in `/tmp/vd-swiftui-modules` are diagnostic only:
@@ -37,6 +37,10 @@ integration commit `edb9a523f`. Those missing-name diagnostics are absent in
 the latest OpenSwiftUI run. Descriptor feature and variation copies also pass
 the focused guest test and import from Swift; `b4e43132` is pinned by
 `f0975104c`. The diagnostic count fell from 629 to 625 after those two APIs.
+CoreText stylistic classes and UI font cases now import from Swift
+(`c3c698d4`, pinned by `0eb7184ec`), reducing the count to 620 across 63
+files. A guest-tested `NSNumber(value: CGFloat)` overlay initializer
+(`18a1571`) then reduced the count to 605 across 62 files.
 Its largest remaining compile cluster is
 Foundation date and duration format styles. The diagnostic build script now
 selects the current integration overlays by default; the older minimal overlay
