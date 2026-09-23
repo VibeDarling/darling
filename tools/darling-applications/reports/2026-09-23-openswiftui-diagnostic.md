@@ -8,18 +8,19 @@ not modules or completion percentage.
 ## Current result
 
 The arm64 Darwin diagnostic build passes its C/Objective-C `OpenSwiftUI_SPI`
-sources and enters `OpenSwiftUICore` Swift compilation. It fails there. The
-2026-09-23 run reported 652 distinct file/line/message diagnostics across 64
-OpenSwiftUICore source files (16,704 repeated error lines from parallel Swift
-frontend jobs). Many are follow-on diagnostics, so this is not a count of 652
-independent fixes.
+sources and enters `OpenSwiftUICore` Swift compilation. It fails there. With
+the current Swift overlay modules and CoreText descriptor declarations, the
+latest run reported 629 distinct file/line/message diagnostics across 64
+OpenSwiftUICore source files. The earlier run reported 652 across 64 files;
+the inputs differ, so the difference cannot be attributed solely to one fix.
+Many diagnostics are follow-on errors, not independent fixes. The latest log
+is `/tmp/vd-openswiftui-current-overlays.log` on the build machine.
 
 Representative primary gaps include Foundation `Date.ComponentsFormatStyle`
 and `Duration.UnitsFormatStyle`, Swift Foundation API import mismatches such as
 `NSString(cString:encoding:)`, graphics types such as `IOSurface`, CoreText
-symbols such as `CTFontDescriptorCreateCopyWithSymbolicTraits`, and layer APIs
-such as `cornerCurve`. The full diagnostic log is
-`/tmp/vd-openswiftui-after-attributed-nullability.log` on the build machine.
+symbols such as `CTFontDescriptorCreateCopyWithFeature`, and layer APIs such
+as `cornerCurve`.
 
 Two temporary declarations in `/tmp/vd-swiftui-modules` are diagnostic only:
 `CAFilter +filterWithType:` and `NSAttributedString
@@ -27,6 +28,17 @@ initWithFormat:options:locale:arguments:`. Neither has a runtime implementation.
 `CALayer` now retains mask, filter, and shadow state, but `CARenderer` does not
 yet apply them when drawing. A successful diagnostic compile would therefore
 still need runtime and rendering verification.
+
+CoreText now exposes `CTFontDescriptorCreateCopyWithSymbolicTraits`,
+`CTFontDescriptorGetSymbolicTraits`, and the trait dictionary keys. Its masked
+trait update passed a focused guest test, and a Swift probe imported the new
+declarations. The local Cocotron commit is `ec9e3023`, pinned by the Darling
+integration commit `edb9a523f`. Those missing-name diagnostics are absent in
+the latest OpenSwiftUI run. Its largest remaining compile cluster is
+Foundation date and duration format styles. The diagnostic build script now
+selects the current integration overlays by default; the older minimal overlay
+gave thousands of unrelated missing geometry and Foundation names when the
+SwiftPM cache invalidated.
 
 No usable `SwiftUI.framework` has been produced, and AppZapper has not launched.
 
