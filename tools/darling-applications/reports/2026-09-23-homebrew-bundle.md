@@ -50,3 +50,14 @@ The launcher's `homebrew-bootstrap` action currently verifies an existing
 payload; it does not install Homebrew into an empty prefix. The pinned fork
 revision still needs a reproducible staging path in that action, and the
 Darling Ruby absolute-glob behavior needs a root-cause fix.
+
+## Combined app integration prefix
+
+The same `cristim/brew` commit `305161d` was staged under `/opt/homebrew` in
+`/tmp/vd-runtime-20260923`, the disposable prefix used for the 66-app scan and
+Combine integration. Darling was restarted so the guest could see the new
+`/opt` tree. In that combined prefix, guest `brew --version` exited 0 and the
+tracked `/usr/libexec/darling/brewfile-install` helper completed the same
+one-formula `tree` fixture with exit 0. The nonfatal missing guest `clang`
+message remained. The native viewer button was not exercised, and no cask app
+was installed in this combined prefix.
