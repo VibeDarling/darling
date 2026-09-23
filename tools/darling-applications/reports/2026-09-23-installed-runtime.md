@@ -92,6 +92,10 @@ This orders apps by absent or wrong-architecture direct libraries, then missing 
 - 512 direct symbols remain unresolved in the static scan, including 466 nonweak SwiftUI imports. The scan cannot measure the transitive dependencies of absent Combine and SwiftUI libraries.
 - CryptoKit, Symbols, and `libswift_errno.dylib` are currently present in the installed tree; earlier notes that list them as absent are stale for this machine.
 
+### Disposable integration step: local Combine build
+
+The arm64 `Combine.framework` binary from the local `darling-pr-combine-swift` branch (commit `23f1fff`) was staged into `/tmp/vd-runtime-20260923`, without changing the installed runtime. In that prefix AppZapper's 12 direct Combine imports resolved: the static missing-symbol count fell from 512 to 500. A fresh launch reached the next dyld failure, the absent `SwiftUI.framework`. This verifies binding and load order for Combine; it does not establish that AppZapper's Combine behavior works.
+
 ## Next checks
 
 1. Launch the other 12 apps with zero direct bind gaps and exercise their core workflows in a combined integration prefix.
