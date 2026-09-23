@@ -95,6 +95,10 @@ The table above captures the pre-fix baseline. [Cocotron PR #138](https://github
 
 Dictionary now passes dyld and begins decoding its interface, then exits 139 before displaying a usable window. The host core record identifies the guest command line but does not symbolize the app-side failure. Dictionary is still not working; the next task is to locate and fix this runtime failure, then exercise search and definition display.
 
+### TextEdit window check after the baseline probe
+
+TextEdit opened a mapped XWayland window titled `Untitled 1 - TextEdit` in the combined prefix. A capture of that window showed the document, menu, and ruler UI. Automated focus and targeted typing did not produce visible text, so editing, saving, and reopening remain unverified. The guest was shut down after the probe. [App issue #162](https://github.com/VibeDarling/darling/issues/162) has the reproduction and next workflow check.
+
 ## AppZapper direct dependency detail
 
 - Absent: `Combine.framework`, `SwiftUI.framework`.
@@ -108,6 +112,8 @@ Dictionary now passes dyld and begins decoding its interface, then exits 139 bef
 The arm64 `Combine.framework` binary from the local `darling-pr-combine-swift` branch (commit `23f1fff`) was staged into `/tmp/vd-runtime-20260923`, without changing the installed runtime. In that prefix AppZapper's 12 direct Combine imports resolved: the static missing-symbol count fell from 512 to 500. A fresh launch reached the next dyld failure, the absent `SwiftUI.framework`. This verifies binding and load order for Combine; it does not establish that AppZapper's Combine behavior works.
 
 With Combine staged, the transitive scanner walked 132 available Mach-O images reachable from AppZapper and found no additional absent or wrong-architecture indirect loads among them. Dependencies of absent SwiftUI remain unknown until a real SwiftUI binary exists. The direct wrong-architecture Swift libraries remain blockers.
+
+The current Cocotron source declares and implements five CALayer properties that OpenSwiftUI uses (`contentsScale`, `contentsCenter`, `contentsFormat`, `allowsEdgeAntialiasing`, and `isOpaque`), but the saved Darling SDK snapshot contains older QuartzCore headers. A Darwin Swift typecheck probe fails on all five with the snapshot and passes with a QuartzCore module generated from current Cocotron headers. [OpenSwiftUI fork PR #3](https://github.com/cristim/OpenSwiftUI/pull/3) lets the module generator use that current source. This clears a measured import gap; the full SwiftUI.framework build and AppZapper runtime remain open.
 
 ## Next checks
 
