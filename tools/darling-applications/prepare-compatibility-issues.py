@@ -27,7 +27,8 @@ def short_library(path):
 
 
 def noun(count, singular):
-    return f"{count} {singular}{'' if count == 1 else 's'}"
+    plural = singular[:-1] + "ies" if singular.endswith("library") else singular + "s"
+    return f"{count} {singular if count == 1 else plural}"
 
 
 def library_title(path):
