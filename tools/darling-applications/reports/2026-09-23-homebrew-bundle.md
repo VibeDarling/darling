@@ -38,9 +38,11 @@ checksum verification, then failed with `unknown symbol
 "kCFURLQuarantinePropertiesKey"`. With the second fork commit staged, the
 same cached DMG passed that gate and reached `UnpackStrategy::Dmg`, where it
 stalled at `Extracting primary container` until a hard 120-second timeout.
-This prefix has no `/usr/bin/hdiutil`; the exact cause of the extraction stall
-still needs tracing and likely a functional DMG extraction path. No Rectangle
-app was installed. Cask installation and the app's runtime
+This prefix has no `/usr/bin/hdiutil`; a direct guest invocation exits 127
+with `No such file or directory`. The exact cause of the extraction stall
+still needs tracing and likely a functional DMG extraction path, tracked in
+[the native DMG tooling issue](https://github.com/VibeDarling/darling/issues/811).
+No Rectangle app was installed. Cask installation and the app's runtime
 imports are distinct gates; a successful download would not show that the app
 launches or works.
 
