@@ -10,23 +10,24 @@ not modules or completion percentage.
 The arm64 Darwin diagnostic build passes its C/Objective-C `OpenSwiftUI_SPI`
 sources and enters `OpenSwiftUICore` Swift compilation. It fails there. With
 the current Swift overlay modules and CoreText descriptor declarations, the
-latest run reported 605 distinct file/line/message diagnostics across 62
-OpenSwiftUICore source files. The earlier run reported 652 across 64 files;
+latest run reported 586 distinct file/line/column/message diagnostics across 59
+OpenSwiftUICore source files. Immediately before the QuartzCore layer work,
+the same counter reported 610 across 62 files. The earlier run reported 652 across 64 files;
 the inputs differ, so the difference cannot be attributed solely to one fix.
 Many diagnostics are follow-on errors, not independent fixes. The latest log
-is `/tmp/vd-openswiftui-after-number-cgfloat.log` on the build machine.
+is `/tmp/vd-openswiftui-after-layer-constants.log` on the build machine.
 
 Representative primary gaps include Foundation `Date.ComponentsFormatStyle`
 and `Duration.UnitsFormatStyle`, Swift Foundation API import mismatches such as
 `NSString(cString:encoding:)`, graphics types such as `IOSurface`, CoreText
-types such as `AttributedString.AdaptiveImageGlyph`, and layer APIs such
-as `cornerCurve`.
+types such as `AttributedString.AdaptiveImageGlyph`.
 
 Two temporary declarations in `/tmp/vd-swiftui-modules` are diagnostic only:
 `CAFilter +filterWithType:` and `NSAttributedString
 initWithFormat:options:locale:arguments:`. Neither has a runtime implementation.
 `CALayer` now retains mask, filter, and shadow state, but `CARenderer` does not
-yet apply them when drawing. A successful diagnostic compile would therefore
+yet apply them when drawing. The new corner curve, group opacity, shadow path,
+and contents gravity state also needs rendering verification. A successful diagnostic compile would therefore
 still need runtime and rendering verification.
 
 CoreText now exposes `CTFontDescriptorCreateCopyWithSymbolicTraits`,
@@ -40,7 +41,11 @@ the focused guest test and import from Swift; `b4e43132` is pinned by
 CoreText stylistic classes and UI font cases now import from Swift
 (`c3c698d4`, pinned by `0eb7184ec`), reducing the count to 620 across 63
 files. A guest-tested `NSNumber(value: CGFloat)` overlay initializer
-(`18a1571`) then reduced the count to 605 across 62 files.
+(`18a1571`) then reduced the count to 610 across 62 files with the current
+file/line/column/message counter. QuartzCore now imports `CALayer` layout,
+gravity, corner curve, group opacity, shadow path, and the RGBA8 format into
+Swift. Its guest layout/state test passes, and the diagnostic fell to 586
+across 59 files (`22a2a312`, pinned by `9f1a685da`).
 Its largest remaining compile cluster is
 Foundation date and duration format styles. The diagnostic build script now
 selects the current integration overlays by default; the older minimal overlay
