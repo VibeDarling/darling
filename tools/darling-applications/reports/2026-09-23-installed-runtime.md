@@ -8,7 +8,7 @@ Reproduce with `tools/darling-applications/scan-imported-apps.py` after extracti
 
 This orders apps by absent or wrong-architecture direct libraries, then missing direct symbols. Runtime observations take precedence over this static estimate.
 
-Practical launch-test priority is: (1) TextEdit, where Wayland connection is already observed; (2) the other 12 apps with zero direct gaps, beginning with Stickies, Terminal, and Automator; (3) Dictionary, whose three missing AppKit exports are a bounded implementation target; (4) Digital Color Meter and ColorSync Utility, which have no absent direct libraries but more graphics gaps. This is a likelihood estimate, not evidence that any untested app works. AppZapper remains a separate priority despite its larger dependency chain.
+Practical workflow priority is: (1) TextEdit and Stickies, which reached the Wayland backend and stayed up during launch probes; (2) the nine other untested zero-gap apps; (3) Dictionary, whose three missing AppKit exports are a bounded implementation target; (4) Terminal and Automator, which reached Wayland but exposed concrete AppKit/Automator runtime gaps; (5) Digital Color Meter and ColorSync Utility, which have more graphics gaps. This is a likelihood estimate, not evidence that the apps' core workflows work. AppZapper remains a separate priority despite its larger dependency chain.
 
 | App | Absent libraries | Wrong architecture | Missing symbols |
 |---|---:|---:|---:|
@@ -85,6 +85,9 @@ Practical launch-test priority is: (1) TextEdit, where Wayland connection is alr
 - AppZapper 3000 exits 134 in dyld: `/System/Library/Frameworks/Combine.framework/Versions/A/Combine` is the first missing library reported.
 - Dictionary exits 134 in dyld: `_NSImageHintSymbolScale` is the first missing AppKit symbol reported. The direct scan also finds `_OBJC_CLASS_$_NSScrollEdgeEffectStyle` and `_OBJC_CLASS_$_NSSearchToolbarItem` missing.
 - TextEdit connected to the Wayland backend and remained running until the timed launch probe ended. Its editing workflow was not exercised.
+- Stickies connected to Wayland and remained running until the timed probe ended. Logs show fallback SF Symbol images, XPC errors, and unimplemented text attachment sizing/drawing; note editing and persistence were not exercised.
+- Automator connected to Wayland, but startup logged missing `AMLibraryView` nibs and unimplemented Automator methods. Workflow creation and execution were not exercised.
+- Terminal connected to Wayland, then exited 134 while decoding a nib: `NSPopover` lacks a working `initWithCoder:` and Foundation reported a forward-signature mismatch. Its shell workflow is not usable in this probe.
 
 ## AppZapper direct dependency detail
 
@@ -102,7 +105,7 @@ With Combine staged, the transitive scanner walked 132 available Mach-O images r
 
 ## Next checks
 
-1. Launch the other 12 apps with zero direct bind gaps and exercise their core workflows in a combined integration prefix.
+1. Exercise TextEdit and Stickies core workflows, then launch the nine still-untested zero-gap apps in a combined integration prefix.
 2. Inspect and implement the three Dictionary AppKit APIs in Cocotron, then rebuild AppKit and retest Dictionary in that prefix.
 3. Build a genuine arm64 Combine implementation, continue the OpenSwiftUI/AttributeGraph dependency chain, and rescan AppZapper after each integration step.
 4. Run the indirect-load scanner and runtime probes for every app; the table above is a direct-bind estimate only.
