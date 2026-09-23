@@ -30,6 +30,25 @@ still need runtime and rendering verification.
 
 No usable `SwiftUI.framework` has been produced, and AppZapper has not launched.
 
+## AppZapper rescan in the disposable prefix
+
+The AppZapper 3000 bundle from the local ZIP was scanned against
+`/home/cristi/src/.tmp-vd-runtime-20260923` after staging the existing
+dual-architecture `libswiftQuartzCore` and `libswiftSceneKit` builds from
+`darling-swift-swiftui-integration`. The direct scan now reports one absent
+library (`SwiftUI.framework`), zero wrong-architecture libraries, and 482
+unresolved symbols. Of those, 466 belong to SwiftUI; the other 16 are in
+Foundation (11), AppKit (2), UniformTypeIdentifiers (1), CoreGraphics (1), and
+ServiceManagement (1). Three additional absent libraries are weak loads.
+The result is saved in `/tmp/vd-appzapper-scan/results-arm64` on the build
+machine. The original x86-only Swift libraries were backed up in that prefix
+with `.before-arm64` suffixes.
+
+A fresh launch in this prefix still exits 134 in dyld because
+`/System/Library/Frameworks/SwiftUI.framework/Versions/A/SwiftUI` is absent.
+This confirms the next load blocker after Combine and the two Swift support
+libraries; the scanner cannot inspect transitive loads of missing SwiftUI.
+
 ## Local integration verified
 
 The `darling-image-master` integration branch pins Cocotron, Foundation, and
