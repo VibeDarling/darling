@@ -2,6 +2,8 @@
 
 Use this protocol when a person or agent picks up an issue in any VibeDarling repository. The GitHub issue comments are the shared coordination record. A claim covers one issue, not a repository or every task mentioned in that issue.
 
+The long-term goal is to make Darling able, ideally, to launch every macOS application available through Homebrew casks and exercise its core workflows. Distribute the app testing space across a fleet of agents so each app gets reproducible coverage and shared library fixes help many apps. A successful install or symbol scan alone is not a working app.
+
 ## Claim an issue
 
 1. Read the issue, recent comments, linked PRs, and the current code. Notes and older comments may be stale.
@@ -37,6 +39,12 @@ The displayed expiry is for readers; calculate it as the GitHub comment's `creat
 - Split independent blockers into separate issues so different contributors can claim them in parallel. Keep a parent issue updated with links to those blockers and their PRs.
 - File additional, distinct problems discovered during implementation or review as new issues, even when they are outside the claimed scope. Include a reproducible symptom, current evidence, expected behavior, likely code or dependency area, and a concrete starting point for a person or AI agent to investigate. Link each new issue from the original issue or PR; do not silently expand the original claim to cover it.
 - Never overwrite another contributor's branch or uncommitted work. For a takeover, start from a new branch and reuse prior changes through reviewable commits or a PR.
+
+## Divide app testing across agents
+
+Keep an open app-testing coordination issue with a current list of casks and applications, test status, and links to per-app issues. Assign bounded, nonoverlapping app batches to agents through 24-hour claim comments that list exact cask names and app versions; use the same ownership, renewal, and race rules as issue claims. Prioritize apps likely to run soon and shared dependencies that unblock several apps, while continuing AppZapper and SwiftUI work. Revisit assignments as installs and runtime evidence change.
+
+For each assigned app, record its cask/version and architecture, install and launch commands, integration prefix or environment revision, direct and indirect missing libraries or symbols, observed launch and core-workflow behavior, and logs or reproduction steps. Distinguish installation, load, launch, and usable-workflow milestones. File separate actionable issues for newly found shared gaps and link them to every affected app issue; update the coordination issue so another agent can take over an expired batch without repeating the investigation.
 
 ## Account for merged work
 
