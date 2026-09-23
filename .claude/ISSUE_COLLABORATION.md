@@ -5,9 +5,10 @@ Use this protocol when a person or agent picks up an issue in any VibeDarling re
 ## Claim an issue
 
 1. Read the issue, recent comments, linked PRs, and the current code. Notes and older comments may be stale.
-2. Check the issue's claim comments before editing code. If another contributor has a live claim, choose a different issue or ask the owner for a handoff. Takeover still waits until the claim expires. You may do read-only research and share findings without claiming.
-3. If the issue is free, post a new comment with the template below. Use the account that will do the work. The comment author is the owner; GitHub's comment creation time is the authoritative start time.
-4. Re-read the comments after posting. If claims raced, the earliest valid claim by GitHub creation time wins. A later claimant must stop dependent work and pick another issue.
+2. Challenge the issue's premise before starting implementation: reproduce the failure, check whether the proposed cause and fix fit the evidence, look for an existing implementation or newer fix, and identify missing requirements or unintended effects. Comment with evidence and ask for clarification when the scope or expected behavior is unclear. Correct or close an outdated issue rather than implementing its stale plan.
+3. Check the issue's claim comments before editing code. If another contributor has a live claim, choose a different issue or ask the owner for a handoff. Takeover still waits until the claim expires. You may do read-only research and share findings without claiming.
+4. If the issue is free, post a new comment with the template below. Use the account that will do the work. The comment author is the owner; GitHub's comment creation time is the authoritative start time.
+5. Re-read the comments after posting. If claims raced, the earliest valid claim by GitHub creation time wins. A later claimant must stop dependent work and pick another issue.
 
 ```text
 <!-- vibedarling-issue-claim:v1 -->
@@ -34,6 +35,7 @@ The displayed expiry is for readers; calculate it as the GitHub comment's `creat
 - Keep each fix in its own branch and worktree or independent clone. Check the current issue and branch ownership before changing shared files, submodule pins, or the integration environment.
 - Link the issue in the PR and comment on the issue with the PR URL and current status. Explain the exact failing app or command, the root cause, the test you ran, and remaining gaps so another contributor can continue.
 - Split independent blockers into separate issues so different contributors can claim them in parallel. Keep a parent issue updated with links to those blockers and their PRs.
+- File additional, distinct problems discovered during implementation or review as new issues, even when they are outside the claimed scope. Include a reproducible symptom, current evidence, expected behavior, likely code or dependency area, and a concrete starting point for a person or AI agent to investigate. Link each new issue from the original issue or PR; do not silently expand the original claim to cover it.
 - Never overwrite another contributor's branch or uncommitted work. For a takeover, start from a new branch and reuse prior changes through reviewable commits or a PR.
 
 ## Independent PR reviews
