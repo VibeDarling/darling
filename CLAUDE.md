@@ -4,7 +4,7 @@ Operational notes for anyone, human or agent, doing local development and integr
 repository. These are things that are easy to get wrong in ways that produce a confident wrong
 answer rather than an error.
 
-Before starting work on a VibeDarling issue, follow the [issue collaboration protocol](.claude/ISSUE_COLLABORATION.md): claim it in a GitHub comment for 24 hours, renew while working, and let another contributor take over after the claim expires.
+Before starting work on a VibeDarling issue, follow the [issue collaboration protocol](.claude/ISSUE_COLLABORATION.md): claim it in a GitHub comment for 24 hours, renew while working, and let another contributor take over after the claim expires. Before merging a PR, follow its independent review gate: five approvals from five different people on the current head commit.
 
 ## Repository layout
 

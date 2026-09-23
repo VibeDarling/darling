@@ -35,3 +35,17 @@ The displayed expiry is for readers; calculate it as the GitHub comment's `creat
 - Link the issue in the PR and comment on the issue with the PR URL and current status. Explain the exact failing app or command, the root cause, the test you ran, and remaining gaps so another contributor can continue.
 - Split independent blockers into separate issues so different contributors can claim them in parallel. Keep a parent issue updated with links to those blockers and their PRs.
 - Never overwrite another contributor's branch or uncommitted work. For a takeover, start from a new branch and reuse prior changes through reviewable commits or a PR.
+
+## Independent PR reviews
+
+Before merging any VibeDarling PR, get **at least five approvals from five different people** on the current PR head commit. Each reviewer may use their own agent to inspect the contribution, but the review must be posted from that person's own GitHub account. Several agents or accounts operated by one person count as one reviewer; the PR author and anyone who contributed commits do not count. Reviewers should make their own assessment rather than repeat another review or share one agent's conclusion.
+
+Ask reviewers to examine the complete diff and relevant surrounding code, run or inspect appropriate tests, and submit a GitHub PR review that addresses all three areas:
+
+- **Correctness:** Does the change solve the stated problem without breaking related behavior? Include the test result or other evidence checked.
+- **Simplicity:** Is the implementation understandable and no more complex than needed? Point out unnecessary code or a simpler approach when applicable.
+- **Security:** Check trust boundaries, input handling, permissions, secrets, and dependency changes where relevant. State what was checked even when no issue was found.
+
+Reviewers should leave inline comments for specific problems and use GitHub's **Request changes** review state for blocking concerns. An approval must include a short, substantive explanation of the three checks; an unqualified “LGTM,” a plain PR comment, or an agent message outside GitHub does not count. The person posting the review is accountable for its conclusion.
+
+After any PR head change, reviewers must inspect the new head and submit fresh approvals. Before merging, the maintainer must verify that five eligible, distinct people have approved the **current head commit**, that no blocking review or unresolved blocking conversation remains, and that required checks pass. If any condition is unmet, leave the PR open. This protocol applies to the PR introducing it as well.
