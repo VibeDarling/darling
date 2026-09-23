@@ -4,7 +4,8 @@
 # follow LC_REEXPORT_DYLIB, and count missing libraries and missing (non-weak) symbols, then classify
 # each gap by owner: core (worker), gui (GUI agent), swift (Swift agent), closed (closed/private Apple code).
 # Usage: scan-imported-apps.py [app-name-filter]
-# Set VIBEDARLING_APP_ROOT, VIBEDARLING_EXTRA_APP, and VIBEDARLING_SCAN_OUTPUT as needed.
+# Set VIBEDARLING_APP_ROOT, VIBEDARLING_EXTRA_APP, VIBEDARLING_SCAN_OUTPUT,
+# and VIBEDARLING_TRANSITIVE=1 as needed.
 import datetime, glob, json, os, plistlib, re, subprocess, sys
 from collections import defaultdict
 from functools import lru_cache
@@ -50,6 +51,7 @@ def direct_exports(path):
     a = compatible_arch(path)
     return frozenset(run("llvm-nm", "-gU", "-j", f"--arch={a}", path).split()) if a else frozenset()
 
+@lru_cache(maxsize=None)
 def dylib_commands(path, arch):
     """[(cmd, install name)] for one slice; llvm-otool -arch doesn't filter -l on universal files."""
     out = run("llvm-otool", "-l", path)
@@ -57,6 +59,41 @@ def dylib_commands(path, arch):
     if len(parts) > 1:
         out = next((parts[i + 1] for i in range(1, len(parts), 2) if parts[i] == arch), "")
     return re.findall(r"cmd (LC_\w+)\n\s+cmdsize \d+\n\s+name (\S+)", out)
+
+def resolve_dependency(name, app, loader, executable):
+    if name.startswith("@loader_path/"):
+        candidate = os.path.normpath(os.path.join(os.path.dirname(loader), name[len("@loader_path/"):]))
+        return candidate if os.path.exists(candidate) else None
+    if name.startswith("@executable_path/"):
+        candidate = os.path.normpath(os.path.join(os.path.dirname(executable), name[len("@executable_path/"):]))
+        return candidate if os.path.exists(candidate) else None
+    return darling_path(name, app)
+
+def dependency_closure(app, executable, executable_arch):
+    """Walk available Mach-O images. Missing images' own dependencies are unknowable here."""
+    pending = [(executable, 0)]
+    seen = set()
+    indirect = []
+    while pending:
+        loader, depth = pending.pop()
+        if loader in seen:
+            continue
+        seen.add(loader)
+        if len(seen) > 2000:
+            return {"images_checked": len(seen), "truncated": True, "indirect": indirect}
+        arch = executable_arch if depth == 0 else compatible_arch(loader)
+        if not arch:
+            continue
+        for command, name in dylib_commands(loader, arch):
+            if command not in LOAD_CMDS or command == "LC_LOAD_WEAK_DYLIB":
+                continue
+            resolved = resolve_dependency(name, app, loader, executable)
+            status = "absent" if not resolved else "wrong_arch" if not compatible_arch(resolved) else "present"
+            if depth:
+                indirect.append({"loaded_by": loader, "name": name, "status": status})
+            if status == "present" and resolved not in seen:
+                pending.append((resolved, depth + 1))
+    return {"images_checked": len(seen), "truncated": False, "indirect": indirect}
 
 @lru_cache(maxsize=None)
 def exports(install_name, depth=0):
@@ -135,6 +172,8 @@ def scan(app):
             r["weak_missing"] += 1
             continue
         r["missing"][inst].append(sym)
+    if os.environ.get("VIBEDARLING_TRANSITIVE") == "1":
+        r["closure"] = dependency_closure(app, exe, arch)
     return r
 
 def classify(r):

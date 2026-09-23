@@ -1,8 +1,8 @@
 # Imported macOS apps: installed-runtime baseline (2026-09-23)
 
-This is a fresh static scan of 65 imported System app bundles plus AppZapper 3000 from the local ZIP. It checks each main executable’s direct arm64/arm64e loads and imports against the installed Darling tree and `~/.darling` overlay. It resolves embedded `@rpath` frameworks inside the app. It does not yet prove transitive loads, initialization, rendering, or usable workflows.
+This is a fresh static scan of 65 imported System app bundles plus AppZapper 3000 from the local ZIP. It checks each main executable’s direct arm64/arm64e loads and imports against the installed Darling tree and `~/.darling` overlay. It resolves embedded `@rpath` frameworks inside the app. The table below does not include transitive loads, initialization, rendering, or usable workflows.
 
-Reproduce with `tools/darling-applications/scan-imported-apps.py` after extracting `~/Downloads/AppZapper-3000.zip` into a temporary directory and setting `VIBEDARLING_EXTRA_APP` to its `.app` path. Set `VIBEDARLING_SCAN_OUTPUT` for full JSON and per-symbol detail. The installed root is `/usr/local/libexec/darling`.
+Reproduce with `tools/darling-applications/scan-imported-apps.py` after extracting `~/Downloads/AppZapper-3000.zip` into a temporary directory and setting `VIBEDARLING_EXTRA_APP` to its `.app` path. Set `VIBEDARLING_SCAN_OUTPUT` for full JSON and per-symbol detail. Set `VIBEDARLING_TRANSITIVE=1` to walk available dependency images. The installed root is `/usr/local/libexec/darling`.
 
 ## App ranking by direct bind gaps
 
@@ -98,9 +98,11 @@ Practical launch-test priority is: (1) TextEdit, where Wayland connection is alr
 
 The arm64 `Combine.framework` binary from the local `darling-pr-combine-swift` branch (commit `23f1fff`) was staged into `/tmp/vd-runtime-20260923`, without changing the installed runtime. In that prefix AppZapper's 12 direct Combine imports resolved: the static missing-symbol count fell from 512 to 500. A fresh launch reached the next dyld failure, the absent `SwiftUI.framework`. This verifies binding and load order for Combine; it does not establish that AppZapper's Combine behavior works.
 
+With Combine staged, the transitive scanner walked 132 available Mach-O images reachable from AppZapper and found no additional absent or wrong-architecture indirect loads among them. Dependencies of absent SwiftUI remain unknown until a real SwiftUI binary exists. The direct wrong-architecture Swift libraries remain blockers.
+
 ## Next checks
 
 1. Launch the other 12 apps with zero direct bind gaps and exercise their core workflows in a combined integration prefix.
 2. Inspect and implement the three Dictionary AppKit APIs in Cocotron, then rebuild AppKit and retest Dictionary in that prefix.
 3. Build a genuine arm64 Combine implementation, continue the OpenSwiftUI/AttributeGraph dependency chain, and rescan AppZapper after each integration step.
-4. Extend the scanner to walk indirect loads and report runtime results per app; the table above is a direct-bind estimate only.
+4. Run the indirect-load scanner and runtime probes for every app; the table above is a direct-bind estimate only.
