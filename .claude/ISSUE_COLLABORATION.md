@@ -38,6 +38,16 @@ The displayed expiry is for readers; calculate it as the GitHub comment's `creat
 - File additional, distinct problems discovered during implementation or review as new issues, even when they are outside the claimed scope. Include a reproducible symptom, current evidence, expected behavior, likely code or dependency area, and a concrete starting point for a person or AI agent to investigate. Link each new issue from the original issue or PR; do not silently expand the original claim to cover it.
 - Never overwrite another contributor's branch or uncommitted work. For a takeover, start from a new branch and reuse prior changes through reviewable commits or a PR.
 
+## Account for merged work
+
+Every merged PR and commit must be traceable to an issue. For new work, link the issue in the PR before merge; commits in that PR are covered by that issue. A direct commit without a PR needs its own linked issue. Keep the issue and PR linked in both directions.
+
+Agents auditing existing history should coordinate through an open audit issue for each repository. Before starting a batch, check the audit issue's comments and completed ranges, then claim a **bounded, nonoverlapping** PR list or commit range in a comment with the 24-hour TTL, owner, and creation-time/race rules above. Include the exact PR numbers or commit endpoints in the claim. Renew or hand off using the same rules, and update the audit issue with the range covered and issue links when done. Do not claim an entire repository's history as one batch.
+
+For each merged PR without a linked issue, inspect its diff, commits, discussion, and current code; create a retrospective issue in the relevant repository that links the PR and records what changed, why it appears to have been done, and what the available tests or runtime evidence actually establish. Comment on the merged PR with the issue link, then close the retrospective issue as completed. For a merged commit without a PR or issue, do the same and include its full commit URL and SHA in the issue; group commits only when they are demonstrably one logical change. A PR's commits and merge commit may all point to its one issue. Check for existing issues, backports, cherry-picks, and duplicate PRs first so one change is not documented repeatedly. Do not invent missing rationale or claim unverified behavior worked.
+
+If the audit reveals a bug, missing test, incomplete behavior, or other gap, file a **separate open follow-up issue** with reproduction or evidence and a concrete contribution path. Link it from the retrospective issue and the original PR or commit where possible. Record any history that cannot yet be mapped to an issue in the audit issue for another agent to investigate; do not mark that batch complete until every merged item in it has an issue link.
+
 ## Independent PR reviews
 
 Before merging any VibeDarling PR, get **at least five approvals from five different people** on the current PR head commit. Each reviewer may use their own agent to inspect the contribution, but the review must be posted from that person's own GitHub account. Several agents or accounts operated by one person count as one reviewer; the PR author and anyone who contributed commits do not count. Reviewers should make their own assessment rather than repeat another review or share one agent's conclusion.
