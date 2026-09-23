@@ -10,16 +10,16 @@ not modules or completion percentage.
 The arm64 Darwin diagnostic build passes its C/Objective-C `OpenSwiftUI_SPI`
 sources and enters `OpenSwiftUICore` Swift compilation. It fails there. With
 the current Swift overlay modules and CoreText descriptor declarations, the
-latest run reported 629 distinct file/line/message diagnostics across 64
+latest run reported 625 distinct file/line/message diagnostics across 64
 OpenSwiftUICore source files. The earlier run reported 652 across 64 files;
 the inputs differ, so the difference cannot be attributed solely to one fix.
 Many diagnostics are follow-on errors, not independent fixes. The latest log
-is `/tmp/vd-openswiftui-current-overlays.log` on the build machine.
+is `/tmp/vd-openswiftui-after-ctfont-features.log` on the build machine.
 
 Representative primary gaps include Foundation `Date.ComponentsFormatStyle`
 and `Duration.UnitsFormatStyle`, Swift Foundation API import mismatches such as
 `NSString(cString:encoding:)`, graphics types such as `IOSurface`, CoreText
-symbols such as `CTFontDescriptorCreateCopyWithFeature`, and layer APIs such
+symbols such as `CTFontStylisticClass`, and layer APIs such
 as `cornerCurve`.
 
 Two temporary declarations in `/tmp/vd-swiftui-modules` are diagnostic only:
@@ -34,7 +34,10 @@ CoreText now exposes `CTFontDescriptorCreateCopyWithSymbolicTraits`,
 trait update passed a focused guest test, and a Swift probe imported the new
 declarations. The local Cocotron commit is `ec9e3023`, pinned by the Darling
 integration commit `edb9a523f`. Those missing-name diagnostics are absent in
-the latest OpenSwiftUI run. Its largest remaining compile cluster is
+the latest OpenSwiftUI run. Descriptor feature and variation copies also pass
+the focused guest test and import from Swift; `b4e43132` is pinned by
+`f0975104c`. The diagnostic count fell from 629 to 625 after those two APIs.
+Its largest remaining compile cluster is
 Foundation date and duration format styles. The diagnostic build script now
 selects the current integration overlays by default; the older minimal overlay
 gave thousands of unrelated missing geometry and Foundation names when the
