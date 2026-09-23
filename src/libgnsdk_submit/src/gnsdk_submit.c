@@ -14,6 +14,7 @@ struct gnsdk_gdo_s {
     char* key;
     char* value;
     struct gnsdk_gdo_s* next;
+    struct gnsdk_gdo_s* children_head;
 };
 
 struct gnsdk_parcel_s {
@@ -63,9 +64,17 @@ gnsdk_error_t gnsdk_submit_edit_gdo_create_empty(gnsdk_gdo_handle_t* p_gdo_handl
 
 gnsdk_error_t gnsdk_submit_edit_gdo_child_add_empty(gnsdk_gdo_handle_t gdo_handle, const char* child_key, gnsdk_gdo_handle_t* p_child_gdo_handle)
 {
-    (void)gdo_handle;
-    (void)child_key;
-    return gnsdk_submit_edit_gdo_create_empty(p_child_gdo_handle);
+    struct gnsdk_gdo_s* parent = (struct gnsdk_gdo_s*)gdo_handle;
+    if (!parent || parent->magic != GDO_MAGIC || !p_child_gdo_handle) return 1;
+
+    gnsdk_error_t err = gnsdk_submit_edit_gdo_create_empty(p_child_gdo_handle);
+    if (err != GNSDK_SUCCESS) return err;
+
+    struct gnsdk_gdo_s* child = (struct gnsdk_gdo_s*)*p_child_gdo_handle;
+    child->key = child_key ? strdup(child_key) : NULL;
+    child->next = parent->children_head;
+    parent->children_head = child;
+    return GNSDK_SUCCESS;
 }
 
 gnsdk_error_t gnsdk_submit_edit_gdo_value_set(gnsdk_gdo_handle_t gdo_handle, const char* value_key, const char* value)
@@ -101,18 +110,29 @@ gnsdk_error_t gnsdk_submit_parcel_create(gnsdk_user_handle_t user_handle, gnsdk_
     return GNSDK_SUCCESS;
 }
 
+static void free_gdo_tree(struct gnsdk_gdo_s* gdo)
+{
+    while (gdo) {
+        struct gnsdk_gdo_s* next = gdo->next;
+        if (gdo->children_head) {
+            free_gdo_tree(gdo->children_head);
+        }
+        free(gdo->key);
+        free(gdo->value);
+        gdo->magic = 0;
+        free(gdo);
+        gdo = next;
+    }
+}
+
 gnsdk_error_t gnsdk_submit_parcel_release(gnsdk_submit_parcel_handle_t parcel_handle)
 {
     struct gnsdk_parcel_s* parcel = (struct gnsdk_parcel_s*)parcel_handle;
     if (!parcel || parcel->magic != PARCEL_MAGIC) return 1;
 
-    struct gnsdk_gdo_s* curr = parcel->gdo_head;
-    while (curr) {
-        struct gnsdk_gdo_s* next = curr->next;
-        free(curr->key);
-        free(curr->value);
-        free(curr);
-        curr = next;
+    if (parcel->gdo_head) {
+        free_gdo_tree(parcel->gdo_head);
+        parcel->gdo_head = NULL;
     }
 
     parcel->magic = 0;
@@ -190,11 +210,18 @@ gnsdk_error_t gnsdk_submit_parcel_feature_option_set(gnsdk_submit_parcel_handle_
 
 gnsdk_error_t gnsdk_submit_parcel_upload(gnsdk_submit_parcel_handle_t parcel_handle, void* callback, void* user_data)
 {
-    (void)callback;
-    (void)user_data;
     struct gnsdk_parcel_s* parcel = (struct gnsdk_parcel_s*)parcel_handle;
     if (!parcel || parcel->magic != PARCEL_MAGIC) return 1;
 
     parcel->state = gnsdk_submit_status_complete;
+
+    /* If caller supplied an asynchronous status callback, notify it that upload completed */
+    if (callback) {
+        typedef void (*status_fn)(void* user_data, int status, double percent_complete, int* abort_flag);
+        status_fn fn = (status_fn)callback;
+        int abort_flag = 0;
+        fn(user_data, gnsdk_submit_status_complete, 100.0, &abort_flag);
+    }
+
     return GNSDK_SUCCESS;
 }
