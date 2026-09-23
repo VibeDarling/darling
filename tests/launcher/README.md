@@ -28,6 +28,21 @@ path interface. `DARLING_PROFILE=<name>` selects the isolated sibling prefix
 `~/.darling.<name>`; using both selectors or a name containing path separators
 is rejected. The harness does not create or access any prefix.
 
+## Root-mode /proc
+
+Run without root or any Darling container:
+
+```sh
+cc -Wall -Wextra -Werror -O2 tests/launcher/proc-dir.c -o /tmp/darling-proc-dir-test
+/tmp/darling-proc-dir-test
+```
+
+Non-root mode makes the prefix's `/proc` a symlink to the host procfs, and root
+mode must mount a procfs for launchd's PID namespace on a directory there. The
+root-mode launcher replaces exactly that symlink with a directory; any other
+entry, including a symlink with a different target, is left alone. The check
+runs with the invoking user's ids.
+
 ## Shutdown isolation
 
 Run without root or any Darling container:
