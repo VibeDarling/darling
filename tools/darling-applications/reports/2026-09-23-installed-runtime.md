@@ -123,6 +123,7 @@ The current Cocotron source declares and implements five CALayer properties that
 - [Foundation PR #50](https://github.com/VibeDarling/darling-foundation/pull/50) defines `NS_SWIFT_SENDABLE`. Current Foundation source already declares `NSAttributedStringKey`; the older SDK snapshot omitted it. OpenSwiftUI PR #3 now permits current Foundation headers in the module overlay. The older snapshot also omitted a visionOS availability macro that current Darling source already has.
 - The MIT-licensed OpenCoreGraphics source is forked at [cristim/OpenCoreGraphics](https://github.com/cristim/OpenCoreGraphics). Its `OpenCoreGraphicsShims` and `OpenQuartzCoreShims` modules compile for arm64 macOS against this SDK and framework overlay.
 - The combined OpenSwiftUI typecheck now reaches a missing `CADisplayLink` declaration in Cocotron QuartzCore. An explicit `OPENSWIFTUI_NO_CADISPLAYLINK` probe flag can expose further compile gaps, but it does not replace the missing implementation.
+- With that flag passed to Clang, typechecking reaches the absent `OpenRenderBoxShims` module. MIT-licensed [OpenRenderBox](https://github.com/cristim/OpenRenderBox) is now forked under `cristim`. Its Darwin module build currently fails because the available Darling libc++ headers lack C++ `<optional>` and the OpenGL Clang module imports submodules inside an `extern "C"` region. The fork has not produced a working Darwin module yet.
 
 ## Next checks
 
