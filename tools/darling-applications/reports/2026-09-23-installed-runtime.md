@@ -8,6 +8,8 @@ Reproduce with `tools/darling-applications/scan-imported-apps.py` after extracti
 
 This orders apps by absent or wrong-architecture direct libraries, then missing direct symbols. Runtime observations take precedence over this static estimate.
 
+Practical launch-test priority is: (1) TextEdit, where Wayland connection is already observed; (2) the other 12 apps with zero direct gaps, beginning with Stickies, Terminal, and Automator; (3) Dictionary, whose three missing AppKit exports are a bounded implementation target; (4) Digital Color Meter and ColorSync Utility, which have no absent direct libraries but more graphics gaps. This is a likelihood estimate, not evidence that any untested app works. AppZapper remains a separate priority despite its larger dependency chain.
+
 | App | Absent libraries | Wrong architecture | Missing symbols |
 |---|---:|---:|---:|
 | Apps | 0 | 0 | 0 |
