@@ -37,11 +37,12 @@ The AppZapper 3000 bundle from the local ZIP was scanned against
 dual-architecture `libswiftQuartzCore` and `libswiftSceneKit` builds from
 `darling-swift-swiftui-integration`. The direct scan now reports one absent
 library (`SwiftUI.framework`) and zero wrong-architecture libraries. With
-the new CoreGraphics system colors, AppKit `NSApplicationMain`, and Foundation
-URL resource getters staged, it reports 476 unresolved symbols: SwiftUI (466),
-Foundation (7), AppKit (1), UniformTypeIdentifiers (1), and ServiceManagement
+the new CoreGraphics system colors, AppKit `NSApplicationMain`, Foundation
+URL resource and path APIs, and `StringProtocol.data(using:)` staged, it
+reports 473 unresolved symbols: SwiftUI (466), Foundation (4), AppKit (1),
+UniformTypeIdentifiers (1), and ServiceManagement
 (1). Three additional absent libraries are weak loads. The current result is
-saved in `/tmp/vd-appzapper-scan/results-url-values` on the build machine.
+saved in `/tmp/vd-appzapper-scan/results-string-protocol` on the build machine.
 The original x86-only Swift libraries were backed up in that prefix with
 `.before-arm64` suffixes.
 
@@ -65,7 +66,17 @@ values. This required CoreFoundation to return `NSURLFileSizeKey` and the Swift
 overlay to convert the returned `NSNumber` booleans. The local commits are
 `42f9f46` (Swift overlay), `1843067` (CoreFoundation), and `264c51102`
 (parent pin). The CoreGraphics and AppKit overlay commits are `30c3eff` and
-`9f2a318`.
+`9f2a318`. Foundation URL path standardization and symlink resolution passed
+a focused guest test (`e3b8cd7`), as did `StringProtocol.data(using:)` for
+`String` and `Substring` with UTF-8 and Latin-1 (`749139a`).
+
+The four remaining non-SwiftUI Foundation imports are three `Decimal` APIs
+(integer literal, division, and `isZero`) and generic `Numeric.formatted()`.
+Darling's current `NSDecimalDivide` falls back to binary floating point for
+most divisors, so exposing Swift's `Decimal` division without improving that
+backend would risk incorrect monetary results. The UniformTypeIdentifiers
+Swift overlay is also currently built from placeholder values; adding only
+`UTType.folder` there would not make the type system functional.
 
 The build is reproducible with `tools/darling-applications/build-openswiftui-diagnostic.sh`
 after generating the local framework modules described in that script. The
