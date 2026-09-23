@@ -48,6 +48,14 @@ For each merged PR without a linked issue, inspect its diff, commits, discussion
 
 If the audit reveals a bug, missing test, incomplete behavior, or other gap, file a **separate open follow-up issue** with reproduction or evidence and a concrete contribution path. Link it from the retrospective issue and the original PR or commit where possible. Record any history that cannot yet be mapped to an issue in the audit issue for another agent to investigate; do not mark that batch complete until every merged item in it has an issue link.
 
+## Audit existing code
+
+Audit committed code even when it already has an issue or passed PR review. Use an open audit issue in the relevant repository to divide work into bounded code areas. Before starting, check other audit claims and post a 24-hour claim naming the paths or subsystem and the commit being inspected; use the same ownership, renewal, and race rules as above. Avoid overlapping another live claim.
+
+Read the implementation, its callers and dependencies, relevant tests, and the behavior it promises. Challenge assumptions about correctness, simplicity, security, failure handling, resource ownership, and concurrency. Run focused builds, tests, or guest app workflows where practical; distinguish observed results from source-only inferences. Check whether a suspected gap is already fixed on the current branch or tracked in an existing issue.
+
+Report the audited revision and paths, checks run, evidence found, and areas not yet inspected in the audit issue. For each distinct gap, create or update an **open, actionable issue** with the affected code and commit/PR links, expected and actual behavior, reproduction or source evidence, impact, a plausible fix path, and a way to verify a fix. Link these issues from the audit record and the original PR when applicable. Do not call an area complete because no test failed; mark it audited only after recording both the checks performed and their limits.
+
 ## Independent PR reviews
 
 Before merging any VibeDarling PR, get **at least five approvals from five different people** on the current PR head commit. Each reviewer may use their own agent to inspect the contribution, but the review must be posted from that person's own GitHub account. Several agents or accounts operated by one person count as one reviewer; the PR author and anyone who contributed commits do not count. Reviewers should make their own assessment rather than repeat another review or share one agent's conclusion.
