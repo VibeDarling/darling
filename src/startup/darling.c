@@ -45,6 +45,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include "darling-config.h"
 #include "prefix-state.h"
 #include "profile-prefix.h"
+#include "proc-dir.h"
 
 // Between Linux 4.9 and 4.11, a strange bug has been introduced
 // which prevents connecting to Unix sockets if the socket was
@@ -398,14 +399,14 @@ static void ensureProcSymlink(const char* prefixPath)
 			if (len > 0)
 			{
 				target[len] = '\0';
-				if (strcmp(target, "/Volumes/SystemRoot/proc") != 0)
+				if (strcmp(target, DARLING_PROC_SYMLINK_TARGET) != 0)
 					unlink(procPath);
 			}
 		}
 	}
 	if (lstat(procPath, &st) != 0)
 	{
-		symlink("/Volumes/SystemRoot/proc", procPath);
+		symlink(DARLING_PROC_SYMLINK_TARGET, procPath);
 	}
 }
 
@@ -1662,6 +1663,11 @@ int main(int argc, char ** argv)
 	useOriginalIds();
 	if (g_nonroot)
 		ensureProcSymlink(prefix);
+	else if (!darlingEnsureProcDir(prefix))
+	{
+		fprintf(stderr, "Cannot replace %s/proc with a directory: %s\n", prefix, strerror(errno));
+		return 1;
+	}
 	ensureHostRootSymlinks(prefix);
 	ensureShSymlink(prefix);
 	ensureHomebrewSymlinks(prefix);
