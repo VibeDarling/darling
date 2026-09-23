@@ -8,7 +8,7 @@ Reproduce with `tools/darling-applications/scan-imported-apps.py` after extracti
 
 This orders apps by absent or wrong-architecture direct libraries, then missing direct symbols. Runtime observations take precedence over this static estimate.
 
-Practical workflow priority is: (1) TextEdit and Stickies, which reached the Wayland backend and stayed up during launch probes; (2) the nine other untested zero-gap apps; (3) Dictionary, whose three missing AppKit exports are a bounded implementation target; (4) Terminal and Automator, which reached Wayland but exposed concrete AppKit/Automator runtime gaps; (5) Digital Color Meter and ColorSync Utility, which have more graphics gaps. This is a likelihood estimate, not evidence that the apps' core workflows work. AppZapper remains a separate priority despite its larger dependency chain.
+Practical workflow priority after the Dictionary AppKit rollout is: (1) TextEdit and Stickies, which reached the Wayland backend and stayed up during launch probes; (2) the nine other untested zero-gap apps; (3) Dictionary, which now binds but crashes during interface decoding; (4) Terminal and Automator, which reached Wayland but exposed concrete AppKit/Automator runtime gaps; (5) Digital Color Meter and ColorSync Utility, which have more graphics gaps. This is a likelihood estimate, not evidence that the apps' core workflows work. AppZapper remains a separate priority despite its larger dependency chain.
 
 | App | Absent libraries | Wrong architecture | Missing symbols |
 |---|---:|---:|---:|
@@ -89,6 +89,12 @@ Practical workflow priority is: (1) TextEdit and Stickies, which reached the Way
 - Automator connected to Wayland, but startup logged missing `AMLibraryView` nibs and unimplemented Automator methods. Workflow creation and execution were not exercised.
 - Terminal connected to Wayland, then exited 134 while decoding a nib: `NSPopover` lacks a working `initWithCoder:` and Foundation reported a forward-signature mismatch. Its shell workflow is not usable in this probe.
 
+### Dictionary AppKit rollout after the baseline scan
+
+The table above captures the pre-fix baseline. [Cocotron PR #138](https://github.com/VibeDarling/darling-cocotron/pull/138) adds Dictionary's three direct AppKit imports. The exact AppKit binary from the combined prefix was relinked with the PR's objects; all 3,473 previous exports were retained and 13 exports added. The new binary was staged into `/tmp/vd-runtime-20260923`, with the former binary saved as `/tmp/vd-dictionary-obj/AppKit-before-dictionary`. A fresh Dictionary scan against that prefix reports 0 missing libraries, 0 wrong-architecture libraries, and 0 missing direct symbols. A focused AppKit smoke executable exits 0 against the full relinked framework.
+
+Dictionary now passes dyld and begins decoding its interface, then exits 139 before displaying a usable window. The host core record identifies the guest command line but does not symbolize the app-side failure. Dictionary is still not working; the next task is to locate and fix this runtime failure, then exercise search and definition display.
+
 ## AppZapper direct dependency detail
 
 - Absent: `Combine.framework`, `SwiftUI.framework`.
@@ -106,6 +112,6 @@ With Combine staged, the transitive scanner walked 132 available Mach-O images r
 ## Next checks
 
 1. Exercise TextEdit and Stickies core workflows, then launch the nine still-untested zero-gap apps in a combined integration prefix.
-2. Inspect and implement the three Dictionary AppKit APIs in Cocotron, then rebuild AppKit and retest Dictionary in that prefix.
+2. Diagnose Dictionary's interface-decoding crash with the new AppKit, fix it, then test search and definition display.
 3. Build a genuine arm64 Combine implementation, continue the OpenSwiftUI/AttributeGraph dependency chain, and rescan AppZapper after each integration step.
 4. Run the indirect-load scanner and runtime probes for every app; the table above is a direct-bind estimate only.
