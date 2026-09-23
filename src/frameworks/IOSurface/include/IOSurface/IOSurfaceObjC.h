@@ -7,7 +7,7 @@
 #import <Foundation/NSObject.h>
 #import <Foundation/NSDictionary.h>
 
-typedef NSString *IOSurfacePropertyKey;
+typedef NSString *IOSurfacePropertyKey NS_TYPED_EXTENSIBLE_ENUM;
 
 __BEGIN_DECLS
 

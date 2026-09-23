@@ -24,4 +24,8 @@
 #include <IOSurface/IOSurfaceBase.h>
 #include <IOSurface/IOSurfaceAPI.h>
 
+#ifdef __OBJC__
+#import <IOSurface/IOSurfaceObjC.h>
+#endif
+
 #endif

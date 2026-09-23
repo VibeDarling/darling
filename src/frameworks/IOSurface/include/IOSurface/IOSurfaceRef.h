@@ -6,7 +6,7 @@
 
 __BEGIN_DECLS
 
-typedef struct  __IOSurface *IOSurfaceRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOSurface *IOSurfaceRef CF_SWIFT_NAME(IOSurfaceRef);
 
 
 extern const CFStringRef kIOSurfaceAllocSize;

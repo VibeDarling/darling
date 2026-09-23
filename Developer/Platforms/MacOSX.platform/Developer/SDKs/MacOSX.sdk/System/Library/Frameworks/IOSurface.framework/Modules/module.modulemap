@@ -1,0 +1,4 @@
+framework module IOSurface [extern_c] [system] {
+  umbrella header "IOSurface.h"
+  export *
+}
