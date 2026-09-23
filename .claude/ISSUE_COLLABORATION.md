@@ -4,6 +4,8 @@ Use this protocol when a person or agent picks up an issue in any VibeDarling re
 
 The long-term goal is to make Darling able, ideally, to launch every macOS application available through Homebrew casks and exercise its core workflows. Distribute the app testing space across a fleet of agents so each app gets reproducible coverage and shared library fixes help many apps. A successful install or symbol scan alone is not a working app.
 
+Keep Homebrew and the applications unmodified. Fix install, loading, API, ABI, and runtime gaps in Darling and its associated open source libraries. Test against the original cask and app artifacts; record any diagnostic workaround separately and do not count a patched app or Brew as a passing result.
+
 ## Claim an issue
 
 1. Read the issue, recent comments, linked PRs, and the current code. Notes and older comments may be stale.
@@ -44,7 +46,7 @@ The displayed expiry is for readers; calculate it as the GitHub comment's `creat
 
 Keep an open app-testing coordination issue with a current list of casks and applications, test status, and links to per-app issues. Assign bounded, nonoverlapping app batches to agents through 24-hour claim comments that list exact cask names and app versions; use the same ownership, renewal, and race rules as issue claims. Prioritize apps likely to run soon and shared dependencies that unblock several apps, while continuing AppZapper and SwiftUI work. Revisit assignments as installs and runtime evidence change.
 
-For each assigned app, record its cask/version and architecture, install and launch commands, integration prefix or environment revision, direct and indirect missing libraries or symbols, observed launch and core-workflow behavior, and logs or reproduction steps. Distinguish installation, load, launch, and usable-workflow milestones. File separate actionable issues for newly found shared gaps and link them to every affected app issue; update the coordination issue so another agent can take over an expired batch without repeating the investigation.
+For each assigned app, record its cask/version and architecture, install and launch commands, integration prefix or environment revision, direct and indirect missing libraries or symbols, observed launch and core-workflow behavior, and logs or reproduction steps. Verify that the Brew and app artifacts are unchanged. Distinguish installation, load, launch, and usable-workflow milestones. File separate actionable issues for newly found shared gaps and link them to every affected app issue; update the coordination issue so another agent can take over an expired batch without repeating the investigation.
 
 ## Account for merged work
 
