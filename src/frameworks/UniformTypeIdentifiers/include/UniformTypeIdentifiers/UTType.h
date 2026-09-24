@@ -27,6 +27,8 @@ NS_ASSUME_NONNULL_BEGIN
 extern NSString *const UTTagClassFilenameExtension;
 extern NSString *const UTTagClassMIMEType;
 
+// As in the macOS SDK, Swift sees the class as UTTypeReference; the overlay's UTType struct wraps it.
+NS_SWIFT_NAME(UTTypeReference)
 @interface UTType : NSObject <NSCopying, NSSecureCoding>
 {
 	NSString *_identifier;
@@ -51,7 +53,7 @@ extern NSString *const UTTagClassMIMEType;
 @property (readonly, nullable, copy) NSString *preferredFilenameExtension;
 @property (readonly, nullable, copy) NSString *preferredMIMEType;
 @property (readonly, nullable, copy) NSString *localizedDescription;
-@property (readonly, nullable, copy) NSNumber *version;
+@property (readonly, nullable, copy) NSNumber *version NS_SWIFT_NAME(typeVersion);
 @property (readonly, nullable, copy) NSURL *referenceURL;
 @property (readonly, getter=isDynamic) BOOL dynamic;
 @property (readonly, getter=isDeclared) BOOL declared;
