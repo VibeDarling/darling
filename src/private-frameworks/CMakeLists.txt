@@ -149,3 +149,9 @@ if (COMPONENT_gui_stubs)
 	add_subdirectory(UIFoundation)
 	add_subdirectory(UserActivity)
 endif()
+
+if (COMPONENT_gui)
+	set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "gui")
+
+	add_subdirectory(ConsoleKit)
+endif()
