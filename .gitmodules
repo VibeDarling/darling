@@ -180,7 +180,7 @@
 	url = ../darling-libplatform.git
 [submodule "src/external/libpthread"]
 	path = src/external/libpthread
-	url = https://github.com/cristim/darling-libpthread.git
+	url = ../darling-libpthread.git
 [submodule "src/external/syslog"]
 	path = src/external/syslog
 	url = ../darling-syslog.git
@@ -381,7 +381,7 @@
 	url = ../darling-pyobjc.git
 [submodule "src/external/darlingserver"]
 	path = src/external/darlingserver
-	url = https://github.com/cristim/darlingserver.git
+	url = ../darlingserver.git
 [submodule "src/external/libmalloc"]
 	path = src/external/libmalloc
 	url = ../darling-libmalloc.git
@@ -456,4 +456,4 @@
 	url = ../darling-metal.git
 [submodule "src/external/xnu"]
 	path = src/external/xnu
-	url = https://github.com/cristim/darling-xnu.git
+	url = ../darling-xnu.git
