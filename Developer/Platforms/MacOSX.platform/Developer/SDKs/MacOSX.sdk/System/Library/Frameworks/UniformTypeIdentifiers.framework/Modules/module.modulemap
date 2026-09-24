@@ -1,0 +1,4 @@
+framework module UniformTypeIdentifiers [extern_c] [system] {
+  umbrella header "UniformTypeIdentifiers.h"
+  export *
+}
