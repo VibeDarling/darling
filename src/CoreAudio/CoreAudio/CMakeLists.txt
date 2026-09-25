@@ -7,6 +7,7 @@ add_definitions(-DINSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 
 set(coreaudio_sources
 	AudioHardware.cpp
+    CATapDescription.mm
     AudioHardwareImpl.cpp
     HostTime.mm
     pulse/AudioHardwareImplPA.cpp
@@ -29,5 +30,7 @@ add_framework(CoreAudio
         system
         cxx
         CoreFoundation
+        Foundation
+        objc
         pulse
 )
