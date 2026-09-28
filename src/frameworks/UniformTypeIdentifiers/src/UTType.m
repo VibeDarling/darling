@@ -97,6 +97,20 @@ static BOOL UTIdentifierIsValid(NSString *identifier)
 	return YES;
 }
 
+// Info.plist permits either a string or an array for tags and conformances.
+static NSArray *UTDeclarationStrings(id value)
+{
+	if ([value isKindOfClass: [NSString class]])
+		return [value length] ? @[value] : @[];
+	NSMutableArray *strings = [NSMutableArray array];
+	if ([value isKindOfClass: [NSArray class]]) {
+		for (id item in value)
+			if ([item isKindOfClass: [NSString class]] && [item length])
+				[strings addObject: item];
+	}
+	return strings;
+}
+
 @interface UTType ()
 - (instancetype)_initWithIdentifier:(NSString *)identifier kind:(UTTypeKind)kind parents:(NSArray *)parents
                                tags:(NSDictionary *)tags description:(NSString *)description;
@@ -158,6 +172,64 @@ static void UTBuildRegistry(void *context)
 			[type _setParents: parents];
 			if (rows[i].constant)
 				*rows[i].constant = type;
+		}
+
+		// Keep app declarations in the same graph as built-ins, with a second
+		// parent pass so declarations may refer to a later app declaration.
+		NSMutableDictionary *appDeclarations = [NSMutableDictionary dictionary];
+		NSMutableDictionary *appExtensions = [NSMutableDictionary dictionary];
+		NSMutableDictionary *appMimes = [NSMutableDictionary dictionary];
+		NSDictionary *info = [[NSBundle mainBundle] infoDictionary];
+		for (NSString *section in @[@"UTExportedTypeDeclarations", @"UTImportedTypeDeclarations"]) {
+			id declarations = [info objectForKey: section];
+			if (![declarations isKindOfClass: [NSArray class]])
+				continue;
+			for (id declaration in declarations) {
+				if (![declaration isKindOfClass: [NSDictionary class]])
+					continue;
+				NSString *identifier = [declaration objectForKey: @"UTTypeIdentifier"];
+				if (!UTIdentifierIsValid(identifier))
+					continue;
+				NSString *key = [identifier lowercaseString];
+				// Do not replace built-in objects referenced by exported constants.
+				if ([registry objectForKey: key])
+					continue;
+				id specification = [declaration objectForKey: @"UTTypeTagSpecification"];
+				if (![specification isKindOfClass: [NSDictionary class]])
+					specification = @{};
+				NSMutableDictionary *tags = [NSMutableDictionary dictionary];
+				for (id tagClass in specification) {
+					if ([tagClass isKindOfClass: [NSString class]])
+						[tags setObject: UTDeclarationStrings([specification objectForKey: tagClass]) forKey: tagClass];
+				}
+				id description = [declaration objectForKey: @"UTTypeDescription"];
+				if (![description isKindOfClass: [NSString class]])
+					description = nil;
+				UTType *type = [[UTType alloc] _initWithIdentifier: identifier kind: UTTypeKindDeclared parents: nil tags: tags description: description];
+				[registry setObject: type forKey: key];
+				[appDeclarations setObject: declaration forKey: key];
+				UTIndexAddType(appExtensions, [tags objectForKey: UTTagClassFilenameExtension], type);
+				UTIndexAddType(appMimes, [tags objectForKey: UTTagClassMIMEType], type);
+				[type release];
+			}
+		}
+		for (NSString *key in appDeclarations) {
+			NSMutableArray *parents = [NSMutableArray array];
+			for (NSString *identifier in UTDeclarationStrings([[appDeclarations objectForKey: key] objectForKey: @"UTTypeConformsTo"])) {
+				UTType *parent = [registry objectForKey: [identifier lowercaseString]];
+				if (parent)
+					[parents addObject: parent];
+			}
+			[[registry objectForKey: key] _setParents: parents];
+		}
+		// App-defined extension matches precede built-ins, as in the private port.
+		for (NSArray *pair in @[@[appExtensions, extensionIndex], @[appMimes, mimeIndex]]) {
+			NSDictionary *appIndex = [pair objectAtIndex: 0];
+			NSMutableDictionary *index = [pair objectAtIndex: 1];
+			for (NSString *tag in appIndex) {
+				NSArray *existing = [index objectForKey: tag] ?: @[];
+				[index setObject: [[appIndex objectForKey: tag] arrayByAddingObjectsFromArray: existing] forKey: tag];
+			}
 		}
 
 		UTRegistry = [registry copy];
