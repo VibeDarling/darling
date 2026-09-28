@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <unicode/unistr.h>
 #include <CoreServices/UniChar.h>
@@ -115,6 +117,36 @@ int execvpe(const char* name, char** argv, char** envp)
 	return ret;
 }
 
+static OSStatus resolveApplicationExecutable(std::string& exePath)
+{
+	struct stat info;
+	if (stat(exePath.c_str(), &info) != 0)
+		return makeOSStatus(errno);
+	if (!S_ISDIR(info.st_mode))
+		return noErr;
+
+	// Application FSRefs may identify bundle directories, not executable files.
+	// Let CoreFoundation handle executable names and supported bundle layouts.
+	CFURLRef bundleURL = CFURLCreateFromFileSystemRepresentation(
+		kCFAllocatorDefault, (const UInt8*) exePath.c_str(), exePath.size(), true);
+	CFBundleRef bundle = bundleURL ? CFBundleCreate(kCFAllocatorDefault, bundleURL) : nullptr;
+	CFURLRef executableURL = bundle ? CFBundleCopyExecutableURL(bundle) : nullptr;
+	UInt8 path[PATH_MAX];
+	Boolean gotPath = executableURL && CFURLGetFileSystemRepresentation(
+		executableURL, true, path, sizeof(path));
+	if (executableURL)
+		CFRelease(executableURL);
+	if (bundle)
+		CFRelease(bundle);
+	if (bundleURL)
+		CFRelease(bundleURL);
+	if (!gotPath)
+		return kLSNoExecutableErr;
+
+	exePath = (const char*) path;
+	return noErr;
+}
+
 OSStatus LSOpenApplication(const LSApplicationParameters *appParams, ProcessSerialNumber *outPSN)
 {
 	if (!appParams)
@@ -129,6 +161,9 @@ OSStatus LSOpenApplication(const LSApplicationParameters *appParams, ProcessSeri
 
 	if (!FSRefMakePath(appParams->application, exePath))
 		return fnfErr;
+	rv = resolveApplicationExecutable(exePath);
+	if (rv != noErr)
+		return rv;
 
 	if (appParams->argv != nullptr)
 	{
@@ -283,5 +318,4 @@ CFStringRef LSSystemApplicationType = CFSTR("System");
 CFStringRef LSInternalApplicationType = CFSTR("Internal");
 CFStringRef LSPlugInKitType = CFSTR("PluginKitPlugin");
 CFStringRef LSVPNPluginType = CFSTR("VPNPlugin");
-
 
