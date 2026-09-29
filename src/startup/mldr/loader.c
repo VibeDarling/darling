@@ -281,9 +281,8 @@ no_slide:
 					break;
 				}
 
-				uintptr_t seg_addr = seg->vmaddr;
-				if (seg_addr != 0)
-					seg_addr += slide;
+				/* Zero-based dylinker __TEXT also needs its slide; PAGEZERO was skipped above. */
+				uintptr_t seg_addr = seg->vmaddr + slide;
 
 				const size_t host_ps = mldr_get_host_page_size();
 				const size_t page_sz = mldr_get_macho_page_size(header.cputype);
@@ -476,4 +475,3 @@ no_slide:
 #undef MACH_HEADER_STRUCT
 #undef SECTION_STRUCT
 #undef MAP_EXTRA
-
