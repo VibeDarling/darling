@@ -15,14 +15,14 @@ extern void darling_kprintf(const char* format, ...);
 
 int main(int argc, const char** argv)
 {
-	DLOG("VCHROOT MAIN ENTERED! argc=%d argv[0]=%s argv[1]=%s argv[2]=%s\n",
-		argc, argv[0] ? argv[0] : "(null)", argv[1] ? argv[1] : "(null)", argv[2] ? argv[2] : "(null)");
     if (argc < 3)
 	{
 		DLOG("vchroot: argc < 3\n");
 		fprintf(stderr, "vchroot <dir> <binary> [args...]\n");
 		return 1;
 	}
+	DLOG("VCHROOT MAIN ENTERED! argc=%d argv[0]=%s argv[1]=%s argv[2]=%s\n",
+		argc, argv[0] ? argv[0] : "(null)", argv[1] ? argv[1] : "(null)", argv[2] ? argv[2] : "(null)");
 
 	char host_path[4096];
 	snprintf(host_path, sizeof(host_path), "/Volumes/SystemRoot%s", argv[1]);
@@ -71,4 +71,3 @@ int main(int argc, const char** argv)
 
 	return 4;
 }
-
