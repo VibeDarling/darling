@@ -306,6 +306,61 @@ static pid_t shellspawnPeer(int *handle)
 	return pid;
 }
 
+// Whether the server still has a descendant that is alive to signal. Returns 1 if so, 0 if
+// not, and -1 when the answer could not be established so the caller can fail closed.
+//
+// Zombies deliberately do not count. A container whose guests have all exited leaves the
+// server holding only defunct children, and a zombie can be neither signalled nor woken, so
+// treating one as "still running" would strand the server forever.
+static int serverHasLiveDescendant(pid_t server)
+{
+	DIR* dir;
+	struct dirent* entry;
+
+	useOriginalIds();
+	dir = opendir("/proc");
+	if (!dir)
+	{
+		restoreRootIds();
+		return -1;
+	}
+
+	int live = 0;
+	while (!live && (entry = readdir(dir)))
+	{
+		pid_t pid = (pid_t)atoi(entry->d_name);
+		if (pid <= 1 || pid == server || pid == getpid())
+			continue;
+		if (!shutdownDescendant(pid, server))
+			continue;
+
+		char path[64];
+		snprintf(path, sizeof(path), "/proc/%d/stat", pid);
+		int fd = open(path, O_RDONLY | O_CLOEXEC);
+		if (fd < 0)
+			continue;
+		char buf[512];
+		ssize_t n = read(fd, buf, sizeof(buf) - 1);
+		close(fd);
+		if (n <= 0)
+			continue;
+		buf[n] = '\0';
+
+		// The state field is the one after the ')' that closes comm, which may itself
+		// contain spaces and parentheses.
+		char* p = strrchr(buf, ')');
+		if (!p)
+			continue;
+		for (p++; *p == ' '; p++)
+			;
+		if (*p != 'Z' && *p != 'X')
+			live = 1;
+	}
+	closedir(dir);
+	restoreRootIds();
+	return live;
+}
+
 // Nonroot containers have no PID namespace, so a dead server's tree outlives it. Stops those
 // leftovers in this prefix; returns as shutdownOrphans().
 static int stopPrefixOrphans(pid_t *liveServer)
@@ -1905,9 +1960,23 @@ int main(int argc, char ** argv)
 			pid_t shellspawn = g_nonroot ? shellspawnPeer(&shellHandle) : 0;
 			if (g_nonroot && shellspawn > 0 && shellHandle < 0)
 			{
-				close(handle);
-				fprintf(stderr, "Cannot obtain nonroot shellspawn process handle; shutdown refused.\n");
-				return 1;
+				// The shellspawn peer is how shutdown finds guest processes it cannot
+				// otherwise attribute, so without it shutdown stays conservative and
+				// refuses. But once every guest has exited there is nothing left to find,
+				// and the server outliving its container would then be unshuttable: the
+				// peer is gone precisely because it exited. shutdownContainer() already
+				// treats the handle as optional, so only refuse while something is still
+				// alive to signal, and fail closed if we cannot even tell.
+				int live = serverHasLiveDescendant(pidInit);
+				if (live != 0)
+				{
+					close(handle);
+					fprintf(stderr, live > 0
+						? "Cannot obtain nonroot shellspawn process handle while darlingserver %d still has running processes; shutdown refused.\n"
+						: "Cannot inspect darlingserver %d's processes, and cannot obtain nonroot shellspawn process handle; shutdown refused.\n",
+						(int)pidInit);
+					return 1;
+				}
 			}
 			bool stopped = shutdownContainer(pidInit, handle, shellspawn, shellHandle);
 			if (shellHandle >= 0) close(shellHandle);
