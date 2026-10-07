@@ -32,6 +32,61 @@ static void load(const char* path, cpu_type_t cpu, bool expect_dylinker, char** 
 static void setup_space(struct load_results* lr, bool is_64_bit);
 static void* compatible_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 
+// ARM64 encodes the thread-pointer registers as MRS with op2 selecting which one:
+// 0 is TPIDR_EL0, 1 is TPIDRRO_EL0. They differ only in bit 5, so the read-only view
+// can be turned into the maintained one by clearing that bit.
+//
+// loader.c is included twice by mldr.c, once per bitness, so the fixup is defined
+// once here and declared for both passes.
+#ifndef RETARGET_TPIDRRO_DEFINED
+#define RETARGET_TPIDRRO_DEFINED
+#if defined(__aarch64__)
+	#define MRS_TPIDRRO_EL0_MASK  0xffffffe0u
+	#define MRS_TPIDRRO_EL0       0xd53bd060u
+	#define MRS_TPIDR_EL0         0xd53bd040u
+
+// Linux maintains TPIDR_EL0 but never writes TPIDRRO_EL0, which reads back as zero.
+// A guest compiled against Darwin reads the read-only view, so it dereferences NULL
+// while reaching for thread-local storage: mimalloc does this in mi_prim_tls_slot and
+// dies in mi_heap_main_init before main() runs. Point those reads at the register Linux
+// does maintain, which is the same value Darwin would have returned.
+static size_t retarget_tpidrro(void* addr, size_t length, int prot)
+{
+	// Match on the whole word minus Rt, so this cannot touch any other MRS encoding.
+	size_t count = length / sizeof(uint32_t);
+	uint32_t* words = addr;
+	size_t patched = 0;
+	size_t i;
+
+	if (mprotect(addr, length, prot | PROT_WRITE) != 0)
+		return 0;
+
+	for (i = 0; i < count; i++)
+	{
+		if ((words[i] & MRS_TPIDRRO_EL0_MASK) == MRS_TPIDRRO_EL0)
+		{
+			words[i] = MRS_TPIDR_EL0 | (words[i] & 0x1f);
+			patched++;
+		}
+	}
+
+	mprotect(addr, length, prot);
+	return patched;
+}
+#else
+	static size_t retarget_tpidrro(void* addr, size_t length, int prot)
+	{
+		// x86_64 keeps the thread pointer in the FS base, which the commpage already
+		// provides, so there is no read-only thread-pointer register to fix up.
+		(void) addr;
+		(void) length;
+		(void) prot;
+		return 0;
+	}
+#endif
+
+#endif
+
 #ifndef PAGE_ROUNDUP
 #	define PAGE_ROUNDUP(x) (((x) + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1))
 #endif
@@ -393,6 +448,10 @@ no_slide:
 
 				if (seg->vmaddr + slide + seg->vmsize > lr->vm_addr_max)
 					lr->vm_addr_max = seg->vmaddr + slide + seg->vmsize;
+
+				// Do this after the segment is mapped but before anything can run.
+				if ((useprot & PROT_EXEC) && seg->filesize > 0)
+					retarget_tpidrro((void*) seg_addr, seg->filesize, useprot);
 
 				if (strcmp(SEG_DATA, seg->segname) == 0)
 				{
