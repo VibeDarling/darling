@@ -22,5 +22,7 @@
 @interface AMTemplateChooserItem : NSObject
 
 + (NSArray *)templateChooserItems;
+- (NSString *)imageTitle;
+- (NSString *)templateDescription;
 
 @end
