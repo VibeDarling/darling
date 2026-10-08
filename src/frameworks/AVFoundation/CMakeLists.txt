@@ -282,11 +282,6 @@ add_framework(AVFoundation
         src/AVOutputContextManager.m
         src/AVCaptureDALDevice.m
         src/AVCaptureDeviceInternal.m
-        src/AVAudioEngine.m
-        src/AVAudioFile.m
-        src/AVAudioFormat.m
-        src/AVAudioPCMBuffer.m
-        src/AVAudioPlayerNode.m
         src/AVCaptureDevice.m
         src/AVOutputDeviceAuthorizationSessionInternal.m
         src/AVOutputDeviceAuthorizationSession.m
