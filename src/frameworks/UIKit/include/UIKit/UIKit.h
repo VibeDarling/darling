@@ -33,5 +33,6 @@
 #import <UIKit/UIGeometry.h>
 #import <UIKit/UIGraphicsContext.h>
 #import <UIKit/UIImage.h>
+#import <UIKit/UIGraphicsImageContext.h>
 
 #endif /* UIKIT_UIKIT_H */
