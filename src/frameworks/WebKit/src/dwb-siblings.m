@@ -312,6 +312,16 @@ typedef NS_ENUM(NSInteger, DWBInjectionTime) {
 	_fullScreenEnabled = enabled;
 }
 
+- (BOOL) isElementFullscreenEnabled
+{
+	return [self fullScreenEnabled];
+}
+
+- (void) setElementFullscreenEnabled: (BOOL)enabled
+{
+	[self setFullScreenEnabled: enabled];
+}
+
 - (BOOL) allowsAirPlayForMediaPlayback
 {
 	return _allowsAirPlayForMediaPlayback;
