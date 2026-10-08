@@ -53,12 +53,30 @@ def direct_exports(path):
 
 @lru_cache(maxsize=None)
 def dylib_commands(path, arch):
-    """[(cmd, install name)] for one slice; llvm-otool -arch doesn't filter -l on universal files."""
-    out = run("llvm-otool", "-l", path)
-    parts = re.split(r"^\S.*\(architecture (\S+)\):$", out, flags=re.M)
-    if len(parts) > 1:
-        out = next((parts[i + 1] for i in range(1, len(parts), 2) if parts[i] == arch), "")
-    return re.findall(r"cmd (LC_\w+)\n\s+cmdsize \d+\n\s+name (\S+)", out)
+    """Inspect library metadata only, selecting one universal-image slice."""
+    def metadata(option):
+        return subprocess.run(
+            ["llvm-objdump", "--macho", f"--arch={arch}", option, path],
+            check=True, capture_output=True, text=True).stdout
+
+    ids = {line.strip() for line in metadata("--dylib-id").splitlines()
+           if line.strip() and not line.endswith(":")}
+    commands = []
+    kinds = {"weak": "LC_LOAD_WEAK_DYLIB", "reexport": "LC_REEXPORT_DYLIB",
+             "upward": "LC_LOAD_UPWARD_DYLIB", "lazy": "LC_LAZY_LOAD_DYLIB"}
+    for line in metadata("--dylibs-used").splitlines():
+        if not line.startswith("\t"):
+            continue
+        match = re.fullmatch(
+            r"\t(.+) \(compatibility version [\d.]+, current version [\d.]+(?:, (\w+))?\)", line)
+        if not match:
+            raise ValueError(f"Unrecognized library metadata for {path}: {line!r}")
+        name, kind = match.groups()
+        if kind is not None and kind not in kinds:
+            raise ValueError(f"Unrecognized library dependency kind: {kind}")
+        if name not in ids:
+            commands.append((kinds[kind] if kind else "LC_LOAD_DYLIB", name))
+    return commands
 
 def resolve_dependency(name, app, loader, executable):
     if name.startswith("@loader_path/"):
@@ -283,4 +301,5 @@ def main():
         for (lib, s), apps_ in sorted(core_gaps.items(), key=lambda kv: (-len(kv[1]), kv[0])):
             md.write(f"| {lib} | `{s}` | {', '.join(sorted(apps_))} |\n")
 
-main()
+if __name__ == "__main__":
+    main()

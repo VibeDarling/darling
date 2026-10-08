@@ -13,9 +13,13 @@ own indirect dependencies inspected until a real binary is available.
    `VIBEDARLING_APP_ROOT`, `VIBEDARLING_EXTRA_APP`,
    `VIBEDARLING_INSTALLED_ROOT`, and `VIBEDARLING_SCAN_OUTPUT` set as needed.
    Set `VIBEDARLING_TRANSITIVE=1` to inspect dependencies of images that exist.
-2. Confirm every reported install name with `llvm-otool -l` and every imported
-   symbol with `llvm-nm -u`. Distinguish absent libraries, incompatible
-   architecture, and missing exports from a present library. Check weak imports
+2. Inspect library metadata with
+   `llvm-objdump --macho --arch=arm64e --dylibs-used <guest-executable>`
+   (select the app's actual architecture) and imported symbols
+   with `llvm-nm -u`. Use these only for demand analysis of imported guest apps
+   in a Darling prefix, never against binaries in a macOS install. Do not use
+   full load-command dumps, disassembly, or decompilation. Distinguish absent
+   libraries, incompatible architecture, and missing exports from a present library. Check weak imports
    separately. A static clean result is not a successful launch.
 3. Search the appropriate local Darling repository for an implementation and
    inspect current source and binaries. An existing framework may only need an
