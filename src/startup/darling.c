@@ -2028,6 +2028,12 @@ int main(int argc, char ** argv)
 		pid_t liveServer;
 		if (stopPrefixOrphans(&liveServer) < 0)
 			return 1;
+		if (liveServer)
+		{
+			fprintf(stderr, "darlingserver %d still serves %s but is not the one recorded in .init.pid; refusing to reinitialize it.\n",
+				liveServer, prefix);
+			return 1;
+		}
 
 		char socketPath[4096];
 
