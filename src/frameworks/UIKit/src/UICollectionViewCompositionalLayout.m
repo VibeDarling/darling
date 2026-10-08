@@ -156,3 +156,51 @@ static void UIRequireFinite(CGFloat value)
 - (NSCollectionLayoutSpacing *)bottom { return _bottom; }
 - (id)copyWithZone:(NSZone *)zone { return self; }
 @end
+
+@implementation NSCollectionLayoutItem {
+    NSCollectionLayoutSize *_layoutSize;
+    NSCollectionLayoutEdgeSpacing *_edgeSpacing;
+    NSDirectionalEdgeInsets _contentInsets;
+}
+- (instancetype)init
+{
+    [NSException raise:NSInvalidArgumentException format:@"Use a layout factory to create %@", [self class]];
+    return nil;
+}
+- (instancetype)initWithLayoutSize:(NSCollectionLayoutSize *)layoutSize
+{
+    if (![layoutSize isKindOfClass:[NSCollectionLayoutSize class]])
+        [NSException raise:NSInvalidArgumentException format:@"Layout item requires a layout size"];
+    if ((self = [super init]))
+        _layoutSize = [layoutSize copy];
+    return self;
+}
++ (instancetype)itemWithLayoutSize:(NSCollectionLayoutSize *)layoutSize
+{
+    return [[self alloc] initWithLayoutSize:layoutSize];
+}
+- (NSCollectionLayoutSize *)layoutSize { return _layoutSize; }
+- (NSCollectionLayoutEdgeSpacing *)edgeSpacing { return _edgeSpacing; }
+- (void)setEdgeSpacing:(NSCollectionLayoutEdgeSpacing *)edgeSpacing
+{
+    if (edgeSpacing != nil && ![edgeSpacing isKindOfClass:[NSCollectionLayoutEdgeSpacing class]])
+        [NSException raise:NSInvalidArgumentException format:@"Layout item requires edge spacing or nil"];
+    _edgeSpacing = [edgeSpacing copy];
+}
+- (NSDirectionalEdgeInsets)contentInsets { return _contentInsets; }
+- (void)setContentInsets:(NSDirectionalEdgeInsets)insets
+{
+    UIRequireFinite(insets.top);
+    UIRequireFinite(insets.leading);
+    UIRequireFinite(insets.bottom);
+    UIRequireFinite(insets.trailing);
+    _contentInsets = insets;
+}
+- (id)copyWithZone:(NSZone *)zone
+{
+    NSCollectionLayoutItem *copy = [[[self class] allocWithZone:zone] initWithLayoutSize:_layoutSize];
+    copy.edgeSpacing = _edgeSpacing;
+    copy.contentInsets = _contentInsets;
+    return copy;
+}
+@end

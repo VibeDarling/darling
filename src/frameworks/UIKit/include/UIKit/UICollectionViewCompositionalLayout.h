@@ -3,6 +3,7 @@
 
 #import <Foundation/NSObject.h>
 #import <CoreGraphics/CGBase.h>
+#import <AppKit/NSLayoutConstraint.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -66,6 +67,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly, nullable) NSCollectionLayoutSpacing *top;
 @property(nonatomic, readonly, nullable) NSCollectionLayoutSpacing *trailing;
 @property(nonatomic, readonly, nullable) NSCollectionLayoutSpacing *bottom;
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+@end
+
+@interface NSCollectionLayoutItem : NSObject <NSCopying>
++ (instancetype)itemWithLayoutSize:(NSCollectionLayoutSize *)layoutSize;
+@property(nonatomic, readonly) NSCollectionLayoutSize *layoutSize;
+@property(nonatomic, copy, nullable) NSCollectionLayoutEdgeSpacing *edgeSpacing;
+@property(nonatomic) NSDirectionalEdgeInsets contentInsets;
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 @end
