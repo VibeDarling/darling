@@ -1,8 +1,6 @@
 /*
  This file is part of Darling.
 
- Copyright (C) 2019 Lubos Dolezel
-
  Darling is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
@@ -17,18 +15,25 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#ifndef _GCPhysicalInputProfile_H_
+#define _GCPhysicalInputProfile_H_
 
+#import <Foundation/Foundation.h>
+#import <GameController/GCControllerAxisInput.h>
 #import <GameController/GCControllerButtonInput.h>
 #import <GameController/GCControllerDirectionPad.h>
 
-@interface GCMicroGamepad : NSObject
+/* Apple's public documentation declares these as type aliases of the GCController* classes. */
+typedef GCControllerButtonInput GCDeviceButtonInput;
+typedef GCControllerAxisInput GCDeviceAxisInput;
+typedef GCControllerDirectionPad GCDeviceDirectionPad;
 
-@property(readonly) GCControllerDirectionPad *dpad;
-@property(readonly) GCControllerButtonInput *buttonA;
-@property(readonly) GCControllerButtonInput *buttonX;
-@property(readonly) GCControllerButtonInput *buttonMenu;
-@property(nonatomic) BOOL allowsRotation;
-@property(nonatomic) BOOL reportsAbsoluteDpadValues;
+@interface GCPhysicalInputProfile : NSObject
+
+@property(readonly) NSDictionary<NSString *, GCDeviceButtonInput *> *buttons;
+@property(readonly) NSDictionary<NSString *, GCDeviceAxisInput *> *axes;
+@property(readonly) NSDictionary<NSString *, GCDeviceDirectionPad *> *dpads;
 
 @end
+
+#endif
