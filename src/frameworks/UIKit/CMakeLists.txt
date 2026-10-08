@@ -10,6 +10,7 @@ add_framework(UIKit
     VERSION A
     SOURCES
         src/UICollectionViewCompositionalLayout.m
+        src/UIGeometry.m
         src/UIResponder.m
         src/UIApplication.m
         src/UIScreen.m
