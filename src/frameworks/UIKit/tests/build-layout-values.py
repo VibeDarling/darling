@@ -44,7 +44,9 @@ for path in sorted(runtime.rglob('*')):
 libraries = [runtime / 'System/Library/Frameworks/Foundation.framework/Versions/C/Foundation',
              runtime / 'usr/lib/libobjc.A.dylib', runtime / 'usr/lib/libSystem.B.dylib',
              runtime / 'System/Library/Frameworks/AppKit.framework/Versions/C/AppKit',
-             runtime / 'System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics']
+             runtime / 'System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics',
+             runtime / 'System/Library/Frameworks/ImageIO.framework/Versions/A/ImageIO',
+             runtime / 'System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation']
 commands = []
 
 def run(command):
