@@ -35,7 +35,8 @@ lifecycle success alone does not prove native pixels or UIKit UI startup.
 
 ## Build and run gate
 
-Initial state: build-free preparation, not compiled or runtime verified.
+Verified on 2026-10-08: serial compile/link and the isolated native guest run
+exited 0. See the measured baseline below.
 The full-runtime heavy-build queue takes priority. Wait for a coordinator-granted
 focused slot before compiling; hold the shared heavy-build flock for every
 compile/link, at most two jobs. Compile as Objective-C with Darling's pinned
@@ -86,3 +87,32 @@ become/resign request behavior. Window attachment, per-window focus, target
 selection and action dispatch remain deferred to coordinated public UIKit owners.
 Callback ordering here is AppKit evidence only; the UIApplication startup planner
 must establish its own public lifecycle mapping before using it.
+
+## Measured baseline
+
+The unchanged fixture from commit `cd9e871ad` compiled and linked under a
+coordinator-granted, nonblocking shared-lock slot; standalone exit 0, with both
+START and RELEASE at 2026-10-08T10:30:54Z. The executable SHA256 was
+`a058c40a2dfb347ed13d3e0c92699963e895b1162c44cea3dcc0b1c7fcdb0074`.
+Header inputs were independent copies pinned to Foundation `9ec86fda`,
+Cocotron `ec245a01` and CoreFoundation `bceef4f7`; their transitive closure
+was recorded before compilation. No mutable donor objects were used.
+
+The runtime snapshot was `runtime-display-link-e68d60cb`, with Darling
+`6b11337e` and Cocotron `17d49dec`. A new private prefix
+`/tmp/ftservices-lifecycle-20261008` had a 59-byte shellspawn socket path,
+including NUL. Bootstrap and the command above exited 0. The guest printed
+will-launch, did-launch, two draws, timer, should-terminate and final PASS;
+no assertion failure was recorded.
+
+Owned headless Sway reported one matching `xdg_shell` surface, no X11 window
+ID, and native focus. Its 640-by-480 scale-1 output contained exactly 4096
+cyan pixels with bounds (220,180)-(284,244), a complete 64-by-64 square.
+Pixel measurement reused the existing graphics-context-window checker approach.
+Prefix shutdown exited 0; owned compositor exit completed 0 and its IPC socket
+was absent. Logs, command/artifact hashes, tree and screenshot remain private
+scratch evidence, outside source control.
+
+This verifies the public AppKit baseline on that snapshot. It establishes no
+UIKit lifecycle mapping, responder dispatch, private entitlement contract or
+readiness of another runtime. No framework defect or source patch was needed.
