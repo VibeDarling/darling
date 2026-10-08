@@ -1,8 +1,6 @@
 /*
  This file is part of Darling.
 
- Copyright (C) 2019 Lubos Dolezel
-
  Darling is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
@@ -17,13 +15,8 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#import <GameController/GCPhysicalInputProfile.h>
 
-#import <GameController/GCControllerElement.h>
-
-@interface GCControllerButtonInput : GCControllerElement
-
-@property(readonly) float value;
-@property(readonly, getter=isPressed) BOOL pressed;
+@implementation GCPhysicalInputProfile
 
 @end
