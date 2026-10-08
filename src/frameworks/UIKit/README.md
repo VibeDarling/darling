@@ -63,3 +63,15 @@ documentation: width and height in an unlocalized comma-separated brace pair.
 Pass `--test-source src/frameworks/UIKit/tests/geometry.m` to build the focused
 `geometry` regression; it fails against the layout-only framework before this change.
 Existing Foundation geometry boxing categories are reused without duplication.
+
+The public graphics-context push/pop/current functions bridge AppKit's thread-local
+NSGraphicsContext. Their saved stack retains contexts and the previous nil state
+per thread. Rung 3 specifications: Apple's [push](https://developer.apple.com/documentation/uikit/uigraphicspushcontext(_:)),
+[pop](https://developer.apple.com/documentation/uikit/uigraphicspopcontext()), and
+[current](https://developer.apple.com/documentation/uikit/uigraphicsgetcurrentcontext())
+documentation. The BSD Chameleon bridge declarations retain their notices; its
+global stack is replaced with a thread-local stack. Null pushes and unmatched pops
+raise NSInvalidArgumentException as conservative local rung 6 policy, without an
+observed Apple error contract. Use `--test-source src/frameworks/UIKit/tests/graphics-context.m`
+for nesting, AppKit/nil restoration, retained lifetime and simultaneous-thread proof.
+This implements context selection, without claiming rendering or image APIs.

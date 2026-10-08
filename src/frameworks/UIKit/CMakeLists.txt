@@ -11,6 +11,7 @@ add_framework(UIKit
     SOURCES
         src/UICollectionViewCompositionalLayout.m
         src/UIGeometry.m
+        src/UIGraphicsContext.m
         src/UIResponder.m
         src/UIApplication.m
         src/UIScreen.m

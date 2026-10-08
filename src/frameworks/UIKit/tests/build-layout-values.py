@@ -29,7 +29,8 @@ for directory in ('basic-headers',
                   'Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include',
                   'framework-include', 'src/external/foundation/include',
                   'src/external/corefoundation/include',
-                  'src/external/cocotron/CoreGraphics/include', 'src/frameworks/UIKit/include'):
+                  'src/external/cocotron/CoreGraphics/include',
+                  'src/external/cocotron/AppKit/include', 'src/frameworks/UIKit/include'):
     compile_flags += ['-I' + str(source / directory)]
 linker = args.linker.resolve()
 if not linker.is_file():
@@ -41,7 +42,9 @@ for path in sorted(runtime.rglob('*')):
         guest = '/' + str(path.relative_to(runtime))
         link_flags += ['-Wl,-dylib_file,' + guest + ':' + str(path)]
 libraries = [runtime / 'System/Library/Frameworks/Foundation.framework/Versions/C/Foundation',
-             runtime / 'usr/lib/libobjc.A.dylib', runtime / 'usr/lib/libSystem.B.dylib']
+             runtime / 'usr/lib/libobjc.A.dylib', runtime / 'usr/lib/libSystem.B.dylib',
+             runtime / 'System/Library/Frameworks/AppKit.framework/Versions/C/AppKit',
+             runtime / 'System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics']
 commands = []
 
 def run(command):

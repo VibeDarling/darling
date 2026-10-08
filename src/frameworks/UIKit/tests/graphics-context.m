@@ -1,6 +1,6 @@
 #import <UIKit/UIGraphicsContext.h>
 #import <AppKit/NSGraphicsContext.h>
-#import <Foundation/Foundation.h>
+#import <Foundation/NSObject.h>
 #include <CoreGraphics/CGBitmapContext.h>
 #include <dlfcn.h>
 #include <pthread.h>
