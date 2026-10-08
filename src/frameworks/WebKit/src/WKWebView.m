@@ -825,30 +825,7 @@ static const char *dwb_socket_path(void)
 
 - (void) setFrame: (NSRect)frame
 {
-	/* Forwarded to the superclass only if it actually answers. Darling's
-	 * WKWebView.h declares "@interface WKWebView : NSObject" with no methods,
-	 * so on this platform [super setFrame:] is an unrecognized selector and the
-	 * unguarded call took the webview down on its first layout pass.
-	 *
-	 * On macOS a WKWebView is an NSView and this is unconditional. Here it is
-	 * conditional, and the frame is still forwarded to the host either way -
-	 * which is the part that matters, since that is what makes the host render at
-	 * the right size.
-	 *
-	 * The proper fix is in the SDK header, not here: WKWebView should derive
-	 * from NSView, as it does on macOS. That file belongs to another tree. Until
-	 * then this is the behaviour that does not crash, and the view cannot be put
-	 * in a window - the app allocates WKWebView itself, so the class has to be
-	 * one for that to work. Recorded in KNOWN-ISSUES.md. */
-	/* Cast rather than sending to super directly: clang resolves the receiver's
-	 * static type, and WKWebView's is NSObject, so an unguarded [super setFrame:]
-	 * is both a compile warning and an unrecognized selector at runtime. Going
-	 * through NSView says what the superclass is required to be, which is the
-	 * point, and still answers only when it genuinely has the method. */
-	if ([[self superclass] respondsToSelector: @selector(setFrame:)]) {
-		NSView *superView = (NSView *)[super self];
-		[superView setFrame: frame];
-	}
+	[super setFrame: frame];
 	if (_host->client.fd >= 0 && frame.size.width > 0 && frame.size.height > 0) {
 		/* Discarded before now, so a host that refused the new size - a
 		 * non-resizable window, a backend that rejects the geometry - left the
