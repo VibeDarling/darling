@@ -98,19 +98,27 @@ Header inputs were independent copies pinned to Foundation `9ec86fda`,
 Cocotron `ec245a01` and CoreFoundation `bceef4f7`; their transitive closure
 was recorded before compilation. No mutable donor objects were used.
 
-The runtime snapshot was `runtime-display-link-e68d60cb`, with Darling
-`6b11337e` and Cocotron `17d49dec`. A new private prefix
-`/tmp/ftservices-lifecycle-20261008` had a 59-byte shellspawn socket path,
-including NUL. Bootstrap and the command above exited 0. The guest printed
-will-launch, did-launch, two draws, timer, should-terminate and final PASS;
-no assertion failure was recorded.
+The first run used runtime snapshot `runtime-display-link-e68d60cb` (Darling
+`6b11337e`, Cocotron `17d49dec`) and a new sanitized private prefix; bootstrap
+and the guest command exited 0.
+
+The fixture was re-validated on 2026-10-08 after rebasing onto master
+`a8f3d4c7c`, against the rebuilt runtime image whose AppKit, Foundation and
+CoreGraphics SHA256 values were `9c697a84`, `bd5d35d1` and `5fd1eed9`
+(prefixes). A clean recompile under the shared lock produced a byte-identical
+object (`c9ff221a`) and executable (`a058c40a`). A fresh private prefix,
+bootstrapped with a non-setuid copy of that image's launcher, ran the guest in
+the background while the compositor tree and screenshot were captured, then
+the guest exited 0. The guest printed will-launch, did-launch, two draws,
+timer, should-terminate and final PASS; no assertion failure was recorded.
+The tree and screenshot must be captured while the guest runs: the window is
+gone once the 30-second timer ends the application.
 
 Owned headless Sway reported one matching `xdg_shell` surface, no X11 window
 ID, and native focus. Its 640-by-480 scale-1 output contained exactly 4096
 cyan pixels with bounds (220,180)-(284,244), a complete 64-by-64 square.
 Pixel measurement reused the existing graphics-context-window checker approach.
-Prefix shutdown exited 0; owned compositor exit completed 0 and its IPC socket
-was absent. Logs, command/artifact hashes, tree and screenshot remain private
+Prefix shutdown exited 0 and the owned compositor was exited through its IPC socket. Logs, command/artifact hashes, tree and screenshot remain private
 scratch evidence, outside source control.
 
 This verifies the public AppKit baseline on that snapshot. It establishes no
