@@ -24,8 +24,28 @@ runtime's guest root so libSystem reexports resolve.
 
 Commit the fixture before staging its executable. Bootstrap a new private prefix
 with `darling shell true`, replace only its generated home symlinks with empty
-directories, and run `darling shell /tmp/sectask-unsigned`. Capture the exit code
+directories, and run
+`darling shell /opt/ftservices-probes/sectask-unsigned`. Capture the exit code
 and all fixture output. Stop only that prefix with `darling shutdown`.
 
 This is a public API probe; it establishes no FTEntitlementSupport mapping,
 private method ABI, signed-process semantics or cross-process authorization.
+
+## Verified result
+
+The unsigned ARM64 fixture built and ran against private snapshot
+`runtime-display-link-e68d60cb`: Darling
+`6b11337e0b6aaaf0eefa02d5cdedef0da51404c4`, Security
+`d3165e9744fd566433ce5a09912eab2d388b62f2`. Guest execution exited 0 and
+reported task creation, NULL without error for the invented entitlement,
+and a NULL return with the optional error output omitted. The executable
+was linked with `-no_adhoc_codesign`; its own Mach-O load-command metadata
+also confirmed no code-signature command.
+
+No retrieval failure occurred in this run. The error-reporting branch is
+an observation path, not a demonstrated backend-failure test. No Security
+implementation change is justified by these results.
+
+The prefix maps guest `/tmp` to the host through virtual filesystem links.
+Stage under its physical `opt/ftservices-probes` directory instead of
+following guest `/tmp` symlinks from the host.
