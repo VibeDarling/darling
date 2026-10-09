@@ -1,7 +1,7 @@
 # Agent knowledge base
 
-Measured facts, recipes, and pitfalls that cost real time to rediscover. Everything here has been
-verified against this tree. Keep it free of status that goes stale: defects belong in
+Measured facts, recipes, and pitfalls that cost real time to rediscover. Each item was measured once
+on one host; items marked (unverified) were not re-checked against this tree. Keep it free of status that goes stale: defects belong in
 [`../known-issues.md`](../known-issues.md), and per-app progress belongs in each agent's own
 scratch `STATUS.md`.
 
@@ -18,8 +18,8 @@ scratch `STATUS.md`.
   code wrapped in them, the handler runs; look for whatever the handler does (often
   `[self reportException:]`, which may only log).
 - **Silence is not evidence.** `kern_printf` logs at `info` while `darlingserver` defaults to
-  `Error`; raise the level before concluding a line is absent. `DARLING_APPKIT_BACKEND`,
-  `DSERVER_LOG_LEVEL` and friends are read from the environment of the launching process.
+  `Error`; raise the level before concluding a line is absent. `DSERVER_LOG_LEVEL` is read from the
+  environment of the launching process.
 
 ## Tools that mislead here
 
@@ -27,19 +27,10 @@ scratch `STATUS.md`.
   at"): `nm`, `objdump`, `strings` and debuggers on our own build output only. On guest app
   binaries, only `nm` and `otool -L`, for demand analysis (ladder rung 5). Nothing on a binary from
   a macOS install.
-- **`nm -u` under-reports on our own build output.** It reported zero undefined references for a
-  symbol that was present in the source, called in another file, and visible via `strings`. On our
-  own build output, cross-check with `strings` and `objdump -T`; treat `nm -u` as unreliable rather
-  than authoritative.
-- **`ninja` can report "no work to do" on a stale binary** when a header change did not invalidate
+- **`ninja` can report "no work to do" on a stale binary (unverified, seen once)** when a header change did not invalidate
   what it should. `touch` the source file to force the relink.
-- **A clean `ninja` exit does not mean the build finished.** After new targets appear, the first run
-  regenerates the build graph and executes the old one, exiting 0 with work pending. Confirm with
-  `ninja -n`.
 - **`MemFree` is the wrong memory gate.** It excludes reclaimable page cache. Read
   `MemAvailable` from `/proc/meminfo` instead; the two can differ by gigabytes.
-- **`ps` output cannot be iterated with `for` plus field extraction** - `for` word-splits. See the
-  safety rule in section 5 of `AGENTS.md`.
 
 ## Debugging an app that starts but shows no window
 
@@ -49,9 +40,9 @@ Establish the facts in this order, and do not skip a step because the symptom se
    silently produce the same empty log.
 2. **Confirm the log is non-empty and belongs to the app you launched** (check for its pid in the
    output). An empty log means "did not run", not "no output".
-3. **Confirm the display exists** before blaming the app: an absent `/tmp/.X11-unix/X130` surfaces as
-   "Failed to connect to a window server". Xvfb dies; restart it detached:
-   `setsid Xvfb :130 -screen 0 1920x1080x24 </dev/null >/dev/null 2>&1 &`
+3. **If using the X11 backend, confirm the display exists** before blaming the app: an absent
+   `/tmp/.X11-unix/X<n>` socket for your `$DISPLAY` surfaces as "Failed to connect to a window
+   server". A headless Xvfb can die; restart it detached with your own display number.
 4. **Probe at the entry of the methods on the path**, not after the statement you suspect. Insert
    before a statement or after a method's opening brace - never inside a multi-line message send,
    which breaks the build with misleading parser errors.
@@ -71,7 +62,8 @@ Debuggers apply to our own build output only (`darlingserver`, `mldr`, the launc
 built from this tree), never to step through guest app code or anything from a macOS install
 (`AGENTS.md` section 1). Know these before spending time on them:
 
-- `gdb -p <darlingserver>` fails: `ptrace_scope` is 1, so only a direct parent may trace.
+- `gdb -p <darlingserver>` failed on one host (unverified elsewhere): `ptrace_scope` was 1, so only a
+  direct parent may trace.
 - The setuid launcher refuses to run traced ("Failed to drop privileges for non-root mode"). A
   non-setuid copy runs, but `follow-fork-mode child` then breaks `popen`'s fork+exec, and `darling`
   daemonises the container so you are never its parent.
@@ -79,12 +71,17 @@ built from this tree), never to step through guest app code or anything from a m
   processes (non-dumpable). `/proc/<pid>/maps` is readable.
 - In-guest `SIGUSR1` + `backtrace()` does not work: the guest appears not to deliver signals or
   interval timers (guest `alarm()` also never fires).
-- **objc message logging is compiled out.** `instrumentObjcMessageSends()` is an empty stub unless
-  `SUPPORT_MESSAGE_LOGGING`, which `objc-config.h` gates on `TARGET_OS_OSX` - a macro the build does
-  not define. With it enabled, objc4 writes every msgSend to `/tmp/msgSends-<pid>` inside the
-  prefix. Enabling needs only the define; `libobjc.A.dylib` is a shared dylib, so rebuilding it alone
-  is enough and does not require relinking AppKit. Foundation already honours
+- **objc message logging (unverified whether it is compiled in).** `instrumentObjcMessageSends()` is
+  an empty stub unless `SUPPORT_MESSAGE_LOGGING`, which `objc-config.h` gates on `TARGET_OS_OSX`.
+  `basic-headers/TargetConditionals.h` defines `TARGET_OS_OSX` as 1 under `__APPLE_CC__`, so it may
+  already be on; check with `clang -E -dM` and the objc4 flags before changing anything. When
+  enabled, objc4 writes every msgSend to `/tmp/msgSends-<pid>` inside the prefix. Foundation honours
   `NSObjCMessageLoggingEnabled=YES`.
+- **Clean-room limit on all of the above.** Message logging, guest backtraces and probes are for
+  confirming which of *our* framework entry points are reached. Never use them to record the internal
+  call sequence of a binary from a macOS install, and never turn such a record into an implementation
+  (`AGENTS.md` section 1). Probe our own build output; for guest apps use demand analysis only
+  (`nm -u`, `otool -L`).
 
 Getting a trace therefore needs a host change - relaxed `ptrace_scope`, a non-daemonising launcher, or
 root - not a change to this source tree.
@@ -101,7 +98,7 @@ A stub satisfies the loader so the next, more specific error can appear.
           -Wl,-platform_version,macos,11.0,11.0 -install_name '<guest path>' \
           -o '<prefix><guest path>' stub.c
 
-Details that each cost an attempt: the linker must be `ld64.lld`; `-nostdlib` is required or it looks
+Details that each cost an attempt: `ld64.lld` worked (the build's own cctools ld64 was not tried); `-nostdlib` is required or it looks
 for a `-lSystem` that does not exist here; `-platform_version` is a *linker* flag, so pass it as
 `-Wl,-platform_version,...`; dependency flags (`-MD`, `-MT`, `-MF`) hijack the `-o` output name, so
 whitelist the flags you keep rather than stripping the ones you do not; the path dyld reports is a
@@ -121,11 +118,6 @@ has run out of road is a missing **symbol** rather than a missing library.
   changed, in a private prefix, under the heavy-build lock.
 - When an image or prefix fails to load a wrapped library, compare the host soname it was generated
   against with the host's: `strings <dylib> | grep '\.so\.'` on our own build output shows it.
-- Several agents share these checkouts. Check for other sessions before building, never kill processes
-  you did not start, and do not change shared build configuration or dependency versions alone.
-- Submodule URLs are relative, so pointing `origin` at a fork breaks `submodule init`. Linked
-  worktrees do **not** isolate submodules: `git submodule update` in a worktree moves the main clone's
-  HEADs for every worktree on it.
 - A prefix must be initialised by the launcher - point `DPREFIX` at an absent or empty directory and
   let it bootstrap. A hand-assembled prefix is rejected ("non-empty but is not an initialized Darling prefix").
   A prefix holds only deltas; one that has grown to gigabytes is accumulated cruft.

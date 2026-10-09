@@ -210,79 +210,37 @@ Skipping hooks is not a workflow.
 The superproject. A Mach-O loader (`mldr`) plus `darlingserver` plus 149 submodules under
 `src/external/`, wired by `src/CMakeLists.txt`. Default branch `master`; submodule default branches
 vary (most `master`, some `main`, such as `darling-xnu` and `darlingserver`, a few pinned to a
-release branch), so any script assuming one name silently skips the others.
+release branch), so any script assuming one name silently skips the others. All 149 submodule URLs
+in `.gitmodules` are relative (`../<name>` or `../<name>.git`; two have no `.git` suffix).
 
-- **Issues**: before working on a VibeDarling issue, follow `.claude/ISSUE_COLLABORATION.md` (claim
-  it in a GitHub comment for 24 hours, renew while working).
+Operational notes (worktrees and submodules, `ninja -n`, running a build without installing it,
+containers and prefixes, diagnosing) are in [CLAUDE.md](CLAUDE.md). Where this section and CLAUDE.md
+disagree, CLAUDE.md wins.
+
+- **Issues and PRs**: before working on a VibeDarling issue, follow `.claude/ISSUE_COLLABORATION.md`
+  (claim it in a GitHub comment for 24 hours, renew while working). Every merged PR links an issue
+  and needs the five-approval gate described there.
 - **Build**: CMake with Ninja. Unit tests are the `ENABLE_TESTS` option in the top-level
   `CMakeLists.txt`, off by default, and install into a prefix rather than the host.
-- **Heavy-build lock**: the build machine is shared and short on RAM. Every build, install or
-  prefix boot runs under `flock -w 1800 /tmp/agent-locks/darling-heavy-build.lock <command>`, and
-  uses `ninja -j1` when `MemAvailable` in `/proc/meminfo` is low (not `MemFree`, see
-  `docs/agent-knowledge.md`). Downloading or extracting a runtime needs no lock.
-- **Prebuilt runtime** (status: planned, no CI release exists yet).
-  Planned: CI publishes releases on `VibeDarling/darling` tagged `vYYYY.MM.DD-<sha7>` with
-  `darling-runtime-<tag>-linux-<uname -m>.tar.zst`, `SHA256SUMS`, `manifest.json`,
-  `refs.lock.json` and `nested.refs.lock.json`, with build attestation. The images are built
-  from every module's default-branch HEAD with no open PRs, packaged with setuid bits stripped
-  (private, user-owned installs only), and `manifest.json` lists per-arch (`uname -m`) file,
-  sha256 and the host sonames the wrapper dylibs need. Source: the ci-binaries design, not yet in
-  this repository.
-  Today: the only releases are `v0.1.YYYYMMDD[-N]` (latest `v0.1.20260921` on 2026-10-09). They
-  are GitHub-generated changelogs on a tag, have no assets, and are not runtime images. Do not
-  look for a download; use the source build below.
-  After the first CI release, check `gh release list -R VibeDarling/darling` for a `vYYYY.MM.DD-*`
-  tag, verify the sha256 and `gh attestation verify <file> --repo VibeDarling/darling`, extract into a
-  new private directory, and run it as in "Run a local build without installing it" with
-  `DARLING_INSTALL_PREFIX=<dir>/usr/local`. Then, and only then, update this bullet to drop the
-  "planned" marker.
-  Limits to keep when it lands: prebuilts contain default branches only, so an open PR needs a
-  source build; changes to CMake, `mldr`, `darlingserver` or `libsystem_kernel` need a full
-  build; an overlay of one rebuilt component on a COPY of the image is valid only for
-  ABI-compatible changes and cannot delete files; wrapper dylibs embed the build host's library
-  versions, so fall back to a source build if the image will not load.
-
-- **Recipe: build a private runtime from default branches and run it** (works today).
-  1. Use an independent clone with every submodule at its own default branch; not a worktree
-     (see the worktree bullet).
-  2. Take the heavy-build lock (see the heavy-build lock bullet).
+- **Heavy-build lock (host convention, not part of this repository)**: on a shared build host,
+  serialise every build, install or prefix boot under that host's lock. On the maintainers' host it
+  is `flock -w 1800 /tmp/agent-locks/darling-heavy-build.lock <command>`, with `ninja -j1` when
+  `MemAvailable` in `/proc/meminfo` is low (not `MemFree`, see `docs/agent-knowledge.md`).
+- **No prebuilt runtime exists.** The `v0.1.*` releases are GitHub-generated changelogs with no
+  assets. Build from source; update this bullet when a CI runtime release exists.
+- **Recipe: build a private runtime from default branches and run it.**
+  1. Use an independent clone with every submodule at its own default branch, not a worktree.
+  2. Take the heavy-build lock if your host has one.
   3. `cmake -G Ninja` with `CMAKE_INSTALL_PREFIX=/usr/local`, then `ninja`; run `ninja -n` until it
      reports nothing left to do.
-  4. Install and run as in "Run a local build without installing it" below.
+  4. Install and run as in CLAUDE.md, "Running a locally built runtime without installing it".
   5. Stop it with `darling shutdown`, not kill.
   Do not install or publish from a tree with uncommitted changes.
-- **Submodule URLs are relative**: all 149 entries in `.gitmodules` are `../<name>.git`, so they
-  resolve against whatever `origin` points at. Pointing `origin` at a personal fork breaks
-  `submodule init`, because a fork usually holds only the superproject.
-- **Worktrees do not isolate submodules.** Submodule gitdirs live in the main clone's
-  `.git/modules`, and a linked worktree shares them, so `git submodule update` inside a worktree
-  moves the main clone's HEADs for every worktree on it. Anything needing populated submodules or a
-  build wants an independent clone instead.
-- **A clean `ninja` exit does not mean the build finished.** When new targets appear the first run
-  regenerates the build graph and then executes the old one, exiting 0 with work still pending.
-  Confirm with `ninja -n`.
-- **Run a local build without installing it**: `DESTDIR=<dir> ninja install` needs no root, then
-  `DPREFIX=<prefix> DARLING_INSTALL_PREFIX=<dir>/usr/local <build>/src/startup/darling shell <prog>`.
-  Use the build tree's own non-setuid launcher. The installed setuid launcher deliberately ignores
-  `DARLING_INSTALL_PREFIX`: it is read through `getenvTrusted()`, which returns nothing under
-  `AT_SECURE`, so a hardlink beside a planted `bin/darlingserver` cannot run that binary as root.
-  That guard is correct, do not route around it. `DARLING_LIBEXEC_PATH` is an output the launcher
-  sets for its children (`setenv` in `src/startup/darling.c`), not an input.
-- **Stop a container with `darling shutdown`**, never by killing it. The launcher's child runs as
-  root under the setuid binary, so a kill fails with `Operation not permitted`, and `timeout` kills
-  the child it launched. Shutdown is prefix-scoped and exits 0 when nothing is running; it exits 1
-  when it cannot verify the prefix's server.
-- **A prefix takes its frameworks from the installed runtime**, and a stopped prefix shows only a
-  directory skeleton, so listing one proves nothing about a missing backend.
-- **Identify guest processes by `comm` or `/proc/<pid>/exe`, never by cmdline**: `mldr` rewrites its
-  own cmdline to the guest program name, so `ps aux | grep mldr` finds none of them.
-- **Raise the log level before concluding a line is absent.** `kern_printf` logs at `info` while
-  `darlingserver` defaults to `Error` (`DEFAULT_LOG_CUTOFF` in
-  `src/external/darlingserver/src/logging.cpp`), so set `DSERVER_LOG_LEVEL=info` before treating
-  silence as evidence. The setuid launcher passes it through (`g_darlingserverEnvAllowlist` in
-  `src/startup/darling.c`).
-- **Provenance**: never install or publish an artifact built from a tree with uncommitted changes.
-  Commit first, even to a throwaway branch, and record what was actually built.
+- **`darling shutdown`** exits 1 when it cannot verify the prefix's server (CLAUDE.md covers the
+  rest of its behaviour).
+- **`DSERVER_LOG_LEVEL`** reaches `darlingserver` through the setuid launcher's pass-through list
+  (`g_darlingserverEnvAllowlist` in `src/startup/darling.c`); `DEFAULT_LOG_CUTOFF` in
+  `src/external/darlingserver/src/logging.cpp` is where the default is set.
 
 ## 4. How to work in this repository
 
@@ -367,10 +325,11 @@ inside an unrelated change.
 - `STATUS.md` at the top of that directory, with its owner and the date of the last update. Rewrite
   it as state changes rather than appending; when the task ends, mark it done and say where the
   result landed (commit, PR, or file).
-- Handing work to another agent: write `HANDOVER-<name>.md` in your working directory with the task,
-  what is done, what is in progress, branches and PRs, blockers, exact next steps, and paths to the
-  evidence. Commit any work first, tell whoever takes over where the file is, then stop. Never move
-  another agent's work before it has handed over.
+- Handing work to another agent: write `HANDOVER-<name>.md` in your scratch
+  directory (not the checkout) with the task, what is done, what is in progress, branches and PRs,
+  blockers, exact next steps, and paths to the evidence. Commit any work first, send the file's path
+  to your coordinator or the agent taking over, then stop. Never move another agent's work before it
+  has handed over.
 
 Deliberately **not** kept here: per-app launch status, lists of currently-failing things, branch
 inventories, or anything that goes stale on its own. Those belong in a scratch `STATUS.md`, not in a
