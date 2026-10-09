@@ -722,6 +722,77 @@ def checkout_nested(args):
     print(f"integrated {len(realized)} nested paths; superproject {run('git', 'rev-parse', 'HEAD', cwd=source)}")
 
 
+def supplement(args):
+    workspace = Path(args.workspace).resolve()
+    source = workspace / "source"
+    if not (workspace / "integrated.json").is_file():
+        raise RuntimeError("workspace has not completed checkout")
+    if any((workspace / name).exists() for name in ("build", "image", "prefix")):
+        raise RuntimeError("supplements require an unconfigured workspace")
+    if nested_modules(workspace) and not (workspace / "nested.integrated.json").is_file():
+        raise RuntimeError("complete nested integration before adding supplements")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("integrated source is dirty")
+    if not SHA.fullmatch(args.commit):
+        raise RuntimeError("supplement requires a full 40-character commit SHA")
+    entries = [item for item in modules(source, allow_external=True)
+               if args.path in item["paths"] and item["kind"] == "VibeDarling"]
+    if len(entries) != 1:
+        raise RuntimeError("supplement path must name a top-level VibeDarling submodule")
+    target = source / args.path
+    donor = Path(args.from_repo).resolve()
+    if not (target / ".git").is_dir() or not (donor / ".git").is_dir() or target.resolve() == donor:
+        raise RuntimeError("target and donor must be distinct independent Git clones")
+    if run("git", "remote", "get-url", "origin", cwd=donor) != entries[0]["url"]:
+        raise RuntimeError("donor origin does not match the locked VibeDarling repository")
+    run("git", "cat-file", "-e", args.commit + "^{commit}", cwd=donor)
+    if run("git", "rev-parse", args.commit + "^{commit}", cwd=donor) != args.commit:
+        raise RuntimeError("supplement SHA must identify a commit, not a tag")
+    manifest_path = workspace / "supplements.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {
+        "schema": 1, "inputs": []}
+    if any(item["status"] != "complete" for item in manifest["inputs"]):
+        raise RuntimeError("an earlier supplement failed; inspect its workspace")
+    if manifest["inputs"] and manifest["inputs"][-1]["superproject_result"] != run(
+            "git", "rev-parse", "HEAD", cwd=source):
+        raise RuntimeError("source no longer matches its recorded supplements")
+    run("git", "fetch", "--no-tags", "--no-write-fetch-head", str(donor), args.commit, cwd=target)
+    before = run("git", "rev-parse", "HEAD", cwd=target)
+    if run("git", "diff", before, args.commit, "--", ".gitmodules", cwd=target):
+        raise RuntimeError("supplement changes submodule metadata; resolve a new dependency lock")
+    changes = run("git", "diff", "--raw", before, args.commit, cwd=target)
+    if any("160000" in [mode.lstrip(":") for mode in line.split()[:2]]
+           for line in changes.splitlines()):
+        raise RuntimeError("supplement changes nested gitlinks; resolve a new dependency lock")
+    record = {"path": args.path, "repo": entries[0]["repo"], "source_repo": str(donor),
+              "commit": args.commit, "reason": args.reason, "before": before,
+              "superproject_before": run("git", "rev-parse", "HEAD", cwd=source),
+              "status": "applying"}
+    manifest["inputs"].append(record)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    env = dict(os.environ, GIT_AUTHOR_NAME="Darling PR integration",
+               GIT_AUTHOR_EMAIL="integration@localhost",
+               GIT_COMMITTER_NAME="Darling PR integration",
+               GIT_COMMITTER_EMAIL="integration@localhost")
+    try:
+        run("git", "merge", "--no-ff", "--no-edit", "-m",
+            f"integration: merge {record['repo']} supplement ({args.commit})",
+            args.commit, cwd=target, env=env)
+        run("git", "add", "--", args.path, cwd=source)
+        if run("git", "diff", "--cached", "--name-only", cwd=source):
+            run("git", "commit", "-m", f"integration: pin {record['repo']} supplement",
+                cwd=source, env=env)
+        record.update(status="complete", result=run("git", "rev-parse", "HEAD", cwd=target),
+                      superproject_result=run("git", "rev-parse", "HEAD", cwd=source))
+    except (RuntimeError, OSError) as error:
+        record.update(status="failed", error=str(error), conflicts=run(
+            "git", "diff", "--name-only", "--diff-filter=U", cwd=target).splitlines())
+        raise RuntimeError(f"supplement failed; inspect {manifest_path} and {target}: {error}") from error
+    finally:
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"supplemented source: {record['superproject_result']}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -750,12 +821,19 @@ def main():
     nested_materialize.add_argument("--seed-submodules-root", help="read-only populated tree to copy nested dependencies and LFS objects")
     nested_materialize.add_argument("--resume", action="store_true", help="continue unfinished nested checkout with identical lock")
     nested_materialize.add_argument("--resolutions", help="reviewed exact conflict-stage/source-tree resolution JSON")
+    additional = commands.add_parser("supplement", help="merge an exact private submodule fix")
+    additional.add_argument("--workspace", required=True)
+    additional.add_argument("--path", required=True, help="top-level submodule path")
+    additional.add_argument("--from-repo", required=True, help="read-only independent donor clone")
+    additional.add_argument("--commit", required=True, help="exact committed supplement SHA")
+    additional.add_argument("--reason", required=True, help="purpose and verification provenance")
     args = parser.parse_args()
     if getattr(args, "jobs", 1) < 1:
         parser.error("--jobs must be positive")
     try:
         {"resolve": resolve, "checkout": checkout,
-         "resolve-nested": resolve_nested, "checkout-nested": checkout_nested}[args.command](args)
+         "resolve-nested": resolve_nested, "checkout-nested": checkout_nested,
+         "supplement": supplement}[args.command](args)
     except (RuntimeError, OSError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
