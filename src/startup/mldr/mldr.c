@@ -198,6 +198,17 @@ int main(int argc, char** argv, char** envp)
 	maybe_disable_ptrauth(envp);
 
 	mdbg("mldr main() start");
+
+	// The launcher can leave RLIMIT_CORE at 0, which makes every guest crash undumpable.
+	struct rlimit core_limit;
+	if (getrlimit(RLIMIT_CORE, &core_limit) != 0) {
+		fprintf(stderr, "mldr: failed to read core rlimit: %s\n", strerror(errno));
+	} else if (core_limit.rlim_cur != core_limit.rlim_max) {
+		core_limit.rlim_cur = core_limit.rlim_max;
+		if (setrlimit(RLIMIT_CORE, &core_limit) != 0)
+			fprintf(stderr, "mldr: failed to raise core rlimit: %s\n", strerror(errno));
+	}
+
 	void** sp;
 	int pushCount = 0;
 	char *filename, *p = NULL;
