@@ -111,6 +111,42 @@ class SupplementTests(unittest.TestCase):
             self.apply(self.git(self.donor, "rev-parse", "HEAD"))
         self.assertEqual(self.git(self.source, "status", "--porcelain"), "")
 
+    def configure_fixture(self):
+        self.commit_file(self.source, "CMakeLists.txt", "cmake_minimum_required(VERSION 3.16)\n"
+                         "project(PrivateFixture NONE)\n"
+                         "configure_file(revision.txt revision.txt COPYONLY)\n")
+        self.commit_file(self.source, "revision.txt", "first revision\n")
+        args = SimpleNamespace(workspace=str(self.workspace), jobs=2,
+                               cmake_arg=[], configure_only=True, reconfigure=False)
+        builder.build(args)
+        return args
+
+    def test_source_correction_requires_opt_in_and_records_reconfiguration(self):
+        args = self.configure_fixture()
+        marker = self.workspace / "build/.darling-pr-prefix-source"
+        previous = marker.read_text().strip()
+        corrected = self.commit_file(self.source, "revision.txt", "corrected revision\n")
+        with self.assertRaisesRegex(RuntimeError, "does not match"):
+            builder.build(args)
+        self.assertEqual(marker.read_text().strip(), previous)
+        args.reconfigure = True
+        builder.build(args)
+        self.assertEqual(marker.read_text().strip(), corrected)
+        self.assertEqual((self.workspace / "build/revision.txt").read_text(), "corrected revision\n")
+        history = json.loads((self.workspace / "build/.darling-pr-prefix-history.json").read_text())
+        self.assertEqual(history[-1]["previous_source"], previous)
+        self.assertEqual(history[-1]["source"], corrected)
+
+    def test_reconfiguration_refuses_an_existing_prefix(self):
+        args = self.configure_fixture()
+        marker = self.workspace / "build/.darling-pr-prefix-source"
+        previous = marker.read_text()
+        (self.workspace / "prefix").mkdir()
+        args.reconfigure = True
+        with self.assertRaisesRegex(RuntimeError, "must not exist"):
+            builder.build(args)
+        self.assertEqual(marker.read_text(), previous)
+
 
 if __name__ == "__main__":
     unittest.main()

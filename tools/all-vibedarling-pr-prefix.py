@@ -793,6 +793,183 @@ def supplement(args):
     print(f"supplemented source: {record['superproject_result']}")
 
 
+def build(args):
+    workspace = Path(args.workspace).resolve()
+    source = workspace / "source"
+    if not (workspace / "integrated.json").is_file() or not source.is_dir():
+        raise RuntimeError("workspace has not completed checkout")
+    if nested_modules(workspace) and not (workspace / "nested.integrated.json").is_file():
+        raise RuntimeError("resolve-nested and checkout-nested before building")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("integrated source is dirty")
+    supplements = workspace / "supplements.json"
+    if supplements.exists():
+        inputs = json.loads(supplements.read_text())["inputs"]
+        if any(item["status"] != "complete" for item in inputs):
+            raise RuntimeError("an incomplete supplement prevents building")
+        if inputs and inputs[-1]["superproject_result"] != run("git", "rev-parse", "HEAD", cwd=source):
+            raise RuntimeError("source no longer matches its recorded supplements")
+    builddir, image, prefix = (workspace / name for name in ("build", "image", "prefix"))
+    if image.exists() or prefix.exists():
+        raise RuntimeError("image and prefix must not exist yet")
+    marker = builddir / ".darling-pr-prefix-source"
+    source_sha = run("git", "rev-parse", "HEAD", cwd=source)
+    if builddir.exists():
+        if not marker.is_file():
+            raise RuntimeError("existing build directory does not match this integrated source")
+        previous_sha = marker.read_text().strip()
+        if getattr(args, "reconfigure", False):
+            run("cmake", "-S", str(source), "-B", str(builddir), "-G", "Ninja",
+                "-DCMAKE_INSTALL_PREFIX=/usr/local", *args.cmake_arg, stream=True)
+            history_path = builddir / ".darling-pr-prefix-history.json"
+            history = json.loads(history_path.read_text()) if history_path.exists() else []
+            history.append({"previous_source": previous_sha, "source": source_sha,
+                            "cmake_arguments": args.cmake_arg,
+                            "configured_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+            history_path.write_text(json.dumps(history, indent=2) + "\n")
+            marker.write_text(source_sha + "\n")
+        elif previous_sha != source_sha:
+            raise RuntimeError("existing build directory does not match this integrated source; use --reconfigure explicitly before staging")
+        elif args.cmake_arg:
+            raise RuntimeError("CMake arguments can only be supplied on first configuration")
+    else:
+        run("cmake", "-S", str(source), "-B", str(builddir), "-G", "Ninja",
+            "-DCMAKE_INSTALL_PREFIX=/usr/local", *args.cmake_arg, stream=True)
+        marker.write_text(source_sha + "\n")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("source became dirty during configuration; commit the correction and reconfigure before building")
+    if args.configure_only:
+        print(f"configured: {builddir} ({source_sha})")
+        return
+    run("cmake", "--build", str(builddir), "--parallel", str(args.jobs), stream=True)
+    pending = run("ninja", "-C", str(builddir), "-n")
+    if "no work to do" not in pending.lower():
+        run("cmake", "--build", str(builddir), "--parallel", str(args.jobs), stream=True)
+        if "no work to do" not in run("ninja", "-C", str(builddir), "-n").lower():
+            raise RuntimeError("build graph still has pending work")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("source became dirty during compilation; refusing to stage uncommitted inputs")
+    run("cmake", "--install", str(builddir), env=dict(os.environ, DESTDIR=str(image)), stream=True)
+    provenance = {"source_commit": source_sha,
+                  "source_tree": run("git", "rev-parse", "HEAD^{tree}", cwd=source),
+                  "image": str(image), "launcher": str(builddir / "src/startup/darling"),
+                  "locks": {name: hashlib.sha256((workspace / name).read_bytes()).hexdigest()
+                            for name in ("refs.lock.json", "nested.refs.lock.json")
+                            if (workspace / name).exists()},
+                  "swiftui_verified": False, "prefix_execution_verified": False}
+    (workspace / "runtime.manifest.json").write_text(json.dumps(provenance, indent=2) + "\n")
+    if getattr(args, "stage_only", False):
+        print(f"staged runtime: {image}; no prefix execution or SwiftUI claim")
+        return
+    verify_prefix(args)
+
+
+def bounded_process(command, env, log, seconds):
+    with log.open("w") as output:
+        child = subprocess.Popen(command, env=env, stdout=output, stderr=subprocess.STDOUT)
+        try:
+            return {"pid": child.pid, "exit": child.wait(timeout=seconds), "pending": False}
+        except subprocess.TimeoutExpired:
+            return {"pid": child.pid, "exit": None, "pending": True}
+
+
+def prefix_server_identity(prefix, image):
+    pidfile = prefix / ".init.pid"
+    pid = pidfile.read_text().strip() if pidfile.exists() else ""
+    result = {"server_pid": pid, "server_identity_verified": False}
+    if pid.isdecimal():
+        proc = Path("/proc") / pid
+        try:
+            result["server_exe"] = os.readlink(proc / "exe")
+            result["server_argv"] = [v.decode(errors="replace") for v in
+                                     (proc / "cmdline").read_bytes().split(b"\0") if v]
+            status = (proc / "status").read_text()
+            uid = next(line.split()[1] for line in status.splitlines() if line.startswith("Uid:"))
+            result["server_identity_verified"] = (result["server_exe"] == str(image / "usr/local/bin/darlingserver")
+                and result["server_argv"][1:2] == [str(prefix)] and int(uid) == os.getuid())
+        except (OSError, StopIteration):
+            pass
+    return result
+
+
+def verify_prefix(args):
+    workspace = Path(args.workspace).resolve()
+    source, builddir, image = workspace / "source", workspace / "build", workspace / "image"
+    manifest = workspace / "runtime.manifest.json"
+    provenance = json.loads(manifest.read_text())
+    sha = run("git", "rev-parse", "HEAD", cwd=source)
+    launcher = builddir / "src/startup/darling"
+    if (provenance["source_commit"] != sha or run("git", "status", "--porcelain", cwd=source)
+            or (builddir / ".darling-pr-prefix-source").read_text().strip() != sha
+            or provenance["image"] != str(image) or provenance["launcher"] != str(launcher)):
+        raise RuntimeError("prefix verification requires the exact clean staged source/runtime binding")
+    for name, digest in provenance["locks"].items():
+        if hashlib.sha256((workspace / name).read_bytes()).hexdigest() != digest:
+            raise RuntimeError("staged runtime lock changed")
+    if not launcher.is_file() or launcher.stat().st_mode & 0o6000:
+        raise RuntimeError("prefix verification requires the non-setuid build-tree launcher")
+    prefix = workspace / getattr(args, "prefix_name", "prefix")
+    if prefix.parent != workspace or prefix.name in ("source", "build", "image") or prefix.exists():
+        raise RuntimeError("prefix must be a new direct child of the private workspace")
+    # Linux sun_path[108] includes its terminator; the current launcher and
+    # guest sockaddr fixup truncate longer paths instead of rejecting them.
+    for socket_path in (prefix / ".darlingserver.sock", prefix / "var/run/shellspawn.sock"):
+        if len(os.fsencode(socket_path)) >= 108:
+            raise RuntimeError(f"private prefix socket path exceeds Linux sun_path capacity: {socket_path}; choose a shorter workspace/prefix")
+    env = dict(os.environ, DPREFIX=str(prefix), DARLING_INSTALL_PREFIX=str(image / "usr/local"))
+    if getattr(args, "disable_ptrauth", False):
+        env["DARLING_DISABLE_PTRAUTH"] = "1"
+    report = {"source_commit": sha, "prefix": str(prefix), "launcher": str(launcher),
+              "launcher_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest(),
+              "guest_command": ["/usr/bin/true"], "signals_sent": False,
+              "environment": {name: env.get(name) for name in ("DPREFIX", "DARLING_INSTALL_PREFIX",
+                  "DARLING_DISABLE_PTRAUTH", "DSERVER_LOG_LEVEL", "DSERVER_LOG_STDERR",
+                  "DSERVER_WAIT4DEBUGGER", "DARLING_NONROOT", "DARLING_NOOVERLAYFS",
+                  "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DARLING_APPKIT_BACKEND", "DISPLAY")}}
+    report_path = workspace / (prefix.name + ".verify.json")
+    provenance.update(prefix_execution_verified=False, guest_environment=report["environment"])
+    manifest.write_text(json.dumps(provenance, indent=2) + "\n")
+    report["guest"] = bounded_process([str(launcher), "shell", "/usr/bin/true"], env,
+                                      workspace / (prefix.name + ".guest.log"), getattr(args, "guest_wait", 60))
+    report.update(prefix_server_identity(prefix, image))
+    server_pid = report["server_pid"]
+    report["shutdown"] = bounded_process([str(launcher), "shutdown"], env,
+                                         workspace / (prefix.name + ".shutdown.log"), 30)
+    report["server_exists_after_shutdown"] = bool(server_pid) and (Path("/proc") / server_pid).exists()
+    report["markers_after_shutdown"] = [name for name in (".init.pid", ".darlingserver.sock", ".shellspawn.pid")
+                                         if (prefix / name).exists()]
+    report["verified"] = (report["guest"]["exit"] == 0 and report["shutdown"]["exit"] == 0
+                          and report["server_identity_verified"] and not report["server_exists_after_shutdown"]
+                          and not report["markers_after_shutdown"] and (prefix / "private/etc/passwd").is_file())
+    report_path.write_text(json.dumps(report, indent=2) + "\n")
+    if not report["verified"]:
+        raise RuntimeError(f"private prefix lifecycle not verified; preserved evidence at {report_path}; no signals sent")
+    provenance.update(prefix_execution_verified=True, prefix=str(prefix), prefix_verification=str(report_path))
+    manifest.write_text(json.dumps(provenance, indent=2) + "\n")
+    print(f"private prefix verified: {prefix}")
+
+
+def verify_build(args):
+    workspace = Path(args.workspace).resolve()
+    source, builddir = workspace / "source", workspace / "build"
+    sha = run("git", "rev-parse", "HEAD", cwd=source)
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("incremental verification requires clean source")
+    if (builddir / ".darling-pr-prefix-source").read_text().strip() != sha:
+        raise RuntimeError("incremental source binding mismatch")
+    before = run("ninja", "-C", str(builddir), "-n")
+    if "no work to do" not in before.lower():
+        raise RuntimeError("fresh build still has pending work before incremental verification")
+    run("cmake", "--build", str(builddir), "--parallel", str(args.jobs), stream=True)
+    after = run("ninja", "-C", str(builddir), "-n")
+    if "no work to do" not in after.lower() or run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("incremental verification left pending work or dirty source")
+    (workspace / "incremental.verify.json").write_text(json.dumps(
+        {"source_commit": sha, "before": before, "after": after,
+         "build_exit": 0, "image_or_prefix_modified": False}, indent=2) + "\n")
+    print(f"incremental build verified: {sha}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -827,13 +1004,32 @@ def main():
     additional.add_argument("--from-repo", required=True, help="read-only independent donor clone")
     additional.add_argument("--commit", required=True, help="exact committed supplement SHA")
     additional.add_argument("--reason", required=True, help="purpose and verification provenance")
+    compile_command = commands.add_parser("build", help="build and initialize an isolated prefix")
+    compile_command.add_argument("--workspace", required=True)
+    compile_command.add_argument("--jobs", type=int, default=4)
+    compile_command.add_argument("--cmake-arg", action="append", default=[])
+    compile_command.add_argument("--configure-only", action="store_true")
+    compile_command.add_argument("--stage-only", action="store_true", help="stage runtime with provenance before separately verified SwiftUI/prefix integration")
+    compile_command.add_argument("--disable-ptrauth", action="store_true", help="explicitly disable pointer authentication only for Darling guest processes during private prefix smoke")
+    compile_command.add_argument("--reconfigure", action="store_true", help="explicitly reconfigure a known private build after a committed source correction, before staging")
+    incremental = commands.add_parser("verify-build", help="verify a clean bound incremental build without restaging")
+    incremental.add_argument("--workspace", required=True)
+    incremental.add_argument("--jobs", type=int, default=2)
+    prefix_check = commands.add_parser("verify-prefix", help="verify actual guest completion and matching private shutdown after staging")
+    prefix_check.add_argument("--workspace", required=True)
+    prefix_check.add_argument("--prefix-name", default="prefix")
+    prefix_check.add_argument("--guest-wait", type=int, default=60)
+    prefix_check.add_argument("--disable-ptrauth", action="store_true")
     args = parser.parse_args()
     if getattr(args, "jobs", 1) < 1:
         parser.error("--jobs must be positive")
+    if not 1 <= getattr(args, "guest_wait", 60) <= 300:
+        parser.error("--guest-wait must be between 1 and 300 seconds")
     try:
         {"resolve": resolve, "checkout": checkout,
          "resolve-nested": resolve_nested, "checkout-nested": checkout_nested,
-         "supplement": supplement}[args.command](args)
+         "supplement": supplement, "build": build, "verify-build": verify_build,
+         "verify-prefix": verify_prefix}[args.command](args)
     except (RuntimeError, OSError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
