@@ -138,6 +138,10 @@ A core dump of a crashed process built by Darling (such as `mldr` running a gues
 is read: no disassembly at the pc, no `x/i`, `x/s` or byte dumps of any region, no backtrace
 symbolised against macOS-install code, no stepping. Cores are never searched for text; take a
 diagnostic such as `dyld`'s `Library not loaded:` from the loader's stderr or log.
+Registers and the memory map tell you which library a crash happened in. Do not derive, record or
+cite an address, offset or symbol+offset inside a macOS-install image (pc, lr, return addresses,
+frame addresses mapped to an Apple library): in specs, handoffs, commits, issues, PRs or chat. Name
+the library and, if public, the exported symbol; stop there.
 
 Apart from that demand analysis and the core-dump reading above, never point any of these tools at
 a binary from a macOS install, and never run the stub generators named above against one. If a
@@ -157,7 +161,8 @@ A commit that adds a private name, constant, key or struct layout names the rung
 (file, documentation page, the observation described well enough to repeat: harness, inputs,
 outputs; or for rung 5 the guest application whose imports name it, which supplies the name only,
 never a value, signature or layout), or says GUESS. "GNUstep" and "as Apple does it" are not
-sources.
+sources. No source is an address, offset or symbol+offset inside a macOS-install image; see the
+core-dump paragraph under "Binaries you may point tools at".
 
 GNUstep's (or any other reimplementation's) behaviour is not a specification of Apple's behaviour,
 so citing it is not a rung; it can support a rung 1 to 4 source, never replace one. Reading GNUstep
@@ -170,7 +175,9 @@ resolve (rung 5) and, in modes that record them, raw argument words that reached
 (rung 4). It never holds caller or return addresses, backtraces, stack words, the contents behind a
 pointer, or anything read from an Apple image; a trace that does is non-compliant: stop using it,
 move the log aside and follow "If a boundary is crossed". A trace never replaces rungs 1 to 3: work
-through them first, and name the rung for each fact taken from a trace.
+through them first, and name the rung for each fact taken from a trace. Facts from a trace never
+include an address, offset or symbol+offset inside a macOS-install image (see the core-dump
+paragraph under "Binaries you may point tools at").
 
 ### Never commit
 
