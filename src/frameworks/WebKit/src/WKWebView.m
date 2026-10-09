@@ -155,7 +155,7 @@ static const char *dwb_socket_path(void)
 {
 	/* The selector that used to trap. Returning a real object here is the whole
 	 * point: every caller receives an object, and nothing force-unwraps nil. */
-	self = [super init];
+	self = [super initWithFrame: frame];
 	if (self == nil)
 		return nil;
 

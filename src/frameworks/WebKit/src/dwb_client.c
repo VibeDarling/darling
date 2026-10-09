@@ -471,9 +471,10 @@ int dwb_frame_describe(const dwb_frame_header *fh, size_t buffer_bytes,
 		 * from the stride walks outside the buffer. */
 		if (fh->width == 0 || fh->height == 0)
 			return -1;
-		if (fh->stride < (size_t)fh->width * (size_t)out->components)
+		if (fh->width > fh->stride / out->components)
 			return -1;
-		if ((size_t)fh->stride * fh->height > fh->size)
+		/* Division, not a product: size_t is 32 bits in the i386 slice. */
+		if (fh->height > fh->size / fh->stride)
 			return -1;
 	}
 	return 0;

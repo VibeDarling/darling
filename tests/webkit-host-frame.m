@@ -95,8 +95,9 @@ int main(void) {
     [NSApplication sharedApplication];
     WKWebView *view = [[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 40, 30)
                                          configuration:[[[WKWebViewConfiguration alloc] init] autorelease]];
-    [view setFrame:NSMakeRect(0, 0, 40, 30)];
+    [view setNeedsDisplay:NO];
     [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]];
+    BOOL invalidated = [view needsDisplay];
 
     NSBitmapImageRep *canvas = [[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL
         pixelsWide:40 pixelsHigh:30 bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO
@@ -109,7 +110,7 @@ int main(void) {
     /* Read the bytes, top row first: -getPixel:atX:y: is not implemented here. */
     const unsigned char *top = [canvas bitmapData] + 2 * [canvas bytesPerRow] + 20 * 4;
     const unsigned char *px = [canvas bitmapData] + 25 * [canvas bytesPerRow] + 20 * 4;
-    BOOL drawn = px[0] == kColour[0] && px[1] == kColour[1] && px[2] == kColour[2] && px[3] == 0xff &&
+    BOOL drawn = invalidated && NSEqualRects([view frame], NSMakeRect(0, 0, 40, 30)) && px[0] == kColour[0] && px[1] == kColour[1] && px[2] == kColour[2] && px[3] == 0xff &&
                  top[0] == kTop[0] && top[1] == kTop[1] && top[2] == kTop[2];
     fprintf(stderr, "%s host frame drawn by the web view (top %u,%u,%u bottom %u,%u,%u,%u)\n",
             drawn ? "PASS" : "FAIL", top[0], top[1], top[2], px[0], px[1], px[2], px[3]);
