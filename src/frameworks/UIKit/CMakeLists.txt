@@ -17,6 +17,7 @@ add_framework(UIKit
         src/UISceneConfiguration.m
         src/UIResponder.m
         src/UIKeyboardNotifications.m
+        src/UIDevice.m
         src/UIApplication.m
         src/UIScreen.m
         src/UIColor.m

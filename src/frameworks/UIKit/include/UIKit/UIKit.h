@@ -36,5 +36,6 @@
 #import <UIKit/UIGraphicsImageContext.h>
 #import <UIKit/UISceneConfiguration.h>
 #import <UIKit/UIKeyboardNotifications.h>
+#import <UIKit/UIDevice.h>
 
 #endif /* UIKIT_UIKIT_H */
