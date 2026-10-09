@@ -24,37 +24,82 @@ import urllib.request
 OWNER = "VibeDarling"
 ROOT = "https://github.com/VibeDarling/darling.git"
 SHA = re.compile(r"^[0-9a-f]{40}$")
+ATTEMPTS = 4
+MAX_RETRY_WAIT = 60
+SECONDARY_WAIT = 30
+NETWORK_TIMEOUT = 120
+CLONE_TIMEOUT = 1800
+PERMANENT = re.compile(r"not found|could not resolve host|authentication failed|"
+                       r"terminal prompts disabled|returned error: 40[134]", re.I)
 
 
-def run(*args, cwd=None, env=None, stream=False):
+def run(*args, cwd=None, env=None, stream=False, retries=0, timeout=None):
+    if retries and timeout is None:
+        timeout = CLONE_TIMEOUT
+    for attempt in range(retries):
+        try:
+            return run(*args, cwd=cwd, env=env, stream=stream, timeout=timeout)
+        except RuntimeError as error:
+            if PERMANENT.search(str(error)):
+                raise
+            time.sleep(2 ** attempt)
     if stream:
         p = subprocess.run(args, cwd=cwd, env=env)
         if p.returncode:
             raise RuntimeError(f"{' '.join(map(str, args))}: exited {p.returncode}; see command output")
         return ""
-    p = subprocess.run(args, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE)
+    try:
+        p = subprocess.run(args, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(f"{' '.join(map(str, args))}: timed out after {timeout}s") from error
     if p.returncode:
         raise RuntimeError(f"{' '.join(map(str, args))}: {p.stderr.strip()}")
     return p.stdout.strip()
+
+
+def rate_limit_error(path, why):
+    return RuntimeError(f"GitHub API {path}: rate limited ({why}); set GITHUB_TOKEN or run gh auth login")
 
 
 def api(path):
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "darling-pr-prefix"}
     if os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
-    for attempt in range(3):
+    secondary_retried = False
+    for attempt in range(ATTEMPTS):
+        delay = 2 ** attempt
         try:
             with urllib.request.urlopen(urllib.request.Request(
                     "https://api.github.com" + path, headers=headers), timeout=30) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
-            if error.code not in (502, 503, 504) or attempt == 2:
-                raise RuntimeError(f"GitHub API {path}: HTTP {error.code}: {error.read().decode()}") from error
-        except (urllib.error.URLError, http.client.RemoteDisconnected, TimeoutError) as error:
-            if attempt == 2:
-                raise RuntimeError(f"GitHub API {path}: connection failed after 3 attempts: {error}") from error
-        time.sleep(attempt + 1)
+            body = error.read().decode()
+            failure = RuntimeError(f"GitHub API {path}: HTTP {error.code}: {body}")
+            retry_after = error.headers.get("Retry-After", "")
+            if error.code in (403, 429, 502, 503, 504) and retry_after.isdecimal():
+                if int(retry_after) > MAX_RETRY_WAIT:
+                    raise rate_limit_error(path, f"Retry-After {retry_after}s exceeds the {MAX_RETRY_WAIT}s budget") from error
+                delay = int(retry_after)
+            elif error.code == 403 and error.headers.get("X-RateLimit-Remaining") == "0":
+                reset = int(error.headers.get("X-RateLimit-Reset", "0"))
+                if reset - time.time() > MAX_RETRY_WAIT:
+                    when = datetime.datetime.fromtimestamp(reset, datetime.timezone.utc).isoformat()
+                    raise rate_limit_error(path, f"limit resets at {when}") from error
+                delay = max(reset - int(time.time()), 1)
+            elif error.code == 403 and "secondary rate limit" in body.lower():
+                if secondary_retried:
+                    raise rate_limit_error(path, "secondary limit persists") from error
+                secondary_retried, delay = True, SECONDARY_WAIT
+            elif error.code not in (429, 502, 503, 504):
+                raise failure from error
+            if attempt == ATTEMPTS - 1:
+                raise (rate_limit_error(path, f"HTTP {error.code} after {ATTEMPTS} attempts")
+                       if error.code in (403, 429) else failure) from error
+        except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError) as error:
+            if attempt == ATTEMPTS - 1:
+                raise RuntimeError(f"GitHub API {path}: connection failed after {ATTEMPTS} attempts: {error}") from error
+        time.sleep(delay)
 
 
 def modules(root, allow_external=False, required_prefix="src/external/"):
@@ -134,7 +179,11 @@ def remote_refs(item):
             raise RuntimeError(f"invalid declared branch for {item['repo']}: {requested}")
         patterns.append(f"refs/heads/{requested}")
     patterns += [f"refs/pull/{p['number']}/head" for p in item["prs"]]
-    output = run("git", "ls-remote", "--symref", item["url"], *patterns)
+    try:
+        output = run("git", "ls-remote", "--symref", item["url"], *patterns, retries=ATTEMPTS - 1,
+                     timeout=NETWORK_TIMEOUT)
+    except RuntimeError as error:
+        raise RuntimeError(f"{item['repo']}: {error}") from error
     refs = {}
     default = None
     for line in output.splitlines():
