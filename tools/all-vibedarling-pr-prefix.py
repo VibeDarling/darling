@@ -348,7 +348,7 @@ def object_at(repo, sha, fallback):
     except RuntimeError:
         pass
     try:
-        run("git", "fetch", "origin", sha, cwd=repo)
+        run("git", "fetch", "origin", sha, cwd=repo, timeout=CLONE_TIMEOUT)
     except RuntimeError:
         run("git", "fetch", "origin", fallback, cwd=repo, retries=ATTEMPTS - 1)
     run("git", "cat-file", "-e", sha + "^{commit}", cwd=repo)
@@ -416,6 +416,25 @@ def integrate(repo, item):
     return run("git", "rev-parse", "HEAD", cwd=repo)
 
 
+def clone_shallow(url, target):
+    # git checkout leaves empty directories at submodule paths; a failed attempt may
+    # only clear what it created itself, never a directory that already had content.
+    created = not target.exists()
+    empty = target.is_dir() and not any(target.iterdir())
+    for attempt in range(ATTEMPTS):
+        try:
+            return run("git", "clone", "--depth=1", "--no-checkout", url, str(target), timeout=CLONE_TIMEOUT)
+        except RuntimeError as error:
+            if target.is_dir() and (created or empty):
+                for child in target.iterdir():
+                    shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
+                if created:
+                    target.rmdir()
+            if attempt == ATTEMPTS - 1 or PERMANENT.search(str(error)):
+                raise
+            time.sleep(2 ** attempt)
+
+
 def clone_repository(url, target, seed=None):
     if seed and (seed / ".git").exists():
         run("git", "clone", "--no-local", "--no-checkout", str(seed), str(target))
@@ -426,7 +445,7 @@ def clone_repository(url, target, seed=None):
         if objects.is_dir():
             shutil.copytree(objects, target / ".git/lfs/objects", dirs_exist_ok=True)
     else:
-        run("git", "clone", "--depth=1", "--no-checkout", url, str(target), retries=ATTEMPTS - 1)
+        clone_shallow(url, target)
 
 
 def clone_and_integrate(source, item, seed_root):
@@ -484,7 +503,7 @@ def checkout(args):
             raise RuntimeError("seed clone must have VibeDarling origin")
         clone_repository(ROOT, source, seed)
     else:
-        run("git", "clone", "--depth=1", "--no-checkout", ROOT, str(source), retries=ATTEMPTS - 1)
+        clone_shallow(ROOT, source)
     integrated = {".": integrate(source, items[0])}
     expected = {(x["repo"].lower(), p, x["url"]) for x in items[1:] for p in x["paths"]}
     merged_modules = modules(source, allow_external=True)
