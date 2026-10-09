@@ -113,6 +113,8 @@ static const char *dwb_socket_path(void)
 	 * rather than discovered by crashing on the first post. */
 	BOOL supportsHandlers;
 }
+/* Keeps the message alive until reportPendingError runs on a later turn. */
+- (void) setPendingError: (NSString *) message;
 @end
 
 @implementation WKWebViewHostState
@@ -127,8 +129,18 @@ static const char *dwb_socket_path(void)
 	return self;
 }
 
+- (void) setPendingError: (NSString *) message
+{
+	if (message == pendingError)
+		return;
+	[message retain];
+	[pendingError release];
+	pendingError = message;
+}
+
 - (void) dealloc
 {
+	[pendingError release];
 	if (shmBase)
 		munmap(shmBase, shmSize);
 	if (client.fd >= 0)
@@ -168,8 +180,8 @@ static const char *dwb_socket_path(void)
 		/* No host service is a degraded webview, not a crash. The view still
 		 * exists, still has a frame, and simply shows nothing. Apps that embed
 		 * a webview must not die because an optional host is missing. */
-		_host->pendingError = [NSString stringWithFormat:
-			@"darling-webkit-host is not reachable at %s", socketPath ? socketPath : "?"];
+		[_host setPendingError: [NSString stringWithFormat:
+			@"darling-webkit-host is not reachable at %s", socketPath ? socketPath : "?"]];
 	} else {
 		char *backend = NULL;
 		int w = 0, h = 0;
@@ -232,7 +244,7 @@ static const char *dwb_socket_path(void)
 		if ([script respondsToSelector: @selector(forMainFrameOnly)])
 			mainOnly = [script performSelector: @selector(forMainFrameOnly)] ? YES : NO;
 		if (dwb_client_add_script(&_host->client, [source UTF8String], atStart, mainOnly) != 0)
-			_host->pendingError = [NSString stringWithUTF8String: _host->client.error];
+			[_host setPendingError: [NSString stringWithUTF8String: _host->client.error]];
 	}
 	NSArray *names = [uc respondsToSelector: @selector(scriptMessageHandlerNames)]
 		? [uc performSelector: @selector(scriptMessageHandlerNames)] : nil;
@@ -276,7 +288,7 @@ static const char *dwb_socket_path(void)
 				/* A refusal is a fact about the backend, not a transient
 				 * error: stop asking rather than spinning on every frame. */
 				_host->supportsHandlers = NO;
-				_host->pendingError = @"the host backend does not support message handlers";
+				[_host setPendingError: @"the host backend does not support message handlers"];
 				return;
 			}
 			if (got == 0) {
@@ -423,9 +435,9 @@ static const char *dwb_socket_path(void)
 			if (!allow) {
 				/* Refused by the app. The host is never told, so nothing loads
 				 * and the app's own policy stands. */
-				_host->pendingError = [NSString stringWithFormat:
+				[_host setPendingError: [NSString stringWithFormat:
 					@"the app refused to navigate to %s",
-				[url UTF8String] ? [url UTF8String] : "?"];
+				[url UTF8String] ? [url UTF8String] : "?"]];
 				return nil;
 			}
 		}
@@ -444,10 +456,10 @@ static const char *dwb_socket_path(void)
 		 * why - an unreachable origin, a refused connection - and the guest
 		 * needs that, because the previous behaviour was to report success and
 		 * leave the app showing a blank page forever. */
-		_host->pendingError = [NSString stringWithUTF8String:_host->client.error];
+		[_host setPendingError: [NSString stringWithUTF8String:_host->client.error]];
 		return nil;
 	}
-	_host->pendingError = nil;
+	[_host setPendingError: nil];
 	[_lastURL release];
 	_lastURL = [url retain];
 	/* The host blocks in navigate until the page's load event fires, and only
@@ -580,10 +592,10 @@ static const char *dwb_socket_path(void)
  * tick forever, and navigation delegates do not expect that. */
 - (void) reportPendingError
 {
-	NSString *message = _host->pendingError;
+	NSString *message = [[_host->pendingError retain] autorelease];
 	if (message == nil)
 		return;
-	_host->pendingError = nil;
+	[_host setPendingError: nil];
 	NSLog(@"YouLearn WKWebView: %@", message);
 	id delegate = nil;
 	if ([self respondsToSelector: @selector(navigationDelegate)])
@@ -662,8 +674,8 @@ static const char *dwb_socket_path(void)
 				: [NSData dataWithBytes:(const void *)pixels length:fh.size];
 			NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithData:compressed];
 			if (rep == nil || [rep pixelsWide] <= 0) {
-				_host->pendingError = [NSString stringWithFormat:
-					@"could not decode a %u byte frame", fh.size];
+				[_host setPendingError: [NSString stringWithFormat:
+					@"could not decode a %u byte frame", fh.size]];
 			}
 			else if ([_remoteView lockFocusIfCanDraw]) {
 				NSImage *image = (NSImage *)rep;
@@ -832,10 +844,10 @@ static const char *dwb_socket_path(void)
 		 * guest rendering at the old size with nothing to explain why. */
 		if (dwb_client_resize(&_host->client, (int)frame.size.width,
 		                      (int)frame.size.height) != 0)
-			_host->pendingError = [NSString stringWithFormat:
+			[_host setPendingError: [NSString stringWithFormat:
 				@"host refused resize to %.0fx%.0f: %s",
 				frame.size.width, frame.size.height,
-				_host->client.error[0] ? _host->client.error : "?"];
+				_host->client.error[0] ? _host->client.error : "?"]];
 	}
 }
 
