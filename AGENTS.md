@@ -141,8 +141,9 @@ symbolised against macOS-install code, no stepping. Cores are never searched for
 diagnostic such as `dyld`'s `Library not loaded:` from the loader's stderr or log.
 Registers and the memory map tell you which library a crash happened in. Do not derive, record or
 cite an address, offset or symbol+offset inside a macOS-install image (pc, lr, return addresses,
-frame addresses mapped to an Apple library): in specs, handoffs, commits, issues, PRs or chat. Name
-the library and, if public, the exported symbol; stop there.
+frame addresses mapped to an Apple library): in specs, handoffs, commits, issues, PRs, chat,
+including but not limited to these. Name the library and, only if a permitted source already names
+it, the exported symbol; stop there.
 
 Apart from that demand analysis and the core-dump reading above, never point any of these tools at
 a binary from a macOS install, and never run the stub generators named above against one. If a
