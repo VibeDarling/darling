@@ -38,7 +38,7 @@
 @interface WKWebView : NSView {
 @public
 	WKWebViewHostState *_host;
-	NSView *_remoteView;
+	NSBitmapImageRep *_frameImage;
 	NSString *_lastURL;
 	WKWebViewConfiguration *_configuration;
 	NSTimer *_frameTimer;

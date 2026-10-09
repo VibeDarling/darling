@@ -106,7 +106,6 @@ static const char *dwb_socket_path(void)
 	/* Last frame presented, so a pull can skip work when nothing changed. */
 	dwb_frame_header lastFrame;
 	BOOL haveFrame;
-	NSView *containerView;
 	/* Non-nil when the host reported a failure the guest has not seen yet. */
 	NSString *pendingError;
 	/* Whether the engine implements message handlers. Asked once at connect time
@@ -194,16 +193,6 @@ static const char *dwb_socket_path(void)
 			[self applyConfiguration: configuration];
 		}
 	}
-
-	/* A real backing view, so the frame can be blitted into it. Kept at +1 for
-	 * the lifetime of the web view and released in dealloc: releasing it here
-	 * left both this ivar and _host->containerView dangling, which was invisible
-	 * until a host was attached and the frame timer actually reached
-	 * -lockFocusIfCanDraw - the freed view had by then been reused for an
-	 * NSArray, so the message went to -[__NSCFArray lockFocusIfCanDraw]. */
-	_remoteView = [[NSView alloc] initWithFrame: frame];
-	[_remoteView setAutoresizesSubviews: YES];
-	_host->containerView = _remoteView;
 
 	return self;
 }
@@ -377,7 +366,7 @@ static const char *dwb_socket_path(void)
 	[_frameTimer invalidate];
 	[_frameTimer release];
 
-	[_remoteView release];
+	[_frameImage release];
 	[_host release];
 	[_lastURL release];
 	[_configuration release];
@@ -644,104 +633,71 @@ static const char *dwb_socket_path(void)
 	_host->client.last_seq = fh.seq;
 	_host->client.have_seq = 1;
 
-	/* One draw path for both transports. The pixels are either in the shared
-	 * region or in a socket buffer this call owns; either way the rep is built
-	 * *around* the existing memory rather than around NULL, which was the bug
-	 * here: the rep had no backing store and the shared path then discarded the
-	 * pointer with (void)src, so nothing was ever displayed. */
+	/* The view draws the latest frame in drawRect:, so it keeps its own copy: the
+	 * socket buffer is freed below and the shared region is overwritten by the
+	 * next frame. */
 	const unsigned char *src = NULL;
-	unsigned char *owned = NULL;
+	size_t available = 0;
 	if (in_shm && _host->shmBase != NULL) {
 		src = (const unsigned char *)_host->shmBase + sizeof(dwb_frame_header);
+		available = _host->shmSize;
 	} else if (pixels != NULL) {
-		owned = (unsigned char *)pixels;
-		src = owned;
+		src = (const unsigned char *)pixels;
+		available = sizeof(dwb_frame_header) + bytes;
 	}
 
-	if (src != NULL) {
-		/* A compressed frame has no rows to blit; the host says so in the
-		 * format field precisely so the guest can decide, and decoding is not
-		 * something this file can do. Say so rather than drawing noise. */
-		BOOL raw = (fh.format == DWB_PIXEL_RGB || fh.format == DWB_PIXEL_RGBA ||
-		            fh.format == DWB_PIXEL_BGRA || fh.format == DWB_PIXEL_ARGB);
-		if (!raw) {
-			/* The host sends JPEG because the Chromium screencast backend cannot
-			 * cheaply hand over raw pixels. AppKit decodes it for us, so there is no
-			 * reason to refuse: NSBitmapImageRep's initialiser from data does the
-			 * work and yields a rep that draws like any other. */
-			NSData *compressed = (in_shm && _host->shmBase != NULL)
-				? [NSData dataWithBytes:src length:fh.size]
-				: [NSData dataWithBytes:(const void *)pixels length:fh.size];
-			NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithData:compressed];
-			if (rep == nil || [rep pixelsWide] <= 0) {
-				[_host setPendingError: [NSString stringWithFormat:
-					@"could not decode a %u byte frame", fh.size]];
-			}
-			else if ([_remoteView lockFocusIfCanDraw]) {
-				NSImage *image = (NSImage *)rep;
-				[image drawInRect: [_remoteView bounds]
-				         fromRect: NSMakeRect(0, 0, [rep pixelsWide], [rep pixelsHigh])
-				        operation: NSCompositeSourceOver
-				         fraction: 1.0];
-				[_remoteView unlockFocus];
-			}
-			[rep release];
-		} else {
-			NSUInteger comps = (fh.format == DWB_PIXEL_RGB) ? 3 : 4;
-			unsigned char *plane = (unsigned char *)src;
-			NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
-				initWithBitmapDataPlanes: &plane
+	dwb_frame_layout layout;
+	if (src != NULL && dwb_frame_describe(&fh, available, &layout) != 0) {
+		[_host setPendingError: [NSString stringWithFormat:
+			@"host sent a malformed %ux%u frame", fh.width, fh.height]];
+	} else if (src != NULL) {
+		NSBitmapImageRep *rep;
+		if (layout.is_raw) {
+			rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: NULL
 				pixelsWide: fh.width
-				/* pixelsHigh:, not bitsHigh:. That is not a typo on my part:
-				 * Apple's own selector is spelled "bitsHigh" - a long-standing
-				 * error in their headers that every client copies - and Darling's
-				 * NSBitmapImageRep.h says "pixelsHigh". Sending "bitsHigh:" to
-				 * Darling is an unrecognized selector, so the bitmap rep was
-				 * never built and the frame never drew. The stub I wrote for the
-				 * syntax check said "bitsHigh", copied from the Apple spelling,
-				 * which is precisely why the stub check passed and the real-SDK
-				 * check caught it.
-				 *
-				 * The app never sends this selector itself - it is this guest's own
-				 * drawing code - so there is no compatibility cost to matching
-				 * Darling. */
 				pixelsHigh: fh.height
 				bitsPerSample: 8
-				samplesPerPixel: (NSUInteger)comps
-				hasAlpha: (fh.format != DWB_PIXEL_RGB)
+				samplesPerPixel: (NSInteger)layout.components
+				hasAlpha: layout.has_alpha ? YES : NO
 				isPlanar: NO
-				/* NSDeviceRGBColorSpace serves both cases: the alpha channel
-				 * comes from hasAlpha, not from a separate colour space. */
 				colorSpaceName: NSDeviceRGBColorSpace
-				bytesPerRow: fh.stride
-				bitsPerPixel: (NSUInteger)(8 * comps)] autorelease];
-			/* drawInNSRect: is declared nowhere in Darling - not in
-			 * framework-include, not in cocotron - so sending it is an
-			 * unrecognized selector. What exists is NSImage, which a rep is a
-			 * kind of, so the rep is drawn into the view by size. */
-			/* lockFocusIfCanDraw throws rather than returning NO when the view is
-			 * not in a window, and an uncaught NSException aborts the whole process
-			 * - so an embedded web view that has not been added to a window yet
-			 * takes its host app down with it. A view with no window has no window
-			 * to lock focus into, so there is nothing to draw into either: skipping
-			 * here is what real AppKit's return-NO means. The next tick will
-			 * present the frame once the app has added the view to a window. */
-			if (rep != nil && [_remoteView window] != nil &&
-			    [_remoteView lockFocusIfCanDraw]) {
-				NSImage *image = (NSImage *)rep;
-				[image drawInRect: [_remoteView bounds]
-				         fromRect: NSMakeRect(0, 0, fh.width, fh.height)
-				        operation: NSCompositeSourceOver
-				         fraction: 1.0];
-				[_remoteView unlockFocus];
+				bytesPerRow: 0
+				bitsPerPixel: (NSInteger)(8 * layout.components)];
+			unsigned char *dst = [rep bitmapData];
+			size_t rowBytes = (size_t)[rep bytesPerRow];
+			size_t copyBytes = (size_t)fh.width * (size_t)layout.components;
+			if (dst == NULL || rowBytes < copyBytes) {
+				[rep release];
+				rep = nil;
+			} else {
+				for (uint32_t y = 0; y < fh.height; y++)
+					memcpy(dst + y * rowBytes, src + (size_t)y * fh.stride, copyBytes);
 			}
+		} else {
+			/* JPEG from the Chromium backend; AppKit decodes it. */
+			rep = [[NSBitmapImageRep alloc] initWithData:
+				[NSData dataWithBytes: src length: fh.size]];
+		}
+		if (rep == nil || [rep pixelsWide] <= 0) {
+			[_host setPendingError: [NSString stringWithFormat:
+				@"could not decode a %u byte frame", fh.size]];
+			[rep release];
+		} else {
+			[_frameImage release];
+			_frameImage = rep;
+			[self setNeedsDisplay: YES];
 		}
 	}
 
 	/* Only a socket buffer is ours to release. The shared region outlives the
 	 * call and must not be freed here. */
-	if (owned != NULL)
-		dwb_client_free_frame(&_host->client, owned);
+	if (!in_shm && pixels != NULL)
+		dwb_client_free_frame(&_host->client, (void *)pixels);
+}
+
+- (void) drawRect: (NSRect)dirtyRect
+{
+	[_frameImage drawInRect: [self bounds]];
 }
 
 - (BOOL) allowsBackForwardNavigationGestures
