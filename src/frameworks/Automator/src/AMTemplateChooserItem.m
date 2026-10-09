@@ -22,10 +22,19 @@
 
 @implementation AMTemplateChooserItem
 
-// No templates are installed.
 + (NSArray *)templateChooserItems
 {
-    return @[];
+    return @[ [[[self alloc] init] autorelease] ];
+}
+
+- (NSString *)imageTitle
+{
+    return @"Workflow";
+}
+
+- (NSString *)templateDescription
+{
+    return @"Add actions to build a workflow that runs in Automator.";
 }
 
 AM_STUB_FORWARDING
