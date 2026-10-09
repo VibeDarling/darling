@@ -8,6 +8,7 @@ it never updates an existing checkout, build directory, or prefix.
 import argparse
 import concurrent.futures
 import datetime
+import hashlib
 import http.client
 import json
 import os
@@ -563,6 +564,164 @@ def checkout(args):
     print(f"superproject commit: {run('git', 'rev-parse', 'HEAD', cwd=source)}")
 
 
+def nested_modules(workspace):
+    source = workspace / "source"
+    top = json.loads((workspace / "refs.lock.json").read_text())
+    found = []
+    for item in top["repos"][1:]:
+        for parent_path in item["paths"]:
+            parent = source / parent_path
+            if (parent / ".gitmodules").is_file():
+                for module in modules(parent, allow_external=True, required_prefix=None):
+                    for subpath in module["paths"]:
+                        line = run("git", "ls-tree", "HEAD", "--", subpath, cwd=parent)
+                        match = re.fullmatch(r"160000 commit ([0-9a-f]{40})\t(.+)", line)
+                        if not match or match.group(2) != subpath:
+                            raise RuntimeError(f"nested module has no gitlink: {parent_path}/{subpath}")
+                        found.append({"parent": parent_path, "path": subpath,
+                                      "repo": module["repo"], "url": module["url"],
+                                      "kind": module["kind"], "pin": match.group(1)})
+    return found
+
+
+def resolve_nested(args):
+    workspace = Path(args.workspace).resolve()
+    if not (workspace / "integrated.json").is_file():
+        raise RuntimeError("complete top-level checkout first")
+    occurrences = nested_modules(workspace)
+    by_repo = {}
+    external = []
+    for occurrence in occurrences:
+        if occurrence["kind"] == "external":
+            external.append(occurrence)
+        else:
+            key = occurrence["repo"].lower()
+            if key not in by_repo:
+                by_repo[key] = {"repo": occurrence["repo"], "url": occurrence["url"],
+                                "occurrences": [], "prs": []}
+            by_repo[key]["occurrences"].append(occurrence)
+    top = json.loads((workspace / "refs.lock.json").read_text())
+    top_repos = {item["repo"].lower() for item in top["repos"]}
+    if args.no_prs and not top.get("no_prs"):
+        raise RuntimeError("--no-prs conflicts with the top-level lock, which includes open PRs")
+    no_prs = bool(top.get("no_prs"))
+    prs = [] if no_prs else open_prs()
+    for pr in prs:
+        repo = pr["repository_url"].rsplit("/", 1)[-1].lower()
+        if repo in by_repo:
+            by_repo[repo]["prs"].append(pr_record(pr))
+        elif repo not in top_repos and not any(
+                p["repo"].lower() == repo for p in top["excluded_open_prs"]):
+            raise RuntimeError(f"PR set changed since top-level lock: {pr['html_url']}")
+    items = list(by_repo.values())
+    for item in items:
+        item["prs"].sort(key=lambda p: p["number"])
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        items = list(pool.map(remote_refs, items))
+    lock = {"schema": 1, "owner": OWNER, "no_prs": no_prs,
+            "excluded_open_prs": off_branch_exclusions(items),
+            "resolved_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "top_lock_sha256": hashlib.sha256((workspace / "refs.lock.json").read_bytes()).hexdigest(),
+            "vibedarling": items, "external_pinned": external}
+    output = Path(args.output).resolve()
+    if output.exists():
+        raise RuntimeError(f"refusing to overwrite nested lock: {output}")
+    output.write_text(json.dumps(lock, indent=2) + "\n")
+    print(f"locked {len(items)} nested VibeDarling repos and {len(external)} external pins: {output}")
+
+
+def checkout_nested(args):
+    global RESUME, RESOLUTIONS
+    RESUME = bool(getattr(args, "resume", False))
+    RESOLUTIONS = json.loads(Path(args.resolutions).read_text()) if getattr(args, "resolutions", None) else []
+    workspace = Path(args.workspace).resolve()
+    source = workspace / "source"
+    lock = json.loads(Path(args.lock).read_text())
+    if lock.get("schema") != 1 or lock.get("owner") != OWNER:
+        raise RuntimeError("invalid nested lock")
+    digest = hashlib.sha256((workspace / "refs.lock.json").read_bytes()).hexdigest()
+    if digest != lock.get("top_lock_sha256"):
+        raise RuntimeError("nested lock belongs to a different top-level lock")
+    if (workspace / "nested.integrated.json").exists():
+        raise RuntimeError("nested integration already completed")
+    if any((workspace / p).exists() for p in ("build", "image", "prefix")):
+        raise RuntimeError("nested integration requires an unbuilt workspace")
+    retained_lock = workspace / "nested.refs.lock.json"
+    if retained_lock.exists() and retained_lock.read_bytes() != Path(args.lock).read_bytes():
+        raise RuntimeError("nested resume lock differs from original input")
+    current = nested_modules(workspace)
+    expected = [o for item in lock["vibedarling"] for o in item["occurrences"]]
+    expected += lock["external_pinned"]
+    if sorted(current, key=lambda x: (x["parent"], x["path"])) != sorted(
+            expected, key=lambda x: (x["parent"], x["path"])):
+        raise RuntimeError("nested submodule map changed since nested lock")
+    if not retained_lock.exists():
+        shutil.copy2(args.lock, retained_lock)
+    changed_parents = set()
+    realized = []
+    seed_root = Path(args.seed_submodules_root).resolve() if args.seed_submodules_root else None
+    for item in lock["vibedarling"]:
+        for o in item["occurrences"]:
+            parent = source / o["parent"]
+            target = parent / o["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            seed = seed_root / o["parent"] / o["path"] if seed_root else None
+            if RESUME and (target / ".git").is_dir():
+                if target.is_symlink() or (target / ".git/objects/info/alternates").exists():
+                    raise RuntimeError("nested resume requires independent Git storage")
+                if run("git", "remote", "get-url", "origin", cwd=target) != item["url"]:
+                    raise RuntimeError("nested resume origin mismatch")
+            else:
+                clone_repository(item["url"], target, seed)
+                if RESUME:
+                    object_at(target, item["base"], f"refs/heads/{item['branch']}")
+                    run("git", "checkout", "--detach", item["base"], cwd=target)
+            sha = integrate(target, item)
+            if (target / ".gitmodules").is_file():
+                raise RuntimeError(f"deeper nested modules need a new integration step: {target}")
+            run("git", "add", "--", o["path"], cwd=parent)
+            changed_parents.add(o["parent"])
+            record = {"path": str(Path(o["parent"]) / o["path"]),
+                      "repo": item["repo"], "commit": sha}
+            audit = target / ".git/darling-pr-resolutions.json"
+            if audit.exists():
+                record["merge_resolutions"] = json.loads(audit.read_text())
+            realized.append(record)
+    for o in lock["external_pinned"]:
+        parent = source / o["parent"]
+        target = parent / o["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        seed = seed_root / o["parent"] / o["path"] if seed_root else None
+        if RESUME and (target / ".git").is_dir():
+            if target.is_symlink() or (target / ".git/objects/info/alternates").exists():
+                raise RuntimeError("external resume requires independent Git storage")
+            if run("git", "remote", "get-url", "origin", cwd=target) != o["url"] or run("git", "status", "--porcelain", cwd=target):
+                raise RuntimeError("external resume origin/source mismatch")
+        else:
+            clone_repository(o["url"], target, seed)
+        object_at(target, o["pin"], "HEAD")
+        run("git", "checkout", "--detach", o["pin"], cwd=target)
+        if (target / ".gitmodules").is_file():
+            raise RuntimeError(f"deeper nested modules need a new integration step: {target}")
+        realized.append({"path": str(Path(o["parent"]) / o["path"]),
+                         "repo": o["repo"], "commit": o["pin"]})
+    env = dict(os.environ, GIT_AUTHOR_NAME="Darling PR integration",
+               GIT_AUTHOR_EMAIL="integration@localhost",
+               GIT_COMMITTER_NAME="Darling PR integration",
+               GIT_COMMITTER_EMAIL="integration@localhost")
+    for parent_path in changed_parents:
+        parent = source / parent_path
+        if run("git", "diff", "--cached", "--name-only", cwd=parent):
+            run("git", "commit", "-m", "integration: pin nested VibeDarling repositories",
+                cwd=parent, env=env)
+            run("git", "add", "--", parent_path, cwd=source)
+    if run("git", "diff", "--cached", "--name-only", cwd=source):
+        run("git", "commit", "-m", "integration: pin nested VibeDarling repositories",
+            cwd=source, env=env)
+    (workspace / "nested.integrated.json").write_text(json.dumps(realized, indent=2) + "\n")
+    print(f"integrated {len(realized)} nested paths; superproject {run('git', 'rev-parse', 'HEAD', cwd=source)}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -580,11 +739,23 @@ def main():
     materialize.add_argument("--seed-submodules-root", help="read-only populated tree to copy with --no-local")
     materialize.add_argument("--resume", action="store_true", help="continue only an unfinished checkout with identical lock")
     materialize.add_argument("--resolutions", help="reviewed exact conflict-stage/source-tree resolution JSON")
+    nested_discover = commands.add_parser("resolve-nested", help="lock nested submodule refs")
+    nested_discover.add_argument("--workspace", required=True)
+    nested_discover.add_argument("--output", required=True)
+    nested_discover.add_argument("--jobs", type=int, default=8)
+    nested_discover.add_argument("--no-prs", action="store_true", help="lock the default branches only and skip open pull requests")
+    nested_materialize = commands.add_parser("checkout-nested", help="integrate locked nested refs")
+    nested_materialize.add_argument("--workspace", required=True)
+    nested_materialize.add_argument("--lock", required=True)
+    nested_materialize.add_argument("--seed-submodules-root", help="read-only populated tree to copy nested dependencies and LFS objects")
+    nested_materialize.add_argument("--resume", action="store_true", help="continue unfinished nested checkout with identical lock")
+    nested_materialize.add_argument("--resolutions", help="reviewed exact conflict-stage/source-tree resolution JSON")
     args = parser.parse_args()
     if getattr(args, "jobs", 1) < 1:
         parser.error("--jobs must be positive")
     try:
-        {"resolve": resolve, "checkout": checkout}[args.command](args)
+        {"resolve": resolve, "checkout": checkout,
+         "resolve-nested": resolve_nested, "checkout-nested": checkout_nested}[args.command](args)
     except (RuntimeError, OSError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
