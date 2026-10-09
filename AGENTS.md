@@ -6,8 +6,9 @@ checked in review:
 1. the clean-room boundary: **no disassembly, no decompilation, no reading machine code**
 2. the commit standard in [Commit standard](#2-commit-standard)
 
-Sections 1 and 2 are identical across every Darling repository, because the boundary and the
-standard do not change per project. Section 3 is specific to this checkout.
+Section 1 is identical across every Darling repository, because the boundary does not change per
+project. Section 2 is the same standard everywhere and differs only in the scope vocabulary under
+"Format". Section 3 is specific to this checkout.
 
 ## 1. Clean room: no disassembly
 
@@ -19,10 +20,11 @@ binaries without exception, and to every other binary whose source you are not t
 
 The line is drawn at **expression**, not at information:
 
-- Names and interfaces are fair game. Symbol names, class names, selector names, argument labels,
-  type encodings, load commands, and the dependency list are facts about the *interface*. You can
-  learn them without reading a single instruction, and the superproject's `tools/stub-gen-c-func`
-  and `tools/stub-gen-objc` do exactly that.
+- Names and interfaces are fair game when they come from a permitted source: rungs 1 to 4, or the
+  demand analysis of rung 5 on a guest application. Extracting them from an Apple binary with any
+  other tool is not, even if no instruction is read. Symbol names, class names, selector names,
+  argument labels, type encodings, load commands, and the dependency list are facts about the
+  *interface*.
 - Implementation is off limits. The order of statements, the algorithm, the chosen data layout, the
   constant values, the error-handling strategy, the shape of a function: that is Apple's
   copyrighted expression, and copying it is both a licence violation and the thing that makes a
@@ -33,24 +35,51 @@ behaviour yet. Go one rung down the ladder.
 
 ### Never, under any circumstances
 
-Applied to any binary that is not your own build output or a public open-source artefact:
+Applied to any binary that is not your own build output or a public open-source artefact, including
+third-party guest applications, and to core dumps, memory images and caches that contain Apple code
+or data. A binary shipped in a macOS install, Xcode, an SDK or the dyld shared cache is never an
+open-source artefact, even when Apple publishes source for it.
 
-- `otool -tV`, `otool -t`, `otool -f`, `otool -s`, `otool -l` on a Mach-O from a macOS install
-- `objdump -d`, `llvm-objdump --disassemble`, `radare2`, `r2`, `cutter`, `Ghidra`, `Hopper`, `IDA`,
-  `Binary Ninja`, `jtool2` / `jtool`, `lief`, `MachOView`, `otool-classic`
-- `lldb` or `gdb` attached to a macOS process, a system daemon, or a system framework, for the
-  purpose of stepping through or dumping code
+On a binary covered by this list, the only tools you may run that read or parse its contents are
+those in "Binaries you may point tools at". Copying, hashing, and running a guest application under
+Darling (rung 4) are not reading it. Everything else that reads or parses it is banned whether or
+not it is named below, however it is invoked (directly, through `xcrun`, a wrapper or a script).
+Named for clarity:
+
+- `otool` / `llvm-otool` in any mode other than `-L`, and `otool-classic`
+- `objdump` / `llvm-objdump` in any mode, including GNU `objdump -d`, `-s` and `-x`, and
+  `llvm-objdump --disassemble`, `--macho`, `--universal-headers`, `--all-headers`,
+  `--chained-fixups`, `--bind` and `--dylibs-used`
+- `strings`, `dyldinfo`, `dyld_info`, `llvm-readobj`, `rabin2`, and hex dumpers (`hexdump`, `xxd`,
+  `od`)
+- `radare2`, `r2`, `cutter`, `Ghidra`, `Hopper`, `IDA`, `Binary Ninja`, `jtool2` / `jtool`, `lief`,
+  `MachOView`
+- `ipsw` in any subcommand that reads a binary, `dsc_extractor`, or any other tool that extracts or
+  disassembles the dyld shared cache
+- `lldb` or `gdb` on anything but your own build output and the core dumps described under
+  "Binaries you may point tools at", and never to step into, disassemble, or read code, data,
+  stack words or backtrace frames belonging to an Apple image a process has loaded
 - `DYLD_INSERT_LIBRARIES`, `DYLD_PRINT_*` or `frida` injected into an Apple binary to hook its
-  internals
+  internals, or the `dyld` from a macOS install, or any Apple binary run under instrumentation that
+  observes inside it (hooks, breakpoints, single-stepping, PC sampling). Darling's own loader and
+  stubs recording calls that reach them are rung 4; what they record is limited as for
+  missing-symbol traces under "Provenance": no caller or return addresses, backtraces, stack
+  words, or contents behind a pointer.
 - `dtrace` / `perf` / `kprobe` tracing of Apple code paths
-- `class-dump`, or any other tool that reconstructs a class hierarchy from a running Apple process
+- `class-dump`, or any other tool that reconstructs a class hierarchy from an Apple binary or a
+  running Apple process
+- the superproject's `tools/stub-gen-c-func`, `tools/stub-gen-objc`, `tools/darling-stub-gen`,
+  `tools/darling-tier1-stub-gen` or `tools/generate-xcode-stubs.py`, or any script wrapping a tool
+  on this list, pointed at any binary this list covers: any Apple binary wherever it was copied
+  to, including a macOS install and Xcode
 - decompilers of any kind, including LLM-based ones
 - reading a disassembly listing produced by anyone else, including in a blog post, a conference
-  talk, a chat message, or a reversed-engineering wiki
+  talk, a chat message, or a reverse-engineering wiki
 
-That last one is the one people break by accident. A public write-up is *readable as
-specification*, and section "Escalation ladder" covers how, but it must never become the source of
-an implementation.
+That last one is the one people break by accident. A public write-up that contains no disassembly
+or decompiled code may be read as a description of behaviour; cite it, and treat it as rung 6 (a
+guess) unless it cites a rung 1 to 3 source. One that quotes disassembly or pseudo-code must not be
+read; if you have read it, follow "If a boundary is crossed".
 
 ### Escalation ladder
 
@@ -74,9 +103,9 @@ rung you used in the commit body.
    directory, or the target platform itself are all legitimate instruments here, because observing
    a documented interface from outside is what a compatibility layer is for. Observe inputs and
    outputs; do not step into the callee.
-5. **Demand analysis.** `nm` and `otool -L` tell you which symbols and libraries binaries actually
-   bind, so you can tell a missing symbol from a missing feature. See "Binaries you may point
-   tools at" below.
+5. **Demand analysis.** `nm -u`, `llvm-nm -u -m` (both flags together) and `otool -L` /
+   `llvm-otool -L` tell you which symbols and libraries guest applications actually bind, so you
+   can tell a missing symbol from a missing feature. See "Binaries you may point tools at" below.
 6. **Nothing above answers it.** Leave the symbol out and let the link error say so, or implement
    the conservative behaviour the documentation implies and say in the commit body that it is a
    guess and why.
@@ -85,18 +114,34 @@ Jumping from rung 4 to reading code is the failure this section exists to preven
 
 ### Binaries you may point tools at
 
-- **Your own build output.** Anything produced by this repository's build is fair game, including
-  for disassembling Darling's own code when debugging it.
+- **Your own build output.** Code compiled from source in Darling's repositories (the superproject
+  and its submodules). It excludes any Apple
+  binary or object the build copies, extracts, thins, re-signs or links in, and anything derived
+  from one. It is fair game, including for disassembling Darling's own code when debugging it.
 - **Binaries you wrote or that you are the author of.**
-- **Guest applications running inside a Darling prefix**, for **demand analysis only**: which
-  symbols they import, which frameworks they load, which classes they reference. That tells you
-  what to implement. It does not tell you how Apple implemented it, and you must not read their
-  code to find out.
+- **Guest applications inside a Darling prefix**, for **demand analysis only**: the app's
+  executable and the code bundled inside its own app bundle, including Apple stock apps copied
+  from a macOS install. Apple frameworks, dylibs, daemons, `dyld`, the dyld shared cache and
+  extracts from it are macOS-install code and never guest binaries, wherever they are copied to,
+  and no tool that reads or parses a binary, `nm -u` included, may be pointed at them. On a guest
+  application the only tools allowed are `nm -u`, `llvm-nm -u -m` (both flags together) and
+  `otool -L` / `llvm-otool -L`, to learn which symbols and libraries it imports; `otool -L` /
+  `llvm-otool -L` is the way to list dylibs. `file` and `lipo -info` / `lipo -archs` are also
+  allowed, on guest applications only, for the format and architecture only (header-level);
+  `lipo -thin`, `-extract` and `-detailed_info` stay banned. That tells you what to implement. It
+  does not tell you how Apple implemented it. Reading anything these tools print beyond names is
+  not allowed either.
 - **Apple's open-source releases from rung 1.** They are source. Read them; that is the point.
 
-Never point any of these tools at a binary from a macOS install, and never run
-`tools/stub-gen-c-func` or `tools/stub-gen-objc` against one. If a script in this repository appears
-to do that, that is a bug in the script: fix it or report it.
+A core dump of a crashed process built by Darling (such as `mldr` running a guest) may be read
+**only** for its register file and memory map (library names, load addresses). Nothing else in it
+is read: no disassembly at the pc, no `x/i`, `x/s` or byte dumps of any region, no backtrace
+symbolised against macOS-install code, no stepping. Cores are never searched for text; take a
+diagnostic such as `dyld`'s `Library not loaded:` from the loader's stderr or log.
+
+Apart from that demand analysis and the core-dump reading above, never point any of these tools at
+a binary from a macOS install, and never run the stub generators named above against one. If a
+script in this repository appears to do that, that is a bug in the script: fix it or report it.
 
 ### Provenance
 
@@ -108,22 +153,67 @@ For a change whose behaviour is not derivable from rungs 1 to 4, the commit body
 and states which rung supplied the guess. A reviewer can then judge the risk, which is the only
 reason the information is worth collecting.
 
+A commit that adds a private name, constant, key or struct layout names the rung and its source
+(file, documentation page, the observation described well enough to repeat: harness, inputs,
+outputs; or for rung 5 the guest application whose imports name it, which supplies the name only,
+never a value, signature or layout), or says GUESS. "GNUstep" and "as Apple does it" are not
+sources.
+
+GNUstep's (or any other reimplementation's) behaviour is not a specification of Apple's behaviour,
+so citing it is not a rung; it can support a rung 1 to 4 source, never replace one. Reading GNUstep
+code is not forbidden by this rule, but licence compatibility is a separate question: flag
+the LGPL before copying anything from it.
+
+Missing-symbol tracing in Darling's loader is planned, not yet merged. Where the loader offers it,
+it is optional and off by default. A trace may hold only the names of imports the loader could not
+resolve (rung 5) and, in modes that record them, raw argument words that reached Darling's own stub
+(rung 4). It never holds caller or return addresses, backtraces, stack words, the contents behind a
+pointer, or anything read from an Apple image; a trace that does is non-compliant: stop using it,
+move the log aside and follow "If a boundary is crossed". A trace never replaces rungs 1 to 3: work
+through them first, and name the rung for each fact taken from a trace.
+
 ### Never commit
 
-- Mach-O binaries, `.dSYM` bundles, `.class` files, PDBs, or any compiled output of Apple's
+- Mach-O binaries, `.dSYM` bundles, `.class` files, PDBs, or any compiled output of Apple's code
 - disassembly listings, decompiler output, or class dumps
 - header trees scraped from a local Xcode or macOS install that are not present in the upstream
   open-source release
-- symbol dumps of Apple binaries
+- symbol dumps of Apple binaries, including raw `nm`/`otool -L` output; the names you implement in
+  stubs are not dumps
+- missing-symbol trace logs, which are also never attached or pasted raw into an issue or PR
 - anything under `framework-include/` or `framework-private-include/` whose origin you cannot name
 
-### If you break the rule
+### If a boundary is crossed
+
+This applies whether you ran a forbidden tool yourself or read such output by accident, including
+output someone else produced.
 
 Stop. Do not paste the listing into a source file, a comment, an issue, a PR, or a chat message,
-and do not "clean it up" by rewriting it in your own words, which is still derived from it. Delete
-the artefact, then say plainly in the PR body what happened and which files were touched, so a
-reviewer can assess the damage. An honest disclosure costs one paragraph; a hidden derivative
-implementation invalidates the whole change.
+and do not "clean it up" by rewriting it in your own words, which is still derived from it. Then:
+
+1. Report it to whoever assigned the work: what was run, on which binaries, and which files were
+   touched, never the output itself. An agent that has run a tool on the "Never" list, or read its
+   output (disassembly, decompiled text, a class dump, a symbol or string dump, a trace holding
+   anything forbidden above), on any binary the rule covers, stops there and is replaced by a
+   fresh agent. Permitted demand-analysis output is not taint.
+2. Move the artefact, and everything the tainted agent or person wrote for the task, out of the
+   working tree into a directory outside any repository that is plainly marked as tainted. Nobody
+   opens, copies or cites it again, and it is not deleted without the approval of the person who
+   owns the work. Branches holding the tainted work are not merged or rebased onto; name them in
+   the report.
+3. For agent work, re-derive it cleanly: the specification is written by a fresh agent with no
+   access to the tainted material, from rungs 1 to 3; where they do not answer, that author may
+   perform rungs 4 and 5 afresh, never reusing observations, logs or demand lists from the tainted
+   party, and otherwise the item is left out or marked GUESS (rung 6). It is implemented by a
+   different fresh agent that sees only that specification. A human contributor needs no second
+   person: the disclosure in step 4 plus maintainer review of the change is the rule, and the
+   maintainer may require a clean re-derivation.
+4. Say plainly in the PR body what happened: what was run, on which binaries, which files were
+   touched, and whether anything was transcribed (anything that was is moved aside under step 2),
+   so a reviewer can assess the damage.
+
+An honest disclosure costs one paragraph; a hidden derivative implementation invalidates the whole
+change.
 
 ## 2. Commit standard
 
