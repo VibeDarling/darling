@@ -226,8 +226,8 @@ disagree, CLAUDE.md wins.
   serialise every build, install or prefix boot under that host's lock. On the maintainers' host it
   is `flock -w 1800 /tmp/agent-locks/darling-heavy-build.lock <command>`, with `ninja -j1` when
   `MemAvailable` in `/proc/meminfo` is low (not `MemFree`, see `docs/agent-knowledge.md`).
-- **No prebuilt runtime exists.** The `v0.1.*` releases are GitHub-generated changelogs with no
-  assets. Build from source; update this bullet when a CI runtime release exists.
+- **No prebuilt runtime exists.** The `v0.1.*` releases are GitHub-generated release notes (a "What's
+  Changed" PR list, checked via the releases API for `v0.1.20260921`) with no assets. Build from source; update this bullet when a CI runtime release exists.
 - **Recipe: build a private runtime from default branches and run it.**
   1. Use an independent clone with every submodule at its own default branch, not a worktree.
   2. Take the heavy-build lock if your host has one.

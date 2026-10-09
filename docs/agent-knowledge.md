@@ -1,9 +1,9 @@
 # Agent knowledge base
 
 Measured facts, recipes, and pitfalls that cost real time to rediscover. Each item was measured once
-on one host; items marked (unverified) were not re-checked against this tree. Keep it free of status that goes stale: defects belong in
-[`../known-issues.md`](../known-issues.md), and per-app progress belongs in each agent's own
-scratch `STATUS.md`.
+on one host; items marked (unverified) were not re-checked against this tree. Keep it free of status
+that goes stale: defects belong in [`../known-issues.md`](../known-issues.md), and per-app progress
+belongs in each agent's own scratch `STATUS.md`.
 
 ## Reading this codebase
 
@@ -27,8 +27,8 @@ scratch `STATUS.md`.
   at"): `nm`, `objdump`, `strings` and debuggers on our own build output only. On guest app
   binaries, only `nm` and `otool -L`, for demand analysis (ladder rung 5). Nothing on a binary from
   a macOS install.
-- **`ninja` can report "no work to do" on a stale binary (unverified, seen once)** when a header change did not invalidate
-  what it should. `touch` the source file to force the relink.
+- **`ninja` can report "no work to do" on a stale binary (unverified, seen once)** when a header
+  change did not invalidate what it should. `touch` the source file to force the relink.
 - **`MemFree` is the wrong memory gate.** It excludes reclaimable page cache. Read
   `MemAvailable` from `/proc/meminfo` instead; the two can differ by gigabytes.
 
@@ -64,7 +64,7 @@ built from this tree), never to step through guest app code or anything from a m
 
 - `gdb -p <darlingserver>` failed on one host (unverified elsewhere): `ptrace_scope` was 1, so only a
   direct parent may trace.
-- The setuid launcher refuses to run traced ("Failed to drop privileges for non-root mode"). A
+- (unverified) The setuid launcher refuses to run traced ("Failed to drop privileges for non-root mode"). A
   non-setuid copy runs, but `follow-fork-mode child` then breaks `popen`'s fork+exec, and `darling`
   daemonises the container so you are never its parent.
 - `/proc/<pid>/task/*/syscall` and `/proc/<pid>/task/*/stack` are permission denied for setuid
@@ -98,8 +98,8 @@ A stub satisfies the loader so the next, more specific error can appear.
           -Wl,-platform_version,macos,11.0,11.0 -install_name '<guest path>' \
           -o '<prefix><guest path>' stub.c
 
-Details that each cost an attempt: `ld64.lld` worked (the build's own cctools ld64 was not tried); `-nostdlib` is required or it looks
-for a `-lSystem` that does not exist here; `-platform_version` is a *linker* flag, so pass it as
+Details that each cost an attempt: `ld64.lld` worked (the build's own cctools ld64 was not
+tried); `-nostdlib` is required or it looks for a `-lSystem` that does not exist here; `-platform_version` is a *linker* flag, so pass it as
 `-Wl,-platform_version,...`; dependency flags (`-MD`, `-MT`, `-MF`) hijack the `-o` output name, so
 whitelist the flags you keep rather than stripping the ones you do not; the path dyld reports is a
 **guest** path and must be created under the prefix on the **host**; create the *dirname* of the binary
