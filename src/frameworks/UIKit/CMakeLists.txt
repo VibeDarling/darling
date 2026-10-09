@@ -14,6 +14,7 @@ add_framework(UIKit
         src/UIGraphicsContext.m
         src/UIImage.m
         src/UIGraphicsImageContext.m
+        src/UISceneConfiguration.m
         src/UIResponder.m
         src/UIApplication.m
         src/UIScreen.m

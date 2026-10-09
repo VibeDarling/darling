@@ -34,5 +34,6 @@
 #import <UIKit/UIGraphicsContext.h>
 #import <UIKit/UIImage.h>
 #import <UIKit/UIGraphicsImageContext.h>
+#import <UIKit/UISceneConfiguration.h>
 
 #endif /* UIKIT_UIKIT_H */
