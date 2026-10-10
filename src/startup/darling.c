@@ -427,6 +427,22 @@ static void spawnShellspawn(void)
 		setenv("__mldr_sockpath", dserverSock, 1);
 		setenv("__mldr_DYLD_ROOT_PATH", mldrDyldRoot, 1);
 
+		// Sanitize host Linux locale variables that break macOS BSD libc initialization
+		unsetenv("LC_ALL");
+		unsetenv("LC_ADDRESS");
+		unsetenv("LC_NAME");
+		unsetenv("LC_MONETARY");
+		unsetenv("LC_PAPER");
+		unsetenv("LC_IDENTIFICATION");
+		unsetenv("LC_TELEPHONE");
+		unsetenv("LC_MEASUREMENT");
+		unsetenv("LC_TIME");
+		unsetenv("LC_NUMERIC");
+		unsetenv("LC_COLLATE");
+		unsetenv("LC_MESSAGES");
+		unsetenv("LANGUAGE");
+		setenv("LANG", "en_US.UTF-8", 1);
+
 		execl(mldrBin,
 		      vchrootArg0,
 		      "vchroot",
@@ -2625,6 +2641,20 @@ void setupShellspawnEnv(int sockfd)
 		"HOME",
 		"TERM",
 		"PERL5LIB",
+		"LANG",
+		"LANGUAGE",
+		"LC_ALL",
+		"LC_ADDRESS",
+		"LC_NAME",
+		"LC_MONETARY",
+		"LC_PAPER",
+		"LC_IDENTIFICATION",
+		"LC_TELEPHONE",
+		"LC_MEASUREMENT",
+		"LC_TIME",
+		"LC_NUMERIC",
+		"LC_COLLATE",
+		"LC_MESSAGES",
 	};
 
 	char buffer2[4096];
@@ -2690,6 +2720,7 @@ void setupShellspawnEnv(int sockfd)
 	snprintf(buffer2, sizeof(buffer2), "HOME=/Users/%s", login);
 	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, buffer2);
 	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, "TERM=xterm-256color");
+	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, "LANG=en_US.UTF-8");
 	pushShellspawnCommand(sockfd, SHELLSPAWN_SETENV, "CURL_SSL_BACKEND=openssl");
 
 	for (char** var_ptr = environ; *var_ptr != NULL; ++var_ptr) {

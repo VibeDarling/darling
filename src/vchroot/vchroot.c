@@ -24,16 +24,20 @@ int main(int argc, const char** argv)
 	DLOG("VCHROOT MAIN ENTERED! argc=%d argv[0]=%s argv[1]=%s argv[2]=%s\n",
 		argc, argv[0] ? argv[0] : "(null)", argv[1] ? argv[1] : "(null)", argv[2] ? argv[2] : "(null)");
 
-	char host_path[4096];
-	snprintf(host_path, sizeof(host_path), "/Volumes/SystemRoot%s", argv[1]);
-	int dfd = open(host_path, O_RDONLY | O_DIRECTORY);
-	if (dfd == -1)
-	{
-		dfd = open(".", O_RDONLY | O_DIRECTORY);
-	}
-	if (dfd == -1)
-	{
+	// In nonroot mode there is no mount namespace, so the prefix is a plain
+	// host directory and must be opened directly. In root/rootless mode we
+	// are already inside a mount namespace where the host root is visible
+	// under /Volumes/SystemRoot, so try that path first.
+	int dfd = -1;
+	if (getenv("DARLING_NONROOT")) {
 		dfd = open(argv[1], O_RDONLY | O_DIRECTORY);
+	} else {
+		char host_path[4096];
+		if (snprintf(host_path, sizeof(host_path), "/Volumes/SystemRoot%s", argv[1])
+		    < (int)sizeof(host_path))
+			dfd = open(host_path, O_RDONLY | O_DIRECTORY);
+		if (dfd == -1)
+			dfd = open(argv[1], O_RDONLY | O_DIRECTORY);
 	}
 	if (dfd == -1)
 	{
