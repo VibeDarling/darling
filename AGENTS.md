@@ -81,7 +81,9 @@ or decompiled code may be read as a description of behaviour. Cite it only as GU
 (rung 6), never as a specification; if it cites a rung 1 to 3 source, cite that source instead.
 A write-up that quotes disassembly or pseudo-code, whose method is disassembly, decompilation,
 class dumping or tracing inside Apple code, or that does not state its method, is not read or
-cited, conclusions included; if you have read one, follow "If a boundary is crossed".
+cited, conclusions included; if you have read one, follow "If a boundary is crossed". Only a
+write-up whose stated method is documentation, black-box observation or open-source reading may
+be cited; a summary or retelling of a write-up that is barred is barred too.
 
 ### Escalation ladder
 
