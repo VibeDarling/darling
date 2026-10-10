@@ -1,5 +1,8 @@
 # Working on Darling locally
 
+The clean-room rule and the commit standard live in [AGENTS.md](AGENTS.md), which is the source of
+truth for both; read it first.
+
 Operational notes for anyone, human or agent, doing local development and integration work on this
 repository. These are things that are easy to get wrong in ways that produce a confident wrong
 answer rather than an error.
