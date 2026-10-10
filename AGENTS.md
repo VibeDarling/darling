@@ -77,10 +77,11 @@ Named for clarity:
   talk, a chat message, or a reverse-engineering wiki
 
 That last one is the one people break by accident. A public write-up that contains no disassembly
-or decompiled code may be read as a description of behaviour. Cite it only if it states its method
-and contains no listing, and then only as GUESS-grade (rung 6), never as a specification; if it
-cites a rung 1 to 3 source, cite that source instead. One that quotes disassembly or pseudo-code
-must not be read; if you have read it, follow "If a boundary is crossed".
+or decompiled code may be read as a description of behaviour. Cite it only as GUESS-grade
+(rung 6), never as a specification; if it cites a rung 1 to 3 source, cite that source instead.
+A write-up that quotes disassembly or pseudo-code, whose method is disassembly, decompilation,
+class dumping or tracing inside Apple code, or that does not state its method, is not read or
+cited, conclusions included; if you have read one, follow "If a boundary is crossed".
 
 ### Escalation ladder
 
