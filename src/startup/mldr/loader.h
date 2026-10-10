@@ -5,10 +5,16 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+// Size of the Darwin main stack mapping, in pages (capped by RLIMIT_STACK).
+#define MLDR_MAIN_STACK_PAGES 16
+// The argv/envp/apple pointer arrays may use at most 1/N of that mapping.
+#define MLDR_STACK_ARGS_DIVISOR 2
+
 struct load_results {
 	unsigned long mh;
 	unsigned long entry_point;
 	unsigned long stack_size;
+	unsigned long main_stack_size;
 	unsigned long dyld_all_image_location;
 	unsigned long dyld_all_image_size;
 	uint8_t uuid[16];
@@ -35,5 +41,13 @@ struct load_results {
 	// warning on Android where __tlv_bootstrap is not yet implemented in dyld.
 	bool has_tlv_descriptors;
 };
+
+// Returns true if `fixed_words + argc + envc` machine words fit in the share of a
+// `stack_bytes`-sized stack reserved for the argument block.
+static inline bool mldr_stack_args_fit(size_t stack_bytes, size_t word_size, size_t argc, size_t envc, size_t fixed_words) {
+	size_t max_words = stack_bytes / MLDR_STACK_ARGS_DIVISOR / word_size;
+
+	return argc < max_words && envc < max_words && fixed_words <= max_words && argc + envc <= max_words - fixed_words;
+}
 
 #endif // _MLDR_LOADER_H_

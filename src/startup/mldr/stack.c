@@ -140,7 +140,13 @@ void FUNCTION_NAME(const char* filepath, struct load_results* lr)
 	// `envc`-count pointers for env vars (+1 for NULL)
 	// `sizeof(applep_contents) / sizeof(*applep_contents)`-count pointers for applep arguments (already includes NULL)
 	// space for exepath, kernfd, and elfcalls
-	sp -= 1 + 1 + (lr->argc + 1) + (lr->envc + 1) + (sizeof(applep_contents) / sizeof(*applep_contents)) + user_long_count(exepath_len + sizeof(EXECUTABLE_PATH) + sizeof(kernfd) + sizeof(elfcalls) + sizeof(elfcalls_size) + sizeof(tsd_slot));
+	size_t fixed_words = 1 + 1 + 1 + 1 + (sizeof(applep_contents) / sizeof(*applep_contents)) + user_long_count(exepath_len + sizeof(EXECUTABLE_PATH) + sizeof(kernfd) + sizeof(elfcalls) + sizeof(elfcalls_size) + sizeof(tsd_slot));
+	if (!mldr_stack_args_fit(lr->main_stack_size, sizeof(user_long_t), lr->argc, lr->envc, fixed_words))
+	{
+		fprintf(stderr, "Argument and environment lists are too large for the %lu-byte stack (argc=%zu, envc=%zu)\n", lr->main_stack_size, (size_t) lr->argc, (size_t) lr->envc);
+		exit(1);
+	}
+	sp -= fixed_words + lr->argc + lr->envc;
 
 	exepath_user = (char __user*) lr->stack_top - exepath_len - sizeof(EXECUTABLE_PATH);
 	memcpy(exepath_user, EXECUTABLE_PATH, sizeof(EXECUTABLE_PATH)-1);

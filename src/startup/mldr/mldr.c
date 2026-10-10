@@ -1031,10 +1031,11 @@ static void setup_space(struct load_results* lr, bool is_64_bit) {
 	struct rlimit limit;
 	getrlimit(RLIMIT_STACK, &limit);
 	// allocate a few pages 16 pages if it's less than the limit; otherwise, allocate the limit
-	unsigned long size = PAGE_SIZE * 16;
+	unsigned long size = PAGE_SIZE * MLDR_MAIN_STACK_PAGES;
 	if (limit.rlim_cur != RLIM_INFINITY && limit.rlim_cur < size) {
 		size = limit.rlim_cur;
 	}
+	lr->main_stack_size = size;
 
 	if (compatible_mmap((void*)(lr->stack_top - size), size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE | MAP_GROWSDOWN, -1, 0) == MAP_FAILED) {
 		fprintf(stderr, "Failed to allocate stack of %lu bytes: %d (%s)\n", size, errno, strerror(errno));
@@ -1227,6 +1228,10 @@ static void vchroot_unexpand_interpreter(struct load_results* lr) {
 		length = strlen(lr->argv[0]);
 
 		if (strncmp(lr->argv[0], lr->root_path, lr->root_path_length) == 0) {
+			if (length - lr->root_path_length >= sizeof(unexpanded)) {
+				fprintf(stderr, "Interpreter path is too long (%zu bytes, limit %zu)\n", length - lr->root_path_length, sizeof(unexpanded) - 1);
+				exit(1);
+			}
 			memmove(unexpanded, lr->argv[0] + lr->root_path_length, length - lr->root_path_length + 1);
 			lr->argv[0] = unexpanded;
 		} else if (strncmp(lr->argv[0], SYSTEM_ROOT, sizeof(SYSTEM_ROOT) - 1) == 0 ||
