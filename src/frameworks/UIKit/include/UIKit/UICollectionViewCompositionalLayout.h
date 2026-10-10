@@ -6,7 +6,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface NSCollectionLayoutDimension : NSObject <NSCopying>
+@interface NSCollectionLayoutDimension : NSObject <NSCopying> {
+@package
+    NSUInteger _kind;
+    CGFloat _dimension;
+}
 + (instancetype)absoluteDimension:(CGFloat)value;
 + (instancetype)estimatedDimension:(CGFloat)value;
 + (instancetype)fractionalWidthDimension:(CGFloat)value;
@@ -20,7 +24,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)new NS_UNAVAILABLE;
 @end
 
-@interface NSCollectionLayoutSize : NSObject <NSCopying>
+@interface NSCollectionLayoutSize : NSObject <NSCopying> {
+@package
+    NSCollectionLayoutDimension *_widthDimension;
+    NSCollectionLayoutDimension *_heightDimension;
+}
 + (instancetype)sizeWithWidthDimension:(NSCollectionLayoutDimension *)width
                       heightDimension:(NSCollectionLayoutDimension *)height;
 @property(nonatomic, readonly) NSCollectionLayoutDimension *widthDimension;
@@ -29,7 +37,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)new NS_UNAVAILABLE;
 @end
 
-@interface NSCollectionLayoutSpacing : NSObject <NSCopying>
+@interface NSCollectionLayoutSpacing : NSObject <NSCopying> {
+@package
+    CGFloat _spacing;
+    BOOL _fixed;
+}
 + (instancetype)fixedSpacing:(CGFloat)value;
 + (instancetype)flexibleSpacing:(CGFloat)value;
 @property(nonatomic, readonly) CGFloat spacing;
@@ -39,7 +51,13 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)new NS_UNAVAILABLE;
 @end
 
-@interface NSCollectionLayoutEdgeSpacing : NSObject <NSCopying>
+@interface NSCollectionLayoutEdgeSpacing : NSObject <NSCopying> {
+@package
+    NSCollectionLayoutSpacing *_leading;
+    NSCollectionLayoutSpacing *_top;
+    NSCollectionLayoutSpacing *_trailing;
+    NSCollectionLayoutSpacing *_bottom;
+}
 + (instancetype)spacingForLeading:(nullable NSCollectionLayoutSpacing *)leading
                              top:(nullable NSCollectionLayoutSpacing *)top
                         trailing:(nullable NSCollectionLayoutSpacing *)trailing
