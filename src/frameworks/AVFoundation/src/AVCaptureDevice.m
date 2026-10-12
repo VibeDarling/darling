@@ -21,6 +21,35 @@
 
 @implementation AVCaptureDevice
 
++ (NSArray *)devices {
+    return [NSArray array];
+}
+
++ (NSArray *)devicesWithMediaType:(AVMediaType)mediaType {
+    (void)mediaType;
+    return [self devices];
+}
+
++ (AVCaptureDevice *)defaultDeviceWithMediaType:(AVMediaType)mediaType {
+    (void)mediaType;
+    return nil;
+}
+
++ (AVAuthorizationStatus)authorizationStatusForMediaType:(AVMediaType)mediaType
+{
+	// There is no capture hardware access and no consent store here; report
+	// Denied so callers take their no-access path.
+	(void)mediaType;
+	return AVAuthorizationStatusDenied;
+}
+
++ (void)requestAccessForMediaType:(AVMediaType)mediaType completionHandler:(void (^)(BOOL))handler
+{
+	(void)mediaType;
+	if (handler)
+		handler(NO);
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];
 }
