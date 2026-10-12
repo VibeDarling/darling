@@ -50,6 +50,14 @@ void reapAll(void);
 
 int main(int argc, const char** argv)
 {
+	// Ignore SIGPIPE. shellspawn writes to client and child sockets and pipes
+	// whose peers can close at any time (the `darling` client probing the
+	// socket and disconnecting, or a shell whose stdout pipe is closed). With
+	// the default disposition the first such write kills shellspawn, which
+	// removes the container's shell service, and every later `darling shell`
+	// fails with "Connection refused".
+	signal(SIGPIPE, SIG_IGN);
+
 	// shellspawn (daemon) --fork()--> shellspawn (child) --fork()--> exec /bin/bash
 	// in order to read the exit status of the shell process,
 	// we have to allow it to become a zombie, therefore we need to
