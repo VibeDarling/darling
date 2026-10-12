@@ -19,6 +19,9 @@ UInt32 TSMGetDeadKeyState(void);
 void TSMSetDeadKeyState(UInt32 state);
 OSStatus TSMProcessRawKeyCode(EventRef event);
 
+OSStatus TSMSetDocumentProperty(TSMDocumentID docID, OSType propertyTag, ByteCount propertySize, void *propertyData);
+OSStatus TSMRemoveDocumentProperty(TSMDocumentID docID, OSType propertyTag);
+
 #ifdef __cplusplus
 }
 #endif
