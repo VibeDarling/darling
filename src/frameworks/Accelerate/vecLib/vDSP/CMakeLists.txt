@@ -8,6 +8,7 @@ add_darling_library(vDSP SHARED
 	src/vDSP.c
 	src/extrema.c
 	src/arith.c
+	src/fft.c
 )
 # WebAudio calls these on the realtime render thread.
 target_compile_options(vDSP PRIVATE -O2)

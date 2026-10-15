@@ -29,24 +29,6 @@ static void initme(void) {
     verbose = getenv("STUB_VERBOSE") != NULL;
 }
 
-void* vDSP_create_fftsetup(void)
-{
-    if (verbose) puts("STUB: vDSP_create_fftsetup called");
-    return NULL;
-}
-
-void* vDSP_destroy_fftsetup(void)
-{
-    if (verbose) puts("STUB: vDSP_destroy_fftsetup called");
-    return NULL;
-}
-
-void* vDSP_fft_zrip(void)
-{
-    if (verbose) puts("STUB: vDSP_fft_zrip called");
-    return NULL;
-}
-
 void* vDSP_DCT_CreateSetup(void)
 {
     if (verbose) puts("STUB: vDSP_DCT_CreateSetup called");
