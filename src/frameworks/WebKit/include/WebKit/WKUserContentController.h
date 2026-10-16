@@ -37,6 +37,8 @@
 - (void)removeAllUserScripts;
 @end
 
+@class WKScriptMessage;
+
 @protocol WKScriptMessageHandler <NSObject>
 - (void)userContentController:(WKUserContentController *)userContentController
       didReceiveScriptMessage:(WKScriptMessage *)message;

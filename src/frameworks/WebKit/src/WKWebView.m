@@ -170,6 +170,9 @@ static const char *dwb_socket_path(void)
 
 	_host = [[WKWebViewHostState alloc] init];
 	_lastURL = @"";
+	/* Idle means "finished", not "0% done" - a view that has never loaded is at 1.0
+	 * until a load starts, which is what -estimatedProgress resets to 0.0. */
+	_estimatedProgress = 1.0;
 	_configuration = (configuration != nil) ? [configuration retain] : nil;
 
 	/* One pull, at load, showed a single frame and then nothing: no repaints, no
@@ -385,6 +388,8 @@ static const char *dwb_socket_path(void)
 	[_configuration release];
 	[_navigationDelegate release];
 	[_title release];
+	[_currentRequest release];
+	[_customUserAgent release];
 	[super dealloc];
 }
 
@@ -445,6 +450,13 @@ static const char *dwb_socket_path(void)
 		}
 	}
 
+	/* Record the request before announcing, so a delegate asking -request from
+	 * didStartProvisionalNavigation sees this load rather than the previous one. */
+	if (_currentRequest != request) {
+		[_currentRequest release];
+		_currentRequest = [request retain];
+	}
+
 	/* webView:didStartProvisionalNavigation:, before the host is told to load.
 	 * The app's binary carries it, and a loadingOverlay with six references that
 	 * has to appear when a load starts. Sending only the end event left an
@@ -454,6 +466,8 @@ static const char *dwb_socket_path(void)
 
 	if (dwb_client_navigate(&_host->client, [url UTF8String]) != 0) {
 		_loading = NO;
+		/* The load is over, unsuccessfully; progress must not stay at 0.0 forever. */
+		_estimatedProgress = 1.0;
 		/* A failed navigation must not look like success. The host tells us
 		 * why - an unreachable origin, a refused connection - and the guest
 		 * needs that, because the previous behaviour was to report success and
@@ -552,6 +566,12 @@ static const char *dwb_socket_path(void)
 /* webView:didStartProvisionalNavigation: - the load has been requested. */
 - (void) announceNavigationStarted
 {
+	/* Set before the delegate check: -isLoading and -estimatedProgress are queried
+	 * independently of whether a delegate happens to be attached. Previously
+	 * _loading was only ever set to NO anywhere in this file, so -isLoading always
+	 * answered NO and -estimatedProgress could never report progress. */
+	_loading = YES;
+	_estimatedProgress = 0.0;
 	id delegate = _navigationDelegate;
 	if (delegate == nil ||
 	    ![delegate respondsToSelector: @selector(webView:didStartProvisionalNavigation:)])
@@ -572,6 +592,7 @@ static const char *dwb_socket_path(void)
 	/* Cleared first, so a delegate that triggers another load does not re-enter
 	 * this and announce twice for one page. */
 	_loading = NO;
+	_estimatedProgress = 1.0;
 	id delegate = _navigationDelegate;
 	if (delegate == nil ||
 	    ![delegate respondsToSelector: @selector(webView:didFinishNavigation:)])
@@ -768,6 +789,57 @@ static const char *dwb_socket_path(void)
 - (NSString *) title
 {
 	return _title ? _title : @"";
+}
+
+/* These accessors were missing entirely, and an unimplemented selector raises NSException and
+ * takes the whole app down at startup - so apps were dying before drawing anything. They report
+ * real state, which means the load lifecycle has to maintain it: -loadRequest: records the
+ * request and resets progress, and progress reaches 1 when the load finishes. */
+
+- (NSURL *) URL
+{
+	/* _lastURL is maintained by -loadRequest:; it starts as @"" so an idle view
+	 * reports nil rather than an empty-string URL. */
+	if (_lastURL == nil || [_lastURL length] == 0)
+		return nil;
+	return [NSURL URLWithString: _lastURL];
+}
+
+- (NSURLRequest *) request
+{
+	return _currentRequest;
+}
+
+- (NSString *) loadingTitle
+{
+	return _title ? _title : @"";
+}
+
+- (double) estimatedProgress
+{
+	return _estimatedProgress;
+}
+
+- (id) scrollView
+{
+	/* Not a stub: this shim has no scroll view because it has no layout - the host renders
+	 * the page and the guest never scrolls it. Returning nil is the accurate answer, and it
+	 * is what callers must already handle. */
+	return nil;
+}
+
+- (NSString *) customUserAgent
+{
+	return _customUserAgent;
+}
+
+- (void) setCustomUserAgent: (NSString *)userAgent
+{
+	if (_customUserAgent == userAgent) {
+		return;
+	}
+	[_customUserAgent release];
+	_customUserAgent = [userAgent copy];
 }
 
 - (BOOL) canGoBack
