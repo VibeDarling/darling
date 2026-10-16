@@ -450,6 +450,13 @@ static const char *dwb_socket_path(void)
 		}
 	}
 
+	/* Record the request before announcing, so a delegate asking -request from
+	 * didStartProvisionalNavigation sees this load rather than the previous one. */
+	if (_currentRequest != request) {
+		[_currentRequest release];
+		_currentRequest = [request retain];
+	}
+
 	/* webView:didStartProvisionalNavigation:, before the host is told to load.
 	 * The app's binary carries it, and a loadingOverlay with six references that
 	 * has to appear when a load starts. Sending only the end event left an
@@ -457,16 +464,10 @@ static const char *dwb_socket_path(void)
 	 * missing callback. */
 	[self announceNavigationStarted];
 
-	/* Record the request so -request and -URL report the navigation in flight, and reset
-	 * progress so -estimatedProgress tracks this load rather than the previous one. */
-	if (_currentRequest != request) {
-		[_currentRequest release];
-		_currentRequest = [request retain];
-	}
-	_estimatedProgress = 0.0;
-
 	if (dwb_client_navigate(&_host->client, [url UTF8String]) != 0) {
 		_loading = NO;
+		/* The load is over, unsuccessfully; progress must not stay at 0.0 forever. */
+		_estimatedProgress = 1.0;
 		/* A failed navigation must not look like success. The host tells us
 		 * why - an unreachable origin, a refused connection - and the guest
 		 * needs that, because the previous behaviour was to report success and
@@ -838,7 +839,7 @@ static const char *dwb_socket_path(void)
 		return;
 	}
 	[_customUserAgent release];
-	_customUserAgent = [userAgent retain];
+	_customUserAgent = [userAgent copy];
 }
 
 - (BOOL) canGoBack
