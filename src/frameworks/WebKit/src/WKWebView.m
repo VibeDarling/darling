@@ -770,6 +770,44 @@ static const char *dwb_socket_path(void)
 	return _title ? _title : @"";
 }
 
+/* Standard accessors that were missing entirely. An unimplemented selector raises
+ * NSException and takes the whole app down at startup, so these return honest
+ * placeholders rather than pretending to know state the shim does not track. */
+
+- (NSURL *) URL
+{
+	return nil;
+}
+
+- (NSURLRequest *) request
+{
+	return nil;
+}
+
+- (NSString *) loadingTitle
+{
+	return [self title];
+}
+
+- (double) estimatedProgress
+{
+	return [self isLoading] ? 0.0 : 1.0;
+}
+
+- (id) scrollView
+{
+	return nil;
+}
+
+- (NSString *) customUserAgent
+{
+	return nil;
+}
+
+- (void) setCustomUserAgent: (NSString *)userAgent
+{
+}
+
 - (BOOL) canGoBack
 {
 	return NO;
