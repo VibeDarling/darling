@@ -9,7 +9,10 @@ jobs:
     - name: Checkout Darling
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: false
+
+    - name: Checkout canonical submodules
+      run: python3 scripts/ci/checkout_submodules.py
 
     - name: Install dependencies
       run: |
@@ -41,7 +44,10 @@ jobs:
     - name: Checkout Darling
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: false
+
+    - name: Checkout canonical submodules
+      run: python3 scripts/ci/checkout_submodules.py
 
     - name: Install dependencies
       run: |
@@ -67,8 +73,12 @@ jobs:
     - name: Checkout Darling
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: false
         path: source/darling
+
+    - name: Checkout canonical submodules
+      working-directory: source/darling
+      run: python3 scripts/ci/checkout_submodules.py
 
     - name: Compress source
       run: |
