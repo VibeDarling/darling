@@ -47,6 +47,9 @@
 	BOOL _allowsLinkPreview;
 	BOOL _loading;
 	NSString *_title;
+	id _currentRequest;
+	NSString *_customUserAgent;
+	double _estimatedProgress;
 }
 
 @end
