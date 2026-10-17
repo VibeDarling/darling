@@ -45,9 +45,72 @@ int _LSHostOpenSchemeSupported(const char* url)
 	return 0;
 }
 
+/* RFC 3986 reserved and unreserved characters; '%' is checked separately. */
+static int url_char_allowed(unsigned char c)
+{
+	if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+		return 1;
+	return c != '\0' && strchr("-._~:/?#[]@!$&'()*+,;=", c) != NULL;
+}
+
+static int hex_digit(unsigned char c)
+{
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	return -1;
+}
+
+/*
+ * Compares the percent-decoded query parameter name starting at "name" (ending at
+ * '=', '&', ';' or the end of the string) with a lowercase ASCII word.
+ */
+static int query_name_is(const char* name, const char* word)
+{
+	size_t w = 0;
+
+	while (*name != '\0' && *name != '=' && *name != '&' && *name != ';')
+	{
+		int c = (unsigned char) *name;
+
+		if (c == '%' && hex_digit((unsigned char) name[1]) >= 0 && hex_digit((unsigned char) name[2]) >= 0)
+		{
+			c = hex_digit((unsigned char) name[1]) * 16 + hex_digit((unsigned char) name[2]);
+			name += 2;
+		}
+		if (c >= 'A' && c <= 'Z')
+			c += 'a' - 'A';
+		if (word[w] == '\0' || c != (unsigned char) word[w])
+			return 0;
+		w++;
+		name++;
+	}
+	return word[w] == '\0';
+}
+
+/* Several mail clients attach the file named by a mailto: "attach" parameter to the draft. */
+static int mailto_attaches_file(const char* url)
+{
+	const char* query = strchr(url, '?');
+
+	while (query != NULL)
+	{
+		const char* name = query + 1;
+
+		if (query_name_is(name, "attach") || query_name_is(name, "attachment"))
+			return 1;
+		query = strpbrk(name, "&;");
+	}
+	return 0;
+}
+
 int _LSHostOpenValidateURL(const char* url)
 {
 	size_t len;
+	int is_mailto;
 
 	if (!_LSHostOpenSchemeSupported(url))
 		return -LS_HOST_LINUX_EINVAL;
@@ -56,12 +119,33 @@ int _LSHostOpenValidateURL(const char* url)
 	if (len > LS_HOST_OPEN_MAX_URL_LENGTH)
 		return -LS_HOST_LINUX_EINVAL;
 
+	/* Only characters that can appear in an RFC 3986 URL; this rejects whitespace, control and
+	   non-ASCII bytes, quotes, angle brackets, backslash, caret, backtick, braces and bar. */
 	for (size_t i = 0; i < len; i++)
 	{
 		unsigned char c = (unsigned char) url[i];
-		if (c < 0x20 || c == 0x7f)
+
+		if (c == '%')
+		{
+			if (hex_digit((unsigned char) url[i + 1]) < 0 || hex_digit((unsigned char) url[i + 2]) < 0)
+				return -LS_HOST_LINUX_EINVAL;
+			i += 2;
+		}
+		else if (!url_char_allowed(c))
 			return -LS_HOST_LINUX_EINVAL;
 	}
+
+	is_mailto = strncasecmp(url, "mailto:", 7) == 0;
+	if (!is_mailto)
+	{
+		/* http: and https: need an authority; "http:foo" is not a web link */
+		const char* after = url + (strncasecmp(url, "https:", 6) == 0 ? 6 : 5);
+
+		if (strncmp(after, "//", 2) != 0 || after[2] == '\0' || after[2] == '/')
+			return -LS_HOST_LINUX_EINVAL;
+	}
+	else if (mailto_attaches_file(url))
+		return -LS_HOST_LINUX_EINVAL;
 	return 0;
 }
 
