@@ -19,10 +19,25 @@
 
 #include <Foundation/Foundation.h>
 
+typedef NS_ENUM(int, CLAuthorizationStatus) {
+	kCLAuthorizationStatusNotDetermined = 0,
+	kCLAuthorizationStatusRestricted = 1,
+	kCLAuthorizationStatusDenied = 2,
+	kCLAuthorizationStatusAuthorizedAlways = 3,
+	kCLAuthorizationStatusAuthorizedWhenInUse = 4,
+	kCLAuthorizationStatusAuthorized = kCLAuthorizationStatusAuthorizedAlways,
+};
+
 @interface CLLocationManager : NSObject
 {
 	id _delegate;
 }
+
+/* There is no location service and no consent store here: report Denied and
+ * services disabled so callers take their no-access path. */
++ (CLAuthorizationStatus)authorizationStatus;
++ (BOOL)locationServicesEnabled;
+- (CLAuthorizationStatus)authorizationStatus;
 
 /* A real property, so callers get a proper accessor instead of falling
  * through to the stub forwardInvocation, whose 0-arg signature raises
