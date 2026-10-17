@@ -869,7 +869,7 @@ static void socket_bitmap_put(socket_bitmap_t* bitmap, int socket) {
 				}
 			}
 
-			if ((bitmap->bits[index / 8] & (1 << (index % 8))) == 0) {
+			if ((bitmap->bits[index / 8] & (1 << (index % 8))) != 0) {
 				// this bit is in-use, so we can't shrink any further
 				break;
 			}
@@ -881,12 +881,18 @@ static void socket_bitmap_put(socket_bitmap_t* bitmap, int socket) {
 
 		if (old_byte_size != new_byte_size) {
 			// we can free one or more bytes from the bitmap
-			void* ptr = realloc(bitmap->bits, new_byte_size);
-			if (!ptr) {
-				goto out;
-			}
+			if (new_byte_size == 0) {
+				// realloc(ptr, 0) may free the block and return NULL, which would leave bitmap->bits dangling
+				free(bitmap->bits);
+				bitmap->bits = NULL;
+			} else {
+				void* ptr = realloc(bitmap->bits, new_byte_size);
+				if (!ptr) {
+					goto out;
+				}
 
-			bitmap->bits = ptr;
+				bitmap->bits = ptr;
+			}
 		}
 	}
 
