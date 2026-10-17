@@ -108,6 +108,14 @@ void listenForConnections(void)
 		{
 			if (errno == EINTR || errno == EAGAIN || errno == ECONNABORTED)
 				continue;
+			if (errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM)
+			{
+				// Transient resource shortage: keep the service, retry shortly.
+				perror("shellspawn: accept");
+				usleep(100 * 1000);
+				continue;
+			}
+			perror("shellspawn: accept");
 			break;
 		}
 
