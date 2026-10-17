@@ -50,12 +50,10 @@ void reapAll(void);
 
 int main(int argc, const char** argv)
 {
-	// Ignore SIGPIPE. shellspawn writes to client and child sockets and pipes
-	// whose peers can close at any time (the `darling` client probing the
-	// socket and disconnecting, or a shell whose stdout pipe is closed). With
-	// the default disposition the first such write kills shellspawn, which
-	// removes the container's shell service, and every later `darling shell`
-	// fails with "Connection refused".
+	// Ignore SIGPIPE in shellspawn itself: the per-connection child reports the
+	// shell's exit status to a client socket that may already be closed, and that
+	// write should fail with EPIPE instead of killing the process. The ignore is
+	// inherited across fork and exec, so the shell gets the default back below.
 	signal(SIGPIPE, SIG_IGN);
 
 	// shellspawn (daemon) --fork()--> shellspawn (child) --fork()--> exec /bin/bash
@@ -308,6 +306,11 @@ void spawnShell(int fd)
 		close(shellfd[2]);
 
 		fcntl(pipefd[1], F_SETFD, FD_CLOEXEC);
+
+		// An ignored signal stays ignored across exec; the shell and every program
+		// started from it must see the default SIGPIPE, or `cmd | head` pipelines
+		// print "Broken pipe" errors and writers that ignore errors spin.
+		signal(SIGPIPE, SIG_DFL);
 
 		// In future, we may support spawning something else than Zsh
 		// and check the provided shell against /etc/shells
