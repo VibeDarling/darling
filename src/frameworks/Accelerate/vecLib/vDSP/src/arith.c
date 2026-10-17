@@ -17,18 +17,22 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stddef.h>
 #include <vDSP/vDSP.h>
+
+// Loop indices are signed so that "i * stride" stays signed: vDSP strides may be
+// negative, and an unsigned index would turn that product into pointer overflow.
 
 void vDSP_vadd(const float *__A, vDSP_Stride __IA, const float *__B, vDSP_Stride __IB, float *__C, vDSP_Stride __IC, vDSP_Length __N)
 {
 	if (__IA == 1 && __IB == 1 && __IC == 1)
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i] = __A[i] + __B[i];
 	}
 	else
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i * __IC] = __A[i * __IA] + __B[i * __IB];
 	}
 }
@@ -38,12 +42,12 @@ void vDSP_vsub(const float *__B, vDSP_Stride __IB, const float *__A, vDSP_Stride
 {
 	if (__IA == 1 && __IB == 1 && __IC == 1)
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i] = __A[i] - __B[i];
 	}
 	else
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i * __IC] = __A[i * __IA] - __B[i * __IB];
 	}
 }
@@ -52,12 +56,12 @@ void vDSP_vmul(const float *__A, vDSP_Stride __IA, const float *__B, vDSP_Stride
 {
 	if (__IA == 1 && __IB == 1 && __IC == 1)
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i] = __A[i] * __B[i];
 	}
 	else
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i * __IC] = __A[i * __IA] * __B[i * __IB];
 	}
 }
@@ -68,12 +72,12 @@ void vDSP_vsmul(const float *__A, vDSP_Stride __IA, const float *__B, float *__C
 
 	if (__IA == 1 && __IC == 1)
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i] = __A[i] * b;
 	}
 	else
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i * __IC] = __A[i * __IA] * b;
 	}
 }
@@ -84,12 +88,12 @@ void vDSP_vsadd(const float *__A, vDSP_Stride __IA, const float *__B, float *__C
 
 	if (__IA == 1 && __IC == 1)
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i] = __A[i] + b;
 	}
 	else
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__C[i * __IC] = __A[i * __IA] + b;
 	}
 }
@@ -100,12 +104,12 @@ void vDSP_vsma(const float *__A, vDSP_Stride __IA, const float *__B, const float
 
 	if (__IA == 1 && __IC == 1 && __ID == 1)
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__D[i] = __A[i] * b + __C[i];
 	}
 	else
 	{
-		for (vDSP_Length i = 0; i < __N; i++)
+		for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 			__D[i * __ID] = __A[i * __IA] * b + __C[i * __IC];
 	}
 }
@@ -114,7 +118,7 @@ void vDSP_svesq(const float *__A, vDSP_Stride __IA, float *__C, vDSP_Length __N)
 {
 	float sum = 0;
 
-	for (vDSP_Length i = 0; i < __N; i++)
+	for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 		sum += __A[i * __IA] * __A[i * __IA];
 	*__C = sum;
 }
@@ -123,7 +127,7 @@ void vDSP_vclip(const float *__A, vDSP_Stride __IA, const float *__B, const floa
 {
 	const float low = *__B, high = *__C;
 
-	for (vDSP_Length i = 0; i < __N; i++)
+	for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 	{
 		float v = __A[i * __IA];
 		if (v < low)
@@ -137,12 +141,12 @@ void vDSP_vclip(const float *__A, vDSP_Stride __IA, const float *__B, const floa
 // Correlation, or convolution when F points at the filter's last tap with a negative stride.
 void vDSP_conv(const float *__A, vDSP_Stride __IA, const float *__F, vDSP_Stride __IF, float *__C, vDSP_Stride __IC, vDSP_Length __N, vDSP_Length __P)
 {
-	for (vDSP_Length n = 0; n < __N; n++)
+	for (ptrdiff_t n = 0; n < (ptrdiff_t) __N; n++)
 	{
 		const float *a = __A + n * __IA;
 		float sum = 0;
 
-		for (vDSP_Length p = 0; p < __P; p++)
+		for (ptrdiff_t p = 0; p < (ptrdiff_t) (__P); p++)
 			sum += a[p * __IA] * __F[p * __IF];
 		__C[n * __IC] = sum;
 	}
@@ -153,7 +157,7 @@ void vDSP_ctoz(const DSPComplex *__C, vDSP_Stride __IC, const DSPSplitComplex *_
 {
 	const float *c = (const float *) __C;
 
-	for (vDSP_Length i = 0; i < __N; i++)
+	for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 	{
 		__Z->realp[i * __IZ] = c[i * __IC];
 		__Z->imagp[i * __IZ] = c[i * __IC + 1];
@@ -164,7 +168,7 @@ void vDSP_ztoc(const DSPSplitComplex *__Z, vDSP_Stride __IZ, DSPComplex *__C, vD
 {
 	float *c = (float *) __C;
 
-	for (vDSP_Length i = 0; i < __N; i++)
+	for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 	{
 		c[i * __IC] = __Z->realp[i * __IZ];
 		c[i * __IC + 1] = __Z->imagp[i * __IZ];
@@ -176,7 +180,7 @@ void vDSP_zvmul(const DSPSplitComplex *__A, vDSP_Stride __IA, const DSPSplitComp
 {
 	const float sign = __Conjugate == -1 ? -1.0f : 1.0f;
 
-	for (vDSP_Length i = 0; i < __N; i++)
+	for (ptrdiff_t i = 0; i < (ptrdiff_t) __N; i++)
 	{
 		const float ar = __A->realp[i * __IA], ai = sign * __A->imagp[i * __IA];
 		const float br = __B->realp[i * __IB], bi = __B->imagp[i * __IB];
@@ -193,7 +197,7 @@ void vDSP_deq22D(const double *__A, vDSP_Stride __IA, const double *__B, double 
 	double x1 = __A[__IA], x2 = __A[0];
 	double y1 = __C[__IC], y2 = __C[0];
 
-	for (vDSP_Length n = 2; n < __N + 2; n++)
+	for (ptrdiff_t n = 2; n < (ptrdiff_t) (__N + 2); n++)
 	{
 		const double x = __A[n * __IA];
 		const double y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
@@ -212,7 +216,7 @@ void vDSP_deq22(const float *__A, vDSP_Stride __IA, const float *__B, float *__C
 	float x1 = __A[__IA], x2 = __A[0];
 	float y1 = __C[__IC], y2 = __C[0];
 
-	for (vDSP_Length n = 2; n < __N + 2; n++)
+	for (ptrdiff_t n = 2; n < (ptrdiff_t) (__N + 2); n++)
 	{
 		const float x = __A[n * __IA];
 		const float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
