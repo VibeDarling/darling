@@ -18,6 +18,14 @@
 */
 
 #include <Foundation/Foundation.h>
+#include <AVFoundation/AVMediaFormat.h>
+
+typedef NS_ENUM(NSInteger, AVAuthorizationStatus) {
+	AVAuthorizationStatusNotDetermined = 0,
+	AVAuthorizationStatusRestricted = 1,
+	AVAuthorizationStatusDenied = 2,
+	AVAuthorizationStatusAuthorized = 3,
+};
 
 extern NSString *const AVCaptureDeviceTypeBuiltInWideAngleCamera;
 extern NSString *const AVCaptureDeviceTypeBuiltInTelephotoCamera;
@@ -35,5 +43,12 @@ extern NSString *const AVCaptureDeviceTypeContinuityCamera;
 extern NSString *const AVCaptureDeviceTypeDeskViewCamera;
 
 @interface AVCaptureDevice : NSObject
+
++ (NSArray *)devices;
++ (NSArray *)devicesWithMediaType:(AVMediaType)mediaType;
++ (AVCaptureDevice *)defaultDeviceWithMediaType:(AVMediaType)mediaType;
+
++ (AVAuthorizationStatus)authorizationStatusForMediaType:(AVMediaType)mediaType;
++ (void)requestAccessForMediaType:(AVMediaType)mediaType completionHandler:(void (^)(BOOL granted))handler;
 
 @end
