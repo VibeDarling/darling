@@ -7,7 +7,11 @@ set(DYLIB_CURRENT_VERSION "671.250.4")
 add_darling_library(vDSP SHARED
 	src/vDSP.c
 	src/extrema.c
+	src/arith.c
+	src/fft.c
 )
+# WebAudio calls these on the realtime render thread.
+target_compile_options(vDSP PRIVATE -O2)
 make_fat(vDSP)
 target_link_libraries(vDSP system)
 install(TARGETS vDSP DESTINATION libexec/darling/usr/lib)
