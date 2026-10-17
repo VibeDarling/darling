@@ -42,7 +42,7 @@ int g_serverSocket = -1;
 struct sigaction sigchld_oldaction;
 
 void setupSocket(void);
-void listenForConnections(void);
+int listenForConnections(void);
 void spawnShell(int fd);
 void setupSigchild(void);
 void restoreSigchild(void);
@@ -62,11 +62,11 @@ int main(int argc, const char** argv)
 	// restore the sigaction of SIGCHLD of the child shellspawn
 	setupSigchild();
 	setupSocket();
-	listenForConnections();
+	int status = listenForConnections();
 
 	if (g_serverSocket != -1)
 		close(g_serverSocket);
-	return 0;
+	return status == 0 ? 0 : EXIT_FAILURE;
 }
 
 void setupSocket(void)
@@ -101,11 +101,12 @@ void setupSocket(void)
 	}
 }
 
-void listenForConnections(void)
+int listenForConnections(void)
 {
 	int sock;
 	struct sockaddr_un addr;
 	socklen_t len = sizeof(addr);
+	bool logged = false;
 
 	while (true)
 	{
@@ -117,13 +118,19 @@ void listenForConnections(void)
 			if (errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM)
 			{
 				// Transient resource shortage: keep the service, retry shortly.
-				perror("shellspawn: accept");
+				// Log once per streak of failures, not every retry.
+				if (!logged)
+				{
+					perror("shellspawn: accept");
+					logged = true;
+				}
 				usleep(100 * 1000);
 				continue;
 			}
 			perror("shellspawn: accept");
-			break;
+			return -1;
 		}
+		logged = false;
 
 		if (fork() == 0)
 		{
