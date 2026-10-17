@@ -846,6 +846,11 @@ static void socket_bitmap_put(socket_bitmap_t* bitmap, int socket) {
 
 	pthread_mutex_lock(&bitmap->mutex);
 
+	// a socket that could not be placed on a slot (see socket_bitmap_place) has no bit to clear
+	if (socket > bitmap->highest || (size_t)(bitmap->highest - socket) >= bitmap->bit_length) {
+		goto out;
+	}
+
 	index = bitmap->highest - socket;
 
 	bitmap->bits[index / 8] &= ~(1 << (index % 8));
@@ -902,6 +907,28 @@ out:
 	pthread_mutex_unlock(&bitmap->mutex);
 };
 
+/**
+ * Move `fd` to the next free slot. dup2() would silently close whatever already holds that number, which is not
+ * necessarily ours: the slots are only reserved in the bitmap, so a native library or the guest can be holding one
+ * (the kernel hands out the lowest free number, and a process with many descriptors reaches the slot range), and
+ * its owner would later close our socket. F_DUPFD never replaces a descriptor: if the slot is taken, it returns the
+ * lowest free number above it instead, and the slot goes back to the bitmap.
+ *
+ * Returns the new descriptor or -1; `fd` is left open either way.
+ */
+static int socket_bitmap_place(int fd) {
+	int slot = socket_bitmap_get(&socket_bitmap);
+	if (slot < 0) {
+		return -1;
+	}
+
+	int placed = fcntl(fd, F_DUPFD, slot);
+	if (placed != slot) {
+		socket_bitmap_put(&socket_bitmap, slot);
+	}
+	return placed;
+}
+
 int __mldr_create_rpc_socket(void) {
 	int pre_fd = -1;
 	int fd = -1;
@@ -911,21 +938,16 @@ int __mldr_create_rpc_socket(void) {
 		goto err_out;
 	}
 
-	fd = socket_bitmap_get(&socket_bitmap);
+	fd = socket_bitmap_place(pre_fd);
 	if (fd < 0) {
-		goto err_out;
-	}
-
-	if (dup2(pre_fd, fd) < 0) {
-		socket_bitmap_put(&socket_bitmap, fd);
+		// it could not be moved; keep it where it is
 		fd = pre_fd;
-		pre_fd = -1;
 	} else {
 		close(pre_fd);
-		pre_fd = -1;
 	}
+	pre_fd = -1;
 
-	// `fd` now contains the socket with the desired FD number returned by `socket_bitmap_get`
+	// `fd` now contains the socket, normally on the slot returned by `socket_bitmap_get`
 
 	int fd_flags = fcntl(fd, F_GETFD);
 	if (fd_flags < 0) {
@@ -975,14 +997,8 @@ int __mldr_create_process_lifetime_pipe(int* fds) {
 	}
 
 	for (int i = 0; i < 2; ++i) {
-		fds[i] = socket_bitmap_get(&socket_bitmap);
+		fds[i] = socket_bitmap_place(pre_fds[i]);
 		if (fds[i] < 0) {
-			goto err_out;
-		}
-
-		if (dup2(pre_fds[i], fds[i]) < 0) {
-			socket_bitmap_put(&socket_bitmap, fds[i]);
-			fds[i] = -1;
 			goto err_out;
 		}
 
