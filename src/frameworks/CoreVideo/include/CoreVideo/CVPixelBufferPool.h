@@ -32,6 +32,7 @@ typedef struct CV_BRIDGED_TYPE(id) __CVPixelBufferPool* CVPixelBufferPoolRef;
 
 extern const CFStringRef kCVPixelBufferPoolMaximumBufferAgeKey;
 extern const CFStringRef kCVPixelBufferPoolMinimumBufferCountKey;
+extern const CFStringRef kCVPixelBufferPoolAllocationThresholdKey;
 
 CV_EXPORT CFTypeID CVPixelBufferPoolGetTypeID(void);
 CV_EXPORT CVPixelBufferPoolRef CVPixelBufferPoolRetain(CVPixelBufferPoolRef pixelBufferPool);
