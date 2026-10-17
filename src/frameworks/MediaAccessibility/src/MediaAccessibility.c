@@ -25,7 +25,7 @@
 
 static int verbose = 0;
 
-// The value is the constant's own name.
+// UNVERIFIED: the value is the constant's own name, which no public source confirms.
 const CFStringRef kMACaptionAppearanceSettingsChangedNotification = CFSTR("kMACaptionAppearanceSettingsChangedNotification");
 
 __attribute__((constructor))
