@@ -17,6 +17,7 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stddef.h>
 #include <vDSP/vDSP.h>
 #include <stdlib.h>
 #include <math.h>
@@ -71,12 +72,12 @@ static void complex_fft(const struct OpaqueFFTSetup *setup, float *re, float *im
 		j ^= bit;
 		if (i < j)
 		{
-			float t = re[i * stride];
-			re[i * stride] = re[j * stride];
-			re[j * stride] = t;
-			t = im[i * stride];
-			im[i * stride] = im[j * stride];
-			im[j * stride] = t;
+			float t = re[(ptrdiff_t) i * stride];
+			re[(ptrdiff_t) i * stride] = re[(ptrdiff_t) j * stride];
+			re[(ptrdiff_t) j * stride] = t;
+			t = im[(ptrdiff_t) i * stride];
+			im[(ptrdiff_t) i * stride] = im[(ptrdiff_t) j * stride];
+			im[(ptrdiff_t) j * stride] = t;
 		}
 	}
 
@@ -91,7 +92,7 @@ static void complex_fft(const struct OpaqueFFTSetup *setup, float *re, float *im
 			{
 				const float wr = setup->cosine[k * step];
 				const float wi = inverse ? setup->sine[k * step] : -setup->sine[k * step];
-				const size_t a = (base + k) * stride, b = (base + k + half) * stride;
+				const ptrdiff_t a = (ptrdiff_t) (base + k) * stride, b = (ptrdiff_t) (base + k + half) * stride;
 				const float tr = re[b] * wr - im[b] * wi;
 				const float ti = re[b] * wi + im[b] * wr;
 
@@ -129,13 +130,13 @@ void vDSP_fft_zrip(FFTSetup __Setup, const DSPSplitComplex *__C, vDSP_Stride __I
 		{
 			const size_t j = m - k;
 			const float c = __Setup->cosine[k * step], sn = __Setup->sine[k * step];
-			const float ar = re[k * s], ai = im[k * s], br = re[j * s], bi = im[j * s];
+			const float ar = re[(ptrdiff_t) k * s], ai = im[(ptrdiff_t) k * s], br = re[(ptrdiff_t) j * s], bi = im[(ptrdiff_t) j * s];
 			const float sr = ar + br, si = ai - bi, dr = ar - br, di = ai + bi;
 
-			re[k * s] = sr + (c * di - sn * dr);
-			im[k * s] = si - (c * dr + sn * di);
-			re[j * s] = sr - (c * di - sn * dr);
-			im[j * s] = -si - (c * dr + sn * di);
+			re[(ptrdiff_t) k * s] = sr + (c * di - sn * dr);
+			im[(ptrdiff_t) k * s] = si - (c * dr + sn * di);
+			re[(ptrdiff_t) j * s] = sr - (c * di - sn * dr);
+			im[(ptrdiff_t) j * s] = -si - (c * dr + sn * di);
 		}
 	}
 	else
@@ -148,13 +149,13 @@ void vDSP_fft_zrip(FFTSetup __Setup, const DSPSplitComplex *__C, vDSP_Stride __I
 		{
 			const size_t j = m - k;
 			const float c = __Setup->cosine[k * step], sn = __Setup->sine[k * step];
-			const float ar = re[k * s], ai = im[k * s], br = re[j * s], bi = im[j * s];
+			const float ar = re[(ptrdiff_t) k * s], ai = im[(ptrdiff_t) k * s], br = re[(ptrdiff_t) j * s], bi = im[(ptrdiff_t) j * s];
 			const float sr = ar + br, si = ai - bi, dr = ar - br, di = ai + bi;
 
-			re[k * s] = sr - (c * di + sn * dr);
-			im[k * s] = si + (c * dr - sn * di);
-			re[j * s] = sr + (c * di + sn * dr);
-			im[j * s] = -si + (c * dr - sn * di);
+			re[(ptrdiff_t) k * s] = sr - (c * di + sn * dr);
+			im[(ptrdiff_t) k * s] = si + (c * dr - sn * di);
+			re[(ptrdiff_t) j * s] = sr + (c * di + sn * dr);
+			im[(ptrdiff_t) j * s] = -si + (c * dr - sn * di);
 		}
 
 		complex_fft(__Setup, re, im, s, __Log2N - 1, 1);
