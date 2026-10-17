@@ -318,9 +318,30 @@ void spawnShell(int fd)
 		setsid();
 		setpgrp();
 
-		dup2(shellfd[0], STDIN_FILENO);
-		dup2(shellfd[1], STDOUT_FILENO);
-		dup2(shellfd[2], STDERR_FILENO);
+		// If shellspawn was started with stdio closed, the control socket and
+		// the streams can themselves be 0, 1 or 2. Close the socket first and
+		// copy every stream above 2 before replacing any of 0, 1 and 2.
+		close(fd);
+		int moved[3];
+		for (int i = 0; i < 3; i++)
+		{
+			moved[i] = fcntl(shellfd[i], F_DUPFD_CLOEXEC, STDERR_FILENO + 1);
+			if (moved[i] == -1)
+			{
+				int error = errno;
+				write(pipefd[1], &error, sizeof(error));
+				exit(EXIT_FAILURE);
+			}
+		}
+		for (int i = 0; i < 3; i++)
+		{
+			if (shellfd[i] > STDERR_FILENO)
+				close(shellfd[i]);
+		}
+
+		dup2(moved[0], STDIN_FILENO);
+		dup2(moved[1], STDOUT_FILENO);
+		dup2(moved[2], STDERR_FILENO);
 
 		if (ctty_slave != -1)
 		{
@@ -335,11 +356,6 @@ void spawnShell(int fd)
 			close(ctty_slave);
 		if (ctty_master != -1)
 			close(ctty_master);
-
-		close(fd);
-		close(shellfd[0]);
-		close(shellfd[1]);
-		close(shellfd[2]);
 
 		fcntl(pipefd[1], F_SETFD, FD_CLOEXEC);
 
