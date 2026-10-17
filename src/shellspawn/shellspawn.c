@@ -42,7 +42,7 @@ int g_serverSocket = -1;
 struct sigaction sigchld_oldaction;
 
 void setupSocket(void);
-void listenForConnections(void);
+int listenForConnections(void);
 void spawnShell(int fd);
 void setupSigchild(void);
 void restoreSigchild(void);
@@ -50,17 +50,23 @@ void reapAll(void);
 
 int main(int argc, const char** argv)
 {
+	// Ignore SIGPIPE in shellspawn itself: the per-connection child reports the
+	// shell's exit status to a client socket that may already be closed, and that
+	// write should fail with EPIPE instead of killing the process. The ignore is
+	// inherited across fork and exec, so the shell gets the default back below.
+	signal(SIGPIPE, SIG_IGN);
+
 	// shellspawn (daemon) --fork()--> shellspawn (child) --fork()--> exec /bin/bash
 	// in order to read the exit status of the shell process,
 	// we have to allow it to become a zombie, therefore we need to
 	// restore the sigaction of SIGCHLD of the child shellspawn
 	setupSigchild();
 	setupSocket();
-	listenForConnections();
+	int status = listenForConnections();
 
 	if (g_serverSocket != -1)
 		close(g_serverSocket);
-	return 0;
+	return status == 0 ? 0 : EXIT_FAILURE;
 }
 
 void setupSocket(void)
@@ -95,11 +101,12 @@ void setupSocket(void)
 	}
 }
 
-void listenForConnections(void)
+int listenForConnections(void)
 {
 	int sock;
 	struct sockaddr_un addr;
 	socklen_t len = sizeof(addr);
+	bool logged = false;
 
 	while (true)
 	{
@@ -108,8 +115,22 @@ void listenForConnections(void)
 		{
 			if (errno == EINTR || errno == EAGAIN || errno == ECONNABORTED)
 				continue;
-			break;
+			if (errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM)
+			{
+				// Transient resource shortage: keep the service, retry shortly.
+				// Log once per streak of failures, not every retry.
+				if (!logged)
+				{
+					perror("shellspawn: accept");
+					logged = true;
+				}
+				usleep(100 * 1000);
+				continue;
+			}
+			perror("shellspawn: accept");
+			return -1;
 		}
+		logged = false;
 
 		if (fork() == 0)
 		{
@@ -300,6 +321,11 @@ void spawnShell(int fd)
 		close(shellfd[2]);
 
 		fcntl(pipefd[1], F_SETFD, FD_CLOEXEC);
+
+		// An ignored signal stays ignored across exec; the shell and every program
+		// started from it must see the default SIGPIPE, or `cmd | head` pipelines
+		// print "Broken pipe" errors and writers that ignore errors spin.
+		signal(SIGPIPE, SIG_DFL);
 
 		// In future, we may support spawning something else than Zsh
 		// and check the provided shell against /etc/shells
