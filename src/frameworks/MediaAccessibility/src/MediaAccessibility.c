@@ -25,6 +25,7 @@
 
 static int verbose = 0;
 
+// The value is the constant's own name.
 const CFStringRef kMACaptionAppearanceSettingsChangedNotification = CFSTR("kMACaptionAppearanceSettingsChangedNotification");
 
 __attribute__((constructor))

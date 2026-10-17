@@ -20,9 +20,11 @@
 #import <ImageCaptureCore/ICCameraItem.h>
 
 ICDownloadOption const ICDownloadsDirectoryURL = @"ICDownloadsDirectoryURL";
+// The values of the next three are the constants' own names.
 ICDownloadOption const ICOverwrite = @"ICOverwrite";
 ICDownloadOption const ICSaveAsFilename = @"ICSaveAsFilename";
 ICDownloadOption const ICSavedFilename = @"ICSavedFilename";
+// GUESS, unverified: no public source states this value.
 ICDownloadOption const ICTransportTypeMassStorage = @"MassStorage";
 
 @implementation ICCameraItem

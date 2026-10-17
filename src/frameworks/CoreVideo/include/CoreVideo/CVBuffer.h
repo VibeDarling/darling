@@ -14,6 +14,8 @@ typedef CF_ENUM(uint32_t, CVAttachmentMode) {
 	kCVAttachmentMode_ShouldPropagate    = 1
 };
 
+extern const CFStringRef kCVBufferPropagatedAttachmentsKey;
+
 CV_EXPORT CVBufferRef CVBufferRetain(CVBufferRef buffer);
 CV_EXPORT void CVBufferRelease(CVBufferRef buffer);
 
