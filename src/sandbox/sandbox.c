@@ -10,7 +10,9 @@ const enum sandbox_filter_type SANDBOX_CHECK_NO_REPORT = SANDBOX_FILTER_NONE;
 
 int sandbox_init(const char *profile, uint64_t flags, char **errorbuf)
 {
-	*errorbuf = strdup("Not implemented");
+	if (errorbuf != NULL) {
+		*errorbuf = strdup("Not implemented");
+	}
 	return 0;
 }
 
@@ -51,13 +53,17 @@ void sandbox_free_error(char *errorbuf)
 
 int sandbox_init_with_parameters(const char *profile, uint64_t flags, const char *const parameters[], char **errorbuf)
 {
-	*errorbuf = strdup("Not implemented");
+	if (errorbuf != NULL) {
+		*errorbuf = strdup("Not implemented");
+	}
 	return 0;
 }
 
 int sandbox_init_with_extensions(const char *profile, uint64_t flags, const char *const extensions[], char **errorbuf)
 {
-	*errorbuf = strdup("Not implemented");
+	if (errorbuf != NULL) {
+		*errorbuf = strdup("Not implemented");
+	}
 	return 0;
 }
 
@@ -129,7 +135,9 @@ int sandbox_container_path_for_pid(pid_t pid, char *buffer, size_t bufsize)
 
 int sandbox_wakeup_daemon(char **errorbuf)
 {
-	*errorbuf = strdup("Not implemented");
+	if (errorbuf != NULL) {
+		*errorbuf = strdup("Not implemented");
+	}
 	return -1;
 }
 

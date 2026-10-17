@@ -21,6 +21,7 @@
 #include <sandbox/sandbox.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 static int verbose = 0;
 
@@ -29,10 +30,23 @@ static void initme(void) {
     verbose = getenv("STUB_VERBOSE") != NULL;
 }
 
-void* sandbox_apply(void)
+/* There is no seatbelt compiler or enforcement here. Compiling a profile and
+ * applying one fail with an error instead of pretending a sandbox is in force,
+ * so a client such as a renderer does not run believing it is confined.
+ * Shapes follow the documented SPI (profile and params are opaque here). */
+#define SANDBOX_UNSUPPORTED "sandboxing is not supported on Darling"
+
+static void set_unsupported(char **error)
+{
+    if (error != NULL)
+        *error = strdup(SANDBOX_UNSUPPORTED);
+}
+
+int sandbox_apply(void *profile)
 {
     if (verbose) puts("STUB: sandbox_apply called");
-    return NULL;
+    (void)profile;
+    return -1;
 }
 
 void* sandbox_apply_container(void)
@@ -47,9 +61,11 @@ void* sandbox_compile_entitlements(void)
     return NULL;
 }
 
-void* sandbox_compile_file(void)
+void* sandbox_compile_file(const char *path, void *params, char **error)
 {
     if (verbose) puts("STUB: sandbox_compile_file called");
+    (void)path; (void)params;
+    set_unsupported(error);
     return NULL;
 }
 
@@ -59,9 +75,11 @@ void* sandbox_compile_named(void)
     return NULL;
 }
 
-void* sandbox_compile_string(void)
+void* sandbox_compile_string(const char *data, void *params, char **error)
 {
     if (verbose) puts("STUB: sandbox_compile_string called");
+    (void)data; (void)params;
+    set_unsupported(error);
     return NULL;
 }
 
@@ -77,16 +95,18 @@ void* sandbox_create_params(void)
     return NULL;
 }
 
-void* sandbox_free_params(void)
+/* sandbox_create_params returns NULL, so there is never anything to free. */
+void sandbox_free_params(void *params)
 {
     if (verbose) puts("STUB: sandbox_free_params called");
-    return NULL;
+    (void)params;
 }
 
-void* sandbox_free_profile(void)
+/* sandbox_compile_* never return a profile, so there is never anything to free. */
+void sandbox_free_profile(void *profile)
 {
     if (verbose) puts("STUB: sandbox_free_profile called");
-    return NULL;
+    (void)profile;
 }
 
 void* sandbox_inspect_pid(void)

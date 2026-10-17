@@ -21,16 +21,16 @@
 #ifndef _sandbox_H_
 #define _sandbox_H_
 
-void* sandbox_apply(void);
+int sandbox_apply(void *profile);
 void* sandbox_apply_container(void);
 void* sandbox_compile_entitlements(void);
-void* sandbox_compile_file(void);
+void* sandbox_compile_file(const char *path, void *params, char **error);
 void* sandbox_compile_named(void);
-void* sandbox_compile_string(void);
+void* sandbox_compile_string(const char *data, void *params, char **error);
 void* sandbox_container_paths_iterate_items(void);
 void* sandbox_create_params(void);
-void* sandbox_free_params(void);
-void* sandbox_free_profile(void);
+void sandbox_free_params(void *params);
+void sandbox_free_profile(void *profile);
 void* sandbox_inspect_pid(void);
 void* sandbox_inspect_smemory(void);
 void* sandbox_set_param(void);
