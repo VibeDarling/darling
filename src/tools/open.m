@@ -150,7 +150,22 @@ int main(int argc, char *argv[])
 		NSURL** urls = (NSURL**) malloc(count * sizeof(NSURL*));
 
 		for (int i = 0; i < count; i++)
-			urls[i] = [NSURL URLWithString:[NSString stringWithCString: argv[optind+i] encoding: NSUTF8StringEncoding]];
+		{
+			NSString* str = [NSString stringWithCString: argv[optind+i] encoding: NSUTF8StringEncoding];
+			if (str == nil)
+			{
+				fprintf(stderr, "open: argument is not valid UTF-8: %s\n", argv[optind+i]);
+				return EXIT_FAILURE;
+			}
+
+			// +URLWithString: also accepts a bare path ("/tmp/a.txt", "a.txt") and
+			// returns a URL without a scheme, so test for the scheme instead of for
+			// nil. Anything without one is a file path, resolved against the current
+			// directory; nil (illegal URL characters such as a space) is a path too.
+			urls[i] = [NSURL URLWithString: str];
+			if (urls[i] == nil || [urls[i] scheme] == nil)
+				urls[i] = [NSURL fileURLWithPath: str];
+		}
 		
 		filenames = [NSArray arrayWithObjects: urls count: count];
 		free(urls);
