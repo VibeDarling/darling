@@ -30,3 +30,9 @@ const CFStringRef kVTCompressionPropertyKey_MaxFrameDelayCount = CFSTR("MaxFrame
 const CFStringRef kVTCompressionPropertyKey_ExpectedFrameRate = CFSTR("ExpectedFrameRate");
 
 const CFStringRef kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder = CFSTR("RequireHardwareAcceleratedVideoEncoder");
+
+// ColorPrimaries, TransferFunction and YCbCrMatrix are defined in VideoToolbox.m.
+// GUESS, no public source: the value follows the naming of the neighbouring keys.
+const CFStringRef kVTCompressionPropertyKey_BaseLayerFrameRateFraction = CFSTR("BaseLayerFrameRateFraction");
+// Matches the literal public encoders (FFmpeg videotoolboxenc.c) fall back to.
+const CFStringRef kVTVideoEncoderSpecification_EnableLowLatencyRateControl = CFSTR("EnableLowLatencyRateControl");

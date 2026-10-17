@@ -19,10 +19,14 @@
 
 
 #include <MediaAccessibility/MediaAccessibility.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 static int verbose = 0;
+
+// UNVERIFIED: the value is the constant's own name, which no public source confirms.
+const CFStringRef kMACaptionAppearanceSettingsChangedNotification = CFSTR("kMACaptionAppearanceSettingsChangedNotification");
 
 __attribute__((constructor))
 static void initme(void) {
