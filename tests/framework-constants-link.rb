@@ -14,6 +14,47 @@ ADDED = %w[kVTCompressionPropertyKey_BaseLayerFrameRateFraction kVTVideoEncoderS
   kCVImageBufferTransferFunction_sRGB kCVBufferPropagatedAttachmentsKey kCVImageBufferContentLightLevelInfoKey
   kCVImageBufferMasteringDisplayColorVolumeKey kCVPixelBufferPoolAllocationThresholdKey kMACaptionAppearanceSettingsChangedNotification]
 DEF = /^\s*(?:const\s+CFStringRef|CFStringRef\s+const)\s+(k\w+)\s*=\s*CFSTR\("[^"]*"\);/
+# Name, framework, defining text. Each added constant must be defined exactly
+# once in its framework's sources, with this type and value, and be declared in
+# a public header with the same type. CoreLocation and ImageCaptureCore are
+# checked here too: they are not CFSTR constants the link step above can cut out.
+EXPECTED = {
+  'kCLLocationAccuracyBestForNavigation' => ['CoreLocation', 'CLLocationAccuracy', '-2.0'],
+  'kCLLocationAccuracyBest' => ['CoreLocation', 'CLLocationAccuracy', '-1.0'],
+  'kCLLocationAccuracyNearestTenMeters' => ['CoreLocation', 'CLLocationAccuracy', '10.0'],
+  'kCLLocationAccuracyHundredMeters' => ['CoreLocation', 'CLLocationAccuracy', '100.0'],
+  'kCLLocationAccuracyKilometer' => ['CoreLocation', 'CLLocationAccuracy', '1000.0'],
+  'kCLLocationAccuracyThreeKilometers' => ['CoreLocation', 'CLLocationAccuracy', '3000.0'],
+  'ICOverwrite' => ['ImageCaptureCore', 'ICDownloadOption', '@"ICOverwrite"'],
+  'ICSaveAsFilename' => ['ImageCaptureCore', 'ICDownloadOption', '@"ICSaveAsFilename"'],
+  'ICSavedFilename' => ['ImageCaptureCore', 'ICDownloadOption', '@"ICSavedFilename"'],
+  'ICTransportTypeMassStorage' => ['ImageCaptureCore', 'ICDownloadOption', '@"ICTransportTypeMassStorage"'],
+  'kMACaptionAppearanceSettingsChangedNotification' => ['MediaAccessibility', 'CFStringRef', 'CFSTR("kMACaptionAppearanceSettingsChangedNotification")'],
+  'kVTCompressionPropertyKey_BaseLayerFrameRateFraction' => ['VideoToolbox', 'CFStringRef', 'CFSTR("BaseLayerFrameRateFraction")'],
+  'kVTVideoEncoderSpecification_EnableLowLatencyRateControl' => ['VideoToolbox', 'CFStringRef', 'CFSTR("EnableLowLatencyRateControl")'],
+  'kCVImageBufferTransferFunction_sRGB' => ['CoreVideo', 'CFStringRef', 'CFSTR("IEC_sRGB")'],
+  'kCVBufferPropagatedAttachmentsKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("CVBufferPropagatedAttachments")'],
+  'kCVImageBufferContentLightLevelInfoKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("ContentLightLevelInfo")'],
+  'kCVImageBufferMasteringDisplayColorVolumeKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("MasteringDisplayColorVolume")'],
+  'kCVPixelBufferPoolAllocationThresholdKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("AllocationThreshold")'],
+}
+failed = false
+EXPECTED.each do |name, (fw, type, value)|
+  base = "#{root}/src/frameworks/#{fw}"
+  defs = Dir.glob("#{base}/src/**/*.{c,m,mm}").flat_map { |f| File.readlines(f).grep(/\b#{name}\s*=/) }
+  ok = defs.size == 1 && defs[0] =~ /\A\s*(?:const\s+#{type}|#{type}\s+const)\s+#{name}\s*=\s*#{Regexp.escape(value)};/
+  unless ok
+    puts "FAIL #{fw}: #{name} must be defined once as #{type} = #{value}; found #{defs.map(&:strip).inspect}"
+    failed = true
+  end
+  headers = Dir.glob("#{base}/include/**/*.h").map { |h| File.read(h) }.join
+  unless headers =~ /extern\s+(?:const\s+#{type}|#{type}\s+const)\s+#{name}\s*;/
+    puts "FAIL #{fw}: #{name} is not declared in a public header as #{type}"
+    failed = true
+  end
+end
+abort 'framework constants regression' if failed
+
 Dir.mktmpdir('constants-link-') do |dir|
   File.write("#{dir}/cf.h", "typedef const struct __CFString *CFStringRef;\n#define CFSTR(x) ((CFStringRef) (x))\n")
   failed = false

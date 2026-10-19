@@ -45,7 +45,7 @@ const CFStringRef kCVImageBufferTransferFunction_SMPTE_C = CFSTR("SMPTE_C");
 // GUESSED VALUES, unverified: no public source states them. They only need to be
 // unique and stable inside Darling; a value that crosses to a real Mac (a
 // serialized attachment) or is compared with a literal from the real SDK may differ.
-const CFStringRef kCVImageBufferTransferFunction_sRGB = CFSTR("sRGB");
+const CFStringRef kCVImageBufferTransferFunction_sRGB = CFSTR("IEC_sRGB");
 const CFStringRef kCVBufferPropagatedAttachmentsKey = CFSTR("CVBufferPropagatedAttachments");
 const CFStringRef kCVImageBufferContentLightLevelInfoKey = CFSTR("ContentLightLevelInfo");
 const CFStringRef kCVImageBufferMasteringDisplayColorVolumeKey = CFSTR("MasteringDisplayColorVolume");
