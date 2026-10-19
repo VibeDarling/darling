@@ -62,6 +62,13 @@ Dir.mktmpdir('constants-link-') do |dir|
     base = "#{root}/src/frameworks/#{fw}"
     cmake = File.read("#{base}/CMakeLists.txt")
     list = cmake[/SOURCES(.*?)DEPENDENCIES/m, 1] or abort "#{fw}: no SOURCES"
+    # CFSTR needs the CoreFoundation constant-string class at link time, directly or through Foundation.
+    deps = cmake[/DEPENDENCIES(.*?)\)/m, 1].to_s.split
+    uses_cfstr = list.scan(%r{\S+\.(?:c|m|mm)\b}).any? { |src| File.read("#{base}/#{src}").include?('CFSTR(') }
+    if uses_cfstr && !(deps & %w[CoreFoundation Foundation]).any?
+      puts "FAIL #{fw}: sources use CFSTR but DEPENDENCIES lists neither CoreFoundation nor Foundation"
+      failed = true
+    end
     objs = []
     names = []
     list.scan(%r{\S+\.(?:c|m|mm)\b}).each_with_index do |src, i|
