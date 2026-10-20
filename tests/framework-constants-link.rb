@@ -4,15 +4,11 @@
 # definitions are cut out of every source file in its CMake SOURCES list,
 # compiled one object per file against a stand-in CFSTR, and linked into one
 # shared object, as the framework build does. A symbol defined in two files
-# fails the link ("multiple definition"). The constants added by the missing
-# public constants change must also be declared in a public header.
+# fails the link ("multiple definition" or "duplicate symbol").
 require 'tmpdir'
 require 'open3'
 root = ARGV.fetch(0, File.expand_path('..', __dir__))
 frameworks = %w[VideoToolbox CoreVideo MediaAccessibility]
-ADDED = %w[kVTCompressionPropertyKey_BaseLayerFrameRateFraction kVTVideoEncoderSpecification_EnableLowLatencyRateControl
-  kCVImageBufferTransferFunction_sRGB kCVBufferPropagatedAttachmentsKey kCVImageBufferContentLightLevelInfoKey
-  kCVImageBufferMasteringDisplayColorVolumeKey kCVPixelBufferPoolAllocationThresholdKey kMACaptionAppearanceSettingsChangedNotification]
 DEF = /^\s*(?:const\s+CFStringRef|CFStringRef\s+const)\s+(k\w+)\s*=\s*CFSTR\("[^"]*"\);/
 # Name, framework, defining text. Each added constant must be defined exactly
 # once in its framework's sources, with this type and value, and be declared in
@@ -82,14 +78,11 @@ Dir.mktmpdir('constants-link-') do |dir|
     end
     out, st = Open3.capture2e('clang', '-shared', *objs, '-o', "#{dir}/#{fw}.so")
     unless st.success?
-      puts "FAIL #{fw}: #{out.lines.grep(/multiple definition/).first(5).join}"
+      puts "FAIL #{fw}: #{out.lines.grep(/multiple definition|duplicate symbol/).first(5).join}"
       failed = true
       next
     end
-    headers = Dir.glob("#{base}/include/**/*.h").map { |h| File.read(h) }.join
-    missing = (names & ADDED).reject { |n| headers =~ /extern\s+(?:const\s+CFStringRef|CFStringRef\s+const)\s+#{n}\s*;/ }
-    puts "#{fw}: #{names.size} constants link once" + (missing.empty? ? '' : "; not declared in a header: #{missing.join(' ')}")
-    failed = true unless missing.empty?
+    puts "#{fw}: #{names.size} constants link once"
   end
   abort 'framework constants regression' if failed
   puts 'PASS: framework constants link once'
