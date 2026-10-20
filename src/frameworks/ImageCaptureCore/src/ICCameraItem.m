@@ -24,7 +24,6 @@ ICDownloadOption const ICDownloadsDirectoryURL = @"ICDownloadsDirectoryURL";
 ICDownloadOption const ICOverwrite = @"ICOverwrite";
 ICDownloadOption const ICSaveAsFilename = @"ICSaveAsFilename";
 ICDownloadOption const ICSavedFilename = @"ICSavedFilename";
-ICDownloadOption const ICTransportTypeMassStorage = @"ICTransportTypeMassStorage";
 
 @implementation ICCameraItem
 
