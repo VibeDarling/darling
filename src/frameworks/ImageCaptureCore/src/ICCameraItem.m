@@ -20,8 +20,7 @@
 #import <ImageCaptureCore/ICCameraItem.h>
 
 ICDownloadOption const ICDownloadsDirectoryURL = @"ICDownloadsDirectoryURL";
-// UNVERIFIED: the next four use the constant's own name as the value, not
-// checked against an Apple SDK.
+// Values observed on macOS 26 by printing the public constants (rung 4).
 ICDownloadOption const ICOverwrite = @"ICOverwrite";
 ICDownloadOption const ICSaveAsFilename = @"ICSaveAsFilename";
 ICDownloadOption const ICSavedFilename = @"ICSavedFilename";

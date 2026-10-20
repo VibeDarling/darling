@@ -25,8 +25,8 @@
 
 static int verbose = 0;
 
-// UNVERIFIED: the value is the constant's own name, which no public source confirms.
-const CFStringRef kMACaptionAppearanceSettingsChangedNotification = CFSTR("kMACaptionAppearanceSettingsChangedNotification");
+// Value observed on macOS 26 by printing the public constant (rung 4).
+const CFStringRef kMACaptionAppearanceSettingsChangedNotification = CFSTR("com.apple.mediaaccessibility.captionAppearanceSettingsChanged");
 
 __attribute__((constructor))
 static void initme(void) {

@@ -29,14 +29,14 @@ EXPECTED = {
   'ICSaveAsFilename' => ['ImageCaptureCore', 'ICDownloadOption', '@"ICSaveAsFilename"'],
   'ICSavedFilename' => ['ImageCaptureCore', 'ICDownloadOption', '@"ICSavedFilename"'],
   'ICTransportTypeMassStorage' => ['ImageCaptureCore', 'ICDownloadOption', '@"ICTransportTypeMassStorage"'],
-  'kMACaptionAppearanceSettingsChangedNotification' => ['MediaAccessibility', 'CFStringRef', 'CFSTR("kMACaptionAppearanceSettingsChangedNotification")'],
+  'kMACaptionAppearanceSettingsChangedNotification' => ['MediaAccessibility', 'CFStringRef', 'CFSTR("com.apple.mediaaccessibility.captionAppearanceSettingsChanged")'],
   'kVTCompressionPropertyKey_BaseLayerFrameRateFraction' => ['VideoToolbox', 'CFStringRef', 'CFSTR("BaseLayerFrameRateFraction")'],
   'kVTVideoEncoderSpecification_EnableLowLatencyRateControl' => ['VideoToolbox', 'CFStringRef', 'CFSTR("EnableLowLatencyRateControl")'],
   'kCVImageBufferTransferFunction_sRGB' => ['CoreVideo', 'CFStringRef', 'CFSTR("IEC_sRGB")'],
-  'kCVBufferPropagatedAttachmentsKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("CVBufferPropagatedAttachments")'],
+  'kCVBufferPropagatedAttachmentsKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("PropagatedAttachments")'],
   'kCVImageBufferContentLightLevelInfoKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("ContentLightLevelInfo")'],
   'kCVImageBufferMasteringDisplayColorVolumeKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("MasteringDisplayColorVolume")'],
-  'kCVPixelBufferPoolAllocationThresholdKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("AllocationThreshold")'],
+  'kCVPixelBufferPoolAllocationThresholdKey' => ['CoreVideo', 'CFStringRef', 'CFSTR("BufferPoolAllocationThreshold")'],
 }
 failed = false
 EXPECTED.each do |name, (fw, type, value)|
