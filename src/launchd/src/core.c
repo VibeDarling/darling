@@ -6736,9 +6736,9 @@ jobmgr_reap_orphaned_children(void)
 	/* XNU reaps a zombie whose parent died itself (P_LIST_DEADPARENT in
 	 * bsd/kern/kern_exit.c), but Linux hands it to launchd, the init of the
 	 * guest PID namespace, and launchd only waits for PIDs it has a job
-	 * for. Reap the others; a PID that a job still holds is left to
-	 * job_reap(). proc_listpids() only returns the caller's PID in Darling,
-	 * so enumerate the namespace through /proc.
+	 * for. Reap the others; a PID that a job in any job manager still holds
+	 * is left to job_reap(). proc_listpids() only returns the caller's PID
+	 * in Darling, so enumerate the namespace through /proc.
 	 */
 	DIR *dir;
 	struct dirent *de;
@@ -6773,7 +6773,7 @@ jobmgr_reap_orphaned_children(void)
 		if (proc.pbsi_ppid != self || proc.pbsi_status != SZOMB) {
 			continue;
 		}
-		if (jobmgr_find_by_pid(root_jobmgr, pid, false) != NULL) {
+		if (jobmgr_find_by_pid_deep(root_jobmgr, pid, true) != NULL) {
 			continue;
 		}
 
