@@ -2030,8 +2030,9 @@ int main(int argc, char ** argv)
 			return 1;
 		if (liveServer)
 		{
-			fprintf(stderr, "darlingserver %d still serves %s but is not the one recorded in .init.pid; refusing to reinitialize it.\n",
-				liveServer, prefix);
+			fprintf(stderr, "darlingserver %d still serves %s but .init.pid is missing or does not name it; refusing to reinitialize it. "
+				"If another darling is starting this prefix, retry shortly; otherwise stop darlingserver %d and run darling again.\n",
+				liveServer, prefix, liveServer);
 			return 1;
 		}
 
