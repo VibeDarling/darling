@@ -24,10 +24,12 @@
 	url = https://github.com/VibeDarling/darling-compiler-rt.git
 [submodule "src/external/foundation"]
 	path = src/external/foundation
-	url = https://github.com/VibeDarling/darling-foundation.git
+	url = https://github.com/Kreijstal/darling-foundation.git
+	branch = ios
 [submodule "src/external/corefoundation"]
 	path = src/external/corefoundation
-	url = https://github.com/VibeDarling/darling-corefoundation.git
+	url = https://github.com/Kreijstal/darling-corefoundation.git
+	branch = ios
 [submodule "src/external/icu"]
 	path = src/external/icu
 	url = https://github.com/VibeDarling/darling-icu.git
@@ -178,7 +180,8 @@
 	url = https://github.com/VibeDarling/darling-objc4.git
 [submodule "src/external/libplatform"]
 	path = src/external/libplatform
-	url = https://github.com/VibeDarling/darling-libplatform.git
+	url = https://github.com/Kreijstal/darling-libplatform.git
+	branch = ios
 [submodule "src/external/libpthread"]
 	path = src/external/libpthread
 	url = https://github.com/VibeDarling/darling-libpthread.git
@@ -274,8 +277,8 @@
 	branch = master
 [submodule "src/external/JavaScriptCore"]
 	path = src/external/JavaScriptCore
-	url = https://github.com/VibeDarling/darling-JavaScriptCore.git
-	branch = master
+	url = https://github.com/Kreijstal/darling-JavaScriptCore.git
+	branch = ios
 [submodule "src/external/bmalloc"]
 	path = src/external/bmalloc
 	url = https://github.com/VibeDarling/darling-bmalloc.git

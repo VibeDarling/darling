@@ -183,6 +183,17 @@ calling process (`tests/ios-board-services.m` covers all three):
   Apple's SpringBoard classes, which SpringBoard-lite does not have, so they
   are out of scope.
 
+- JavaScriptCore. The in-tree JavaScriptCore (WebKit 608, iOS 13 era) builds
+  for arm64 with the `jsc` component and runs an iOS test binary on the Pi 4
+  with the JIT on: the C and Objective-C APIs, `JSExport`, blocks, Promise jobs
+  (`tests/ios-javascriptcore.m`). It needed the arm64 `sys_icache_invalidate`
+  to clean the dcache (Apple's cores don't need that, the A72 does: JIT code
+  raised SIGILL), a Foundation map-table fix (keys read as weak values), and
+  client definitions of the `JSC_API_AVAILABLE` macros. On x86_64 it also
+  passes, after fixing NSInvocation's float, double and small-struct results. It is the first step
+  towards WebKit: WKWebView/UIWebView still need WebCore, which needs
+  CoreText, QuartzCore, IOSurface and CFNetwork to be far more complete here.
+
 ### 3. Android display backend
 
 A third Cocotron backend next to `X11.backend` and `Wayland.backend`:
