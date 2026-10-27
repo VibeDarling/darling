@@ -29,6 +29,7 @@ header = r'''
 #include <sys/un.h>
 static int g_serverSocket = 3;
 static int seq[64], nseq, pos, accepts, sleeps, perrors, forks, closes;
+static long slept_us;
 static int mock_accept(void)
 {
     ++accepts;
@@ -45,7 +46,7 @@ static int mock_accept(void)
     return -1;
 }
 #define accept(a, b, c) ((void)(a), (void)(b), (void)(c), mock_accept())
-#define usleep(x) (++sleeps)
+#define usleep(x) (++sleeps, slept_us += (x), 0)
 #define perror(x) (++perrors)
 #define fork() (++forks)
 #define close(x) (++closes)
@@ -58,10 +59,11 @@ static int run(const char *label, const int *s, int n, int rc_exp, int acc, int 
 {
     nseq = n; memcpy(seq, s, n * sizeof(int));
     pos = accepts = sleeps = perrors = forks = closes = 0;
+    slept_us = 0;
     int rc = listenForConnections();
-    int ok = rc == rc_exp && accepts == acc && sleeps == slp && perrors == per && forks == frk;
-    printf("%s %s rc=%d accepts=%d sleeps=%d perror=%d forks=%d\n",
-        ok ? "PASS" : "FAIL", label, rc, accepts, sleeps, perrors, forks);
+    int ok = rc == rc_exp && accepts == acc && sleeps == slp && slept_us == 100000L * slp && perrors == per && forks == frk;
+    printf("%s %s rc=%d accepts=%d sleeps=%d slept_us=%ld perror=%d forks=%d\n",
+        ok ? "PASS" : "FAIL", label, rc, accepts, sleeps, slept_us, perrors, forks);
     return !ok;
 }
 int main(void)
