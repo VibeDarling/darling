@@ -15,6 +15,7 @@
 #import <Foundation/NSObject.h>
 #import <Foundation/NSString.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGImage.h>
 
 /* Backed by an AppKit image, which reads the formats Darling's AppKit can. */
 @interface UIImage : NSObject
@@ -24,6 +25,7 @@
 - (instancetype)initWithContentsOfFile:(NSString *)path;
 
 @property (nonatomic, readonly) CGSize size;
+@property (nonatomic, readonly) CGImageRef CGImage;
 
 - (void)drawInRect:(CGRect)rect;
 

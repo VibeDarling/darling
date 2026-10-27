@@ -140,17 +140,27 @@ calling process (`tests/ios-board-services.m` covers all three):
   - The dock holds the apps listed in the `SBDockApplications` default.
 
   Behind this, UIKit gained pointer-driven touches (`UITouch`, `UIEvent`,
-  `touches*:withEvent:` passed up the superview chain), `UIImage` and
-  `UIGraphicsGetCurrentContext`. Darling's Core Graphics clips to a path's
-  bounding box only, so the rounded corners are drawn as rectangle-clipped
-  strips. Checked by hand with xdotool on x86_64 (home screen and switcher
+  `touches*:withEvent:` passed up the superview chain), `UIImage` (with
+  `CGImage`) and `UIGraphicsGetCurrentContext`. Darling's Core Graphics
+  clips to a path's bounding box only, so the rounded corners are drawn as
+  rectangle-clipped strips.
+
+  Drawing is all software, so SpringBoard draws each icon, switcher card
+  and the wallpaper once into an offscreen bitmap and then only copies it:
+  Core Graphics copies an unscaled image at a whole-pixel offset quickly,
+  while each fill or clip is a pass of its rasterizer. AppKit used to push
+  the whole window to the screen once per view it drew (each push a
+  texture upload and a `glFinish`); now `-[NSView unlockFocus]` flushes
+  through `-[NSWindow flushWindow]`, which waits for the end of the display
+  pass. On the Pi 4 over a forwarded X display, the first full home screen
+  went from about 15 s to under 0.5 s, and opening an app, Home and the
+  clock now redraw in tens of milliseconds. Checked by hand with xdotool on x86_64 (home screen and switcher
   below) and on the Pi 4, where it launches the unmodified Hello World IPA:
 
   ![SpringBoard-lite: home screen and app switcher](images/springboard-lite.png)
 
   Not done yet: rearranging icons and deleting apps (the wiggle mode),
-  folders, search, notifications and lock screen. On the Pi a full-screen
-  redraw takes many seconds over a forwarded X display.
+  folders, search, notifications and lock screen.
 
 ### 3. Android display backend
 

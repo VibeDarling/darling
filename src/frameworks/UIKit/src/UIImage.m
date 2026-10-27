@@ -49,6 +49,11 @@
 	return CGSizeMake(size.width, size.height);
 }
 
+- (CGImageRef)CGImage
+{
+	return [_image CGImageForProposedRect:NULL context:nil hints:nil];
+}
+
 - (void)drawInRect:(CGRect)rect
 {
 	/* UIKit views are flipped; draw the image upright in them. */

@@ -120,6 +120,43 @@ static void SBFillVerticalGradientWithin(CGContextRef context, CGRect rect, CGRe
 	}
 }
 
+/* Draws once into an offscreen bitmap of the given size in points, at the
+   screen's scale and with UIKit's top-left origin. Darling's Core Graphics
+   copies an unscaled image at a whole-pixel offset quickly, while every
+   fill and clip costs a pass of its rasterizer, so the home screen draws
+   its icons and wallpaper once this way and reuses the result. */
+static CGImageRef SBCreateImage(CGSize size, void (^draw)(CGContextRef context))
+{
+	CGFloat scale = [[UIScreen mainScreen] scale];
+	size_t width = (size_t)ceil(size.width * scale), height = (size_t)ceil(size.height * scale);
+	if (width == 0 || height == 0)
+		return NULL;
+	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+	CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, 0, colorSpace,
+		kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+	CGColorSpaceRelease(colorSpace);
+	if (context == NULL)
+		return NULL;
+	CGContextTranslateCTM(context, 0, height);
+	CGContextScaleCTM(context, scale, -scale);
+	draw(context);
+	CGImageRef image = CGBitmapContextCreateImage(context);
+	CGContextRelease(context);
+	return image;
+}
+
+/* Draws an image upright in a flipped (top-left origin) context. */
+static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
+{
+	if (image == NULL)
+		return;
+	CGContextSaveGState(context);
+	CGContextTranslateCTM(context, rect.origin.x, rect.origin.y + rect.size.height);
+	CGContextScaleCTM(context, 1, -1);
+	CGContextDrawImage(context, CGRectMake(0, 0, rect.size.width, rect.size.height), image);
+	CGContextRestoreGState(context);
+}
+
 
 #pragma mark - Applications
 
@@ -203,6 +240,8 @@ static void SBFillVerticalGradientWithin(CGContextRef context, CGRect rect, CGRe
 	BOOL _highlighted;
 	BOOL _tracking;
 	CGPoint _touchStart;
+	CGImageRef _iconImage;
+	CGImageRef _highlightedIconImage;
 }
 
 - (instancetype)initWithApplication:(SBApplication *)application iconSize:(CGFloat)iconSize
@@ -250,26 +289,44 @@ static void SBFillVerticalGradientWithin(CGContextRef context, CGRect rect, CGRe
 	[self setNeedsDisplay:YES];
 }
 
+/* The rounded icon, drawn once per state; see SBCreateImage. */
+- (CGImageRef)iconImageHighlighted:(BOOL)highlighted
+{
+	CGImageRef *cached = highlighted ? &_highlightedIconImage : &_iconImage;
+	if (*cached != NULL)
+		return *cached;
+
+	CGRect icon = CGRectMake(0, 0, _iconSize, _iconSize);
+	CGFloat radius = _iconSize * 0.225;
+	CGImageRef image = _application.icon.CGImage;
+	SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
+	SBRGB light = { MIN(1, color.r + 0.15), MIN(1, color.g + 0.15), MIN(1, color.b + 0.15) };
+	*cached = SBCreateImage(icon.size, ^(CGContextRef context) {
+		SBClipToRoundedRect(context, icon, radius, ^(CGRect strip) {
+			if (image != NULL)
+				SBDrawImage(context, image, icon);
+			else
+				SBFillVerticalGradientWithin(context, icon, strip, light, color, 1);
+			if (highlighted) {
+				CGContextSetRGBFillColor(context, 0, 0, 0, 0.4);
+				CGContextFillRect(context, strip);
+			}
+		});
+	});
+	return *cached;
+}
+
+- (void)dealloc
+{
+	CGImageRelease(_iconImage);
+	CGImageRelease(_highlightedIconImage);
+}
+
 - (void)drawRect:(NSRect)rect
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
 	CGRect icon = [self iconRect];
-	CGFloat radius = _iconSize * 0.225;
-
-	UIImage *image = _application.icon;
-	SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
-	SBRGB light = { MIN(1, color.r + 0.15), MIN(1, color.g + 0.15), MIN(1, color.b + 0.15) };
-	BOOL highlighted = _highlighted;
-	SBClipToRoundedRect(context, icon, radius, ^(CGRect strip) {
-		if (image != nil)
-			[image drawInRect:icon];
-		else
-			SBFillVerticalGradientWithin(context, icon, strip, light, color, 1);
-		if (highlighted) {
-			CGContextSetRGBFillColor(context, 0, 0, 0, 0.4);
-			CGContextFillRect(context, strip);
-		}
-	});
+	SBDrawImage(context, [self iconImageHighlighted:_highlighted], icon);
 
 	if (_running) {
 		CGFloat size = 5;
@@ -381,18 +438,31 @@ static void SBFillVerticalGradientWithin(CGContextRef context, CGRect rect, CGRe
 @property (nonatomic) CGRect closeRect;
 @end
 
-@implementation SBSwitcherCardView
+@implementation SBSwitcherCardView {
+	CGImageRef _cardImage;
+}
+
+- (void)dealloc
+{
+	CGImageRelease(_cardImage);
+}
 
 - (void)drawRect:(NSRect)rect
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
 	CGRect card = CGRectMake(0, 24, [self bounds].size.width, [self bounds].size.height - 24);
-	SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
-	SBClipToRoundedRect(context, card, 18, ^(CGRect strip) {
-		SBFillVerticalGradientWithin(context, card, strip, (SBRGB){ 0.97, 0.97, 0.98 }, (SBRGB){ 0.85, 0.86, 0.9 }, 1);
-		CGContextSetRGBFillColor(context, color.r, color.g, color.b, 1);
-		CGContextFillRect(context, CGRectIntersection(strip, CGRectMake(card.origin.x, card.origin.y, card.size.width, 40)));
-	});
+	if (_cardImage == NULL) {
+		CGRect shape = { CGPointZero, card.size };
+		SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
+		_cardImage = SBCreateImage(shape.size, ^(CGContextRef context) {
+			SBClipToRoundedRect(context, shape, 18, ^(CGRect strip) {
+				SBFillVerticalGradientWithin(context, shape, strip, (SBRGB){ 0.97, 0.97, 0.98 }, (SBRGB){ 0.85, 0.86, 0.9 }, 1);
+				CGContextSetRGBFillColor(context, color.r, color.g, color.b, 1);
+				CGContextFillRect(context, CGRectIntersection(strip, CGRectMake(0, 0, shape.size.width, 40)));
+			});
+		});
+	}
+	SBDrawImage(context, _cardImage, card);
 
 	/* The close mark: a dark disc with a cross. */
 	CGRect close = _closeRect;
@@ -507,6 +577,8 @@ static void SBFillVerticalGradientWithin(CGContextRef context, CGRect rect, CGRe
 	NSUInteger _currentPage;
 	CGPoint _swipeStart;
 	CGFloat _pageWidth;
+	CGImageRef _wallpaper;
+	CGSize _wallpaperSize;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -543,11 +615,34 @@ static void SBFillVerticalGradientWithin(CGContextRef context, CGRect rect, CGRe
 	_clock.text = [formatter stringFromDate:[NSDate date]];
 }
 
+- (void)dealloc
+{
+	CGImageRelease(_wallpaper);
+}
+
+/* The wallpaper covers the whole view, so redraws can start here rather
+   than at the window. */
+- (BOOL)isOpaque
+{
+	return YES;
+}
+
 - (void)drawRect:(NSRect)rect
 {
-	/* The wallpaper. */
-	SBFillVerticalGradientWithin(UIGraphicsGetCurrentContext(), [self bounds], NSRectToCGRect(rect),
-		(SBRGB){ 0.16, 0.20, 0.42 }, (SBRGB){ 0.55, 0.30, 0.55 }, 1);
+	CGRect bounds = [self bounds];
+	if (_wallpaper == NULL || !CGSizeEqualToSize(_wallpaperSize, bounds.size)) {
+		CGImageRelease(_wallpaper);
+		_wallpaperSize = bounds.size;
+		_wallpaper = SBCreateImage(bounds.size, ^(CGContextRef context) {
+			SBFillVerticalGradientWithin(context, bounds, bounds,
+				(SBRGB){ 0.16, 0.20, 0.42 }, (SBRGB){ 0.55, 0.30, 0.55 }, 1);
+		});
+	}
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGContextSaveGState(context);
+	CGContextSetBlendMode(context, kCGBlendModeCopy);
+	SBDrawImage(context, _wallpaper, bounds);
+	CGContextRestoreGState(context);
 }
 
 #pragma mark Layout
