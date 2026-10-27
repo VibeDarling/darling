@@ -11,6 +11,7 @@
 
 #import <UIKit/UIViewController.h>
 #import <UIKit/UIView.h>
+#import <UIKit/UIScreen.h>
 
 @implementation UIViewController
 
@@ -19,15 +20,17 @@
 	if (_view == nil) {
 		[self loadView];
 		if (_view == nil)
-			_view = [[UIView alloc] initWithFrame:CGRectZero];
+			_view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 		[self viewDidLoad];
 	}
 	return _view;
 }
 
+/* As on iOS, the default view is screen-sized before -viewDidLoad runs, so
+ * subviews built there from its bounds start at their final size. */
 - (void)loadView
 {
-	_view = [[UIView alloc] initWithFrame:CGRectZero];
+	_view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 }
 
 - (void)viewDidLoad

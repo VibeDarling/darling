@@ -27,8 +27,9 @@
 
 	NSRect contentRect = NSMakeRect(frame.origin.x, frame.origin.y,
 	                                frame.size.width, frame.size.height);
+	/* iOS windows have no frame, title bar or controls. */
 	NSWindow *host = [[NSWindow alloc] initWithContentRect:contentRect
-	                                            styleMask:NSWindowStyleMaskTitled
+	                                            styleMask:NSWindowStyleMaskBorderless
 	                                              backing:NSBackingStoreBuffered
 	                                                defer:NO];
 	[host setReleasedWhenClosed:NO];

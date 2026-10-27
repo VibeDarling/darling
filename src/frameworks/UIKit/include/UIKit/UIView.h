@@ -18,6 +18,22 @@
 @class UIColor, UIWindow;
 
 /*
+ * The values are UIKit's.  They equal AppKit's NSAutoresizingMaskOptions bit for
+ * bit, and because every UIView is flipped, AppKit's "min Y" margin is the top
+ * one, as UIKit's FlexibleTopMargin is.  NSView's -autoresizingMask therefore
+ * serves both.
+ */
+typedef NS_OPTIONS(NSUInteger, UIViewAutoresizing) {
+	UIViewAutoresizingNone                 = 0,
+	UIViewAutoresizingFlexibleLeftMargin   = 1 << 0,
+	UIViewAutoresizingFlexibleWidth        = 1 << 1,
+	UIViewAutoresizingFlexibleRightMargin  = 1 << 2,
+	UIViewAutoresizingFlexibleTopMargin    = 1 << 3,
+	UIViewAutoresizingFlexibleHeight       = 1 << 4,
+	UIViewAutoresizingFlexibleBottomMargin = 1 << 5
+};
+
+/*
  * UIView is an AppKit view: Darling has no separate compositor, so the UIKit
  * tree *is* the window's content view tree.  Its coordinate system is flipped
  * to match UIKit (origin top-left).

@@ -13,6 +13,7 @@
 #import <UIKit/UIColor.h>
 #import <UIKit/UIFont.h>
 #import <AppKit/NSAttributedString.h>
+#import <AppKit/NSMutableParagraphStyle.h>
 #import <AppKit/NSStringDrawing.h>
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSString.h>
@@ -83,6 +84,9 @@
 		[attributes setObject:[_font nsFont] forKey:NSFontAttributeName];
 	if (_textColor != nil)
 		[attributes setObject:[_textColor nsColor] forKey:NSForegroundColorAttributeName];
+	NSMutableParagraphStyle *paragraph = [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
+	[paragraph setAlignment:_textAlignment];
+	[attributes setObject:paragraph forKey:NSParagraphStyleAttributeName];
 	return attributes;
 }
 
@@ -92,7 +96,15 @@
 	if ([_text length] == 0)
 		return;
 
-	[_text drawInRect:[self bounds] withAttributes:[self textAttributes]];
+	/* UIKit centres a label's text vertically in its bounds. */
+	NSDictionary *attributes = [self textAttributes];
+	NSRect bounds = [self bounds];
+	CGFloat textHeight = [_text sizeWithAttributes:attributes].height;
+	if (textHeight < bounds.size.height) {
+		bounds.origin.y += (bounds.size.height - textHeight) / 2;
+		bounds.size.height = textHeight;
+	}
+	[_text drawInRect:bounds withAttributes:attributes];
 }
 
 - (CGSize)sizeThatFits:(CGSize)size
