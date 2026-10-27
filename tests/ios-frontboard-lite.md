@@ -3,7 +3,8 @@
 `ios-frontboard-lite.m` drives `frontboardd` end to end. It installs two
 copies of the UIKit app built from `ios-frontboard-lite-app.m` as
 `~/Applications/LifecycleA.app` and `LifecycleB.app`, starts
-`/usr/libexec/frontboardd`, and through FrontBoardServices:
+`/usr/libexec/frontboardd --no-system-app` (so the home screen stays out
+of the way), and through FrontBoardServices:
 
 1. opens A: A gets `didFinishLaunching`, `didBecomeActive`;
 2. opens B: B launches and becomes active, A gets `willResignActive`,

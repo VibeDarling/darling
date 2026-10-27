@@ -19,6 +19,8 @@ add_framework(UIKit
         src/UIViewController.m
         src/UIWindow.m
         src/UILabel.m
+        src/UITouch.m
+        src/UIImage.m
     DEPENDENCIES
         Foundation
         AppKit

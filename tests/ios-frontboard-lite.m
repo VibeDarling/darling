@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 		CHECK(install(AppA, @"LifecycleA", probe) && install(AppB, @"LifecycleB", probe), "installed LifecycleA.app and LifecycleB.app");
 
 		CHECK([[FBSSystemService sharedService] applicationStates] == nil, "no frontboardd before we start one");
-		char *daemonArgv[] = { "/usr/libexec/frontboardd", NULL };
+		char *daemonArgv[] = { "/usr/libexec/frontboardd", "--no-system-app", NULL };
 		pid_t daemon = 0;
 		CHECK(posix_spawn(&daemon, daemonArgv[0], NULL, NULL, daemonArgv, environ) == 0, "started frontboardd (%d)", daemon);
 		BOOL up = NO;

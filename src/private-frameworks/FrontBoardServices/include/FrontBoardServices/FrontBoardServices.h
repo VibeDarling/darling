@@ -59,6 +59,11 @@ typedef NS_ENUM(NSInteger, FBSOpenApplicationErrorCode) {
 /* Where installed apps are looked for: each directory's *.app, and one level
    deeper for the iOS container layout (/var/containers/Bundle/Application/<UUID>/X.app). */
 extern NSArray<NSString *> *FBSApplicationSearchPaths(void);
+/* Every app bundle in those directories, in a stable order. */
+extern NSArray<NSBundle *> *FBSInstalledApplications(void);
+/* Where the system app (systemApplicationBundleIdentifier, the home
+   screen) is installed; frontboardd launches it when it starts. */
+extern NSString *const FBSSystemApplicationPath;
 
 @interface FBSOpenApplicationOptions : NSObject <NSCopying>
 + (instancetype)optionsWithDictionary:(nullable NSDictionary<NSString *, id> *)dictionary;
@@ -113,6 +118,11 @@ typedef NS_ENUM(NSInteger, FBSApplicationState) {
 - (void)invalidate;
 @end
 
+/* Posted on the delegate queue for each frontboardd event FBSWorkspace does
+   not turn into a delegate call; userInfo is the event. The system app gets
+   {event: "button", button: "home", count: 1 or 2} for Home button presses. */
+extern NSNotificationName const FBSWorkspaceEventNotification;
+
 /* Not in Apple's API: ask frontboardd to background the foreground app, as
    the home button does. NO when no frontboardd is running. */
 @interface FBSSystemService (FBSHome)
@@ -120,6 +130,10 @@ typedef NS_ENUM(NSInteger, FBSApplicationState) {
 /* bundleIdentifier, pid and state (FBSApplicationState) of each app
    frontboardd knows about; nil when none is running. */
 - (nullable NSArray<NSDictionary *> *)applicationStates;
+/* A press of the Home button: frontboardd brings the system app (the home
+   screen) to the front and tells it about the press; two presses close
+   together are a double press. */
+- (BOOL)sendHomeButtonPress;
 @end
 
 typedef NS_ENUM(NSInteger, FBSSceneLevel) {

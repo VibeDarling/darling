@@ -22,6 +22,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
+NSNotificationName const FBSWorkspaceEventNotification = @"FBSWorkspaceEventNotification";
+
 @implementation FBSWorkspace {
 	int _fd;
 	__weak id<FBSWorkspaceDelegate> _delegate;
@@ -68,6 +70,10 @@
 				dispatch_async(_queue, ^{
 					[self->_delegate workspaceDidRequestTermination:self];
 				});
+			} else if (name != nil) {
+				dispatch_async(_queue, ^{
+					[[NSNotificationCenter defaultCenter] postNotificationName:FBSWorkspaceEventNotification object:self userInfo:event];
+				});
 			}
 		}
 		dispatch_async(_queue, ^{
@@ -98,6 +104,11 @@
 - (NSArray<NSDictionary *> *)applicationStates
 {
 	return FBSLiteRequest(@{ @"op": @"list" })[@"processes"];
+}
+
+- (BOOL)sendHomeButtonPress
+{
+	return FBSLiteRequest(@{ @"op": @"button", @"button": @"home" }) != nil;
 }
 
 @end

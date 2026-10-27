@@ -13,6 +13,7 @@
 #import <UIKit/UIApplicationDelegate.h>
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/NSEvent.h>
 #import <FrontBoardServices/FrontBoardServices.h>
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSProcessInfo.h>
@@ -32,6 +33,36 @@ NSString *const UIApplicationWillTerminateNotification = @"UIApplicationWillTerm
  * implements them and forwards to the iOS delegate, which never sees AppKit.
  * frontboardd's lifecycle events arrive through FBSWorkspace. */
 @interface UIApplication () <NSApplicationDelegate, FBSWorkspaceDelegate>
+@end
+
+/* The keyboard's Home key is the device's Home button: frontboardd sends
+ * the foreground app home, and a double press opens the app switcher. */
+static const unsigned short UIKitHomeKeyCode = 0x73; /* kVK_Home */
+
+@interface UIKitHostApplication : NSApplication
+@end
+
+@implementation UIKitHostApplication
+
+- (void)sendEvent:(NSEvent *)event
+{
+	if ([event type] == NSKeyDown && [event keyCode] == UIKitHomeKeyCode) {
+		/* Off the main thread, in order: frontboardd times the presses to
+		 * spot a double press, so they must not wait behind drawing. */
+		static dispatch_queue_t queue;
+		static dispatch_once_t once;
+		dispatch_once(&once, ^{
+			queue = dispatch_queue_create("UIKit.HomeButton", DISPATCH_QUEUE_SERIAL);
+		});
+		if (![event isARepeat])
+			dispatch_async(queue, ^{
+				[[FBSSystemService sharedService] sendHomeButtonPress];
+			});
+		return;
+	}
+	[super sendEvent:event];
+}
+
 @end
 
 static UIApplication *sSharedApplication;
@@ -184,7 +215,7 @@ int UIApplicationMain(int argc, char *argv[], NSString *principalClassName, NSSt
 	(void)principalClassName;
 
 	@autoreleasepool {
-		[NSApplication sharedApplication];
+		[UIKitHostApplication sharedApplication];
 
 		UIApplication *application = [UIApplication sharedApplication];
 		[NSApp setDelegate:application];

@@ -15,7 +15,8 @@
 #import <AppKit/NSView.h>
 #import <CoreGraphics/CGGeometry.h>
 
-@class UIColor, UIWindow;
+@class UIColor, UIWindow, UIEvent, UITouch;
+#import <Foundation/NSSet.h>
 
 /*
  * The values are UIKit's.  They equal AppKit's NSAutoresizingMaskOptions bit for
@@ -47,6 +48,7 @@ typedef NS_OPTIONS(NSUInteger, UIViewAutoresizing) {
 	UIColor *_uiBackgroundColor;
 	UIWindow *_uiWindow;
 	BOOL _uiNeedsLayout;
+	BOOL _uiUserInteractionDisabled;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame;
@@ -56,6 +58,18 @@ typedef NS_OPTIONS(NSUInteger, UIViewAutoresizing) {
 - (void)layoutSubviews;
 - (void)setNeedsLayout;
 - (void)layoutIfNeeded;
+
+/*
+ * Touches come from the pointer (see UITouch.h).  The view under the pointer
+ * gets them; by default a view passes them on to its superview, which is
+ * UIKit's responder chain for views.
+ */
+@property (nonatomic, getter=isUserInteractionEnabled) BOOL userInteractionEnabled;
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
 
 @end
 

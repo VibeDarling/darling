@@ -21,9 +21,11 @@
    and a launcher need. It owns the application lifecycle: it launches
    installed apps, keeps at most one in the foreground, tells each checked-in
    app when it moves between foreground and background, and asks apps to
-   terminate. It draws nothing; whoever owns the display (a launcher, the
-   darling-pocket host) drives it over the same socket. The protocol is in
-   FrontBoardServices' FBSLite.h. */
+   terminate. It draws nothing itself. The system app (the home screen,
+   SpringBoard.app) is what the user sees when no other app is in front:
+   frontboardd launches it at startup, relaunches it if it dies, brings it
+   back for the Home button and tells it about each press. The protocol
+   is in FrontBoardServices' FBSLite.h. */
 
 #import <Foundation/Foundation.h>
 #import <FrontBoardServices/FrontBoardServices.h>
@@ -35,9 +37,14 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 
 /* How long an app gets to run applicationWillTerminate: and exit. */
 static const int64_t FBDTerminationGrace = 3 * NSEC_PER_SEC;
+/* Two Home button presses this close together are a double press. */
+static const uint64_t FBDDoublePressInterval = 400 * NSEC_PER_MSEC;
+/* How long to wait before relaunching a system app that died. */
+static const int64_t FBDSystemAppRelaunchDelay = 1 * NSEC_PER_SEC;
 
 @interface FBDProcess : NSObject
 @property (nonatomic, copy) NSString *bundleIdentifier;
@@ -63,6 +70,9 @@ static const int64_t FBDTerminationGrace = 3 * NSEC_PER_SEC;
 /* All state lives on this queue. */
 static dispatch_queue_t sQueue;
 static NSMutableArray<FBDProcess *> *sProcesses;
+static NSString *sSystemBundleIdentifier;
+static BOOL sLaunchSystemApp = YES;
+static uint64_t sLastHomePress;
 
 static void FBDLog(NSString *format, ...)
 {
@@ -88,6 +98,24 @@ static FBDProcess *FBDProcessWithBundleIdentifier(NSString *bundleIdentifier)
 		if ([process.bundleIdentifier isEqualToString:bundleIdentifier])
 			return process;
 	return nil;
+}
+
+static BOOL FBDIsSystem(FBDProcess *process)
+{
+	return [process.bundleIdentifier isEqualToString:sSystemBundleIdentifier];
+}
+
+static FBDProcess *FBDSystemProcess(void)
+{
+	return FBDProcessWithBundleIdentifier(sSystemBundleIdentifier);
+}
+
+static BOOL FBDHasForegroundApp(void)
+{
+	for (FBDProcess *process in sProcesses)
+		if (!FBDIsSystem(process) && process.state == FBSApplicationStateForeground)
+			return YES;
+	return NO;
 }
 
 static FBDProcess *FBDProcessWithPid(pid_t pid)
@@ -122,12 +150,33 @@ static void FBDBringToForeground(FBDProcess *process)
 	FBDSetState(process, FBSApplicationStateForeground);
 }
 
+/* Home: no app in front, so the system app is. */
+static void FBDGoHome(void)
+{
+	for (FBDProcess *process in sProcesses)
+		if (!FBDIsSystem(process) && process.state == FBSApplicationStateForeground)
+			FBDSetState(process, FBSApplicationStateBackground);
+	FBDProcess *system = FBDSystemProcess();
+	if (system != nil)
+		FBDSetState(system, FBSApplicationStateForeground);
+}
+
+static void FBDLaunchSystemApp(void);
+
 static void FBDRemove(FBDProcess *process)
 {
 	if (![sProcesses containsObject:process])
 		return;
 	FBDLog(@"%@ (%d) exited", process.bundleIdentifier, process.pid);
+	BOOL wasForeground = process.state == FBSApplicationStateForeground;
 	[sProcesses removeObject:process];
+	if (FBDIsSystem(process)) {
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, FBDSystemAppRelaunchDelay), sQueue, ^{
+			FBDLaunchSystemApp();
+		});
+	} else if (wasForeground) {
+		FBDGoHome();
+	}
 	if (process.eventFD >= 0) {
 		shutdown(process.eventFD, SHUT_RDWR);
 		process.eventFD = -1;
@@ -167,6 +216,40 @@ static NSDictionary *FBDError(FBSOpenApplicationErrorCode code, NSString *reason
 	return @{ @"error": reason, @"code": @(code) };
 }
 
+static FBDProcess *FBDLaunch(NSString *bundleIdentifier, NSDictionary *options, NSDictionary **error)
+{
+	NSBundle *bundle = [[FBSSystemService sharedService] bundleForApplication:bundleIdentifier];
+	if (bundle == nil) {
+		*error = FBDError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"Application \"%@\" is not installed", bundleIdentifier]);
+		return nil;
+	}
+
+	pid_t pid;
+	NSError *spawnError = FBSLiteSpawnApplication(bundle, options, &pid);
+	if (spawnError != nil) {
+		*error = FBDError([spawnError code], [spawnError localizedFailureReason] ?: [spawnError description]);
+		return nil;
+	}
+
+	FBDProcess *process = [[FBDProcess alloc] init];
+	process.bundleIdentifier = bundleIdentifier;
+	process.pid = pid;
+	process.state = FBSApplicationStateBackground;
+	[sProcesses addObject:process];
+	FBDLog(@"launched %@ (%d)", bundleIdentifier, pid);
+
+	/* We are its parent: reap it, which is also how we learn it exited. */
+	FBDDetach(^{
+		int status;
+		while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+			;
+		dispatch_async(sQueue, ^{
+			FBDRemove(process);
+		});
+	});
+	return process;
+}
+
 static void FBDOpen(NSDictionary *request, void (^reply)(NSDictionary *))
 {
 	NSString *bundleIdentifier = request[@"bundleIdentifier"];
@@ -181,38 +264,44 @@ static void FBDOpen(NSDictionary *request, void (^reply)(NSDictionary *))
 		return;
 	}
 
-	NSBundle *bundle = [[FBSSystemService sharedService] bundleForApplication:bundleIdentifier];
-	if (bundle == nil) {
-		reply(FBDError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"Application \"%@\" is not installed", bundleIdentifier]));
+	NSDictionary *error = nil;
+	process = FBDLaunch(bundleIdentifier, options, &error);
+	if (process == nil) {
+		reply(error);
 		return;
 	}
-
-	pid_t pid;
-	NSError *error = FBSLiteSpawnApplication(bundle, options, &pid);
-	if (error != nil) {
-		reply(FBDError([error code], [error localizedFailureReason] ?: [error description]));
-		return;
-	}
-
-	process = [[FBDProcess alloc] init];
-	process.bundleIdentifier = bundleIdentifier;
-	process.pid = pid;
-	process.state = FBSApplicationStateBackground;
-	[sProcesses addObject:process];
-	FBDLog(@"launched %@ (%d)", bundleIdentifier, pid);
 	if (!suspended)
 		FBDBringToForeground(process);
+	reply(@{ @"pid": @(process.pid) });
+}
 
-	/* We are its parent: reap it, which is also how we learn it exited. */
-	FBDDetach(^{
-		int status;
-		while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
-			;
-		dispatch_async(sQueue, ^{
-			FBDRemove(process);
-		});
-	});
-	reply(@{ @"pid": @(pid) });
+/* The home screen, if one is installed and not already running. It comes
+   to the front only when no other app is there. */
+static void FBDLaunchSystemApp(void)
+{
+	if (!sLaunchSystemApp || FBDSystemProcess() != nil)
+		return;
+	if ([[FBSSystemService sharedService] bundleForApplication:sSystemBundleIdentifier] == nil)
+		return;
+	NSDictionary *error = nil;
+	FBDProcess *process = FBDLaunch(sSystemBundleIdentifier, nil, &error);
+	if (process == nil)
+		FBDLog(@"cannot launch the system app %@: %@", sSystemBundleIdentifier, error[@"error"]);
+	else if (!FBDHasForegroundApp())
+		FBDSetState(process, FBSApplicationStateForeground);
+}
+
+static void FBDHomeButton(void)
+{
+	uint64_t now = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+	NSInteger count = sLastHomePress != 0 && now - sLastHomePress < FBDDoublePressInterval ? 2 : 1;
+	/* A third quick press starts over rather than being another double. */
+	FBDLog(@"home button, %ld press(es), %llu ms after the last", (long)count, sLastHomePress ? (unsigned long long)((now - sLastHomePress) / NSEC_PER_MSEC) : 0ULL);
+	sLastHomePress = count == 2 ? 0 : now;
+	FBDGoHome();
+	FBDProcess *system = FBDSystemProcess();
+	if (system.eventFD >= 0)
+		FBSLiteSend(system.eventFD, @{ @"event": @"button", @"button": @"home", @"count": @(count) });
 }
 
 static void FBDTerminate(NSDictionary *request, void (^reply)(NSDictionary *))
@@ -250,7 +339,10 @@ static void FBDCheckIn(NSDictionary *request, int fd)
 		process.pid = pid;
 		process.state = FBSApplicationStateBackground;
 		[sProcesses addObject:process];
-		FBDBringToForeground(process);
+		if (!FBDIsSystem(process))
+			FBDBringToForeground(process);
+		else if (!FBDHasForegroundApp())
+			FBDSetState(process, FBSApplicationStateForeground);
 	}
 	FBDLog(@"%@ (%d) checked in, %@", process.bundleIdentifier, pid, FBDStateName(process.state));
 	process.eventFD = fd;
@@ -310,9 +402,11 @@ static void FBDServe(int fd)
 			else if ([op isEqualToString:@"pid"])
 				reply(@{ @"pid": @(FBDProcessWithBundleIdentifier(request[@"bundleIdentifier"]).pid) });
 			else if ([op isEqualToString:@"home"]) {
-				for (FBDProcess *process in sProcesses)
-					if (process.state == FBSApplicationStateForeground)
-						FBDSetState(process, FBSApplicationStateBackground);
+				FBDGoHome();
+				reply(@{});
+			} else if ([op isEqualToString:@"button"]) {
+				if ([request[@"button"] isEqualToString:@"home"])
+					FBDHomeButton();
 				reply(@{});
 			} else if ([op isEqualToString:@"list"])
 				reply(@{ @"processes": FBDList() });
@@ -331,6 +425,15 @@ int main(int argc, char **argv)
 		signal(SIGPIPE, SIG_IGN);
 		sQueue = dispatch_queue_create("frontboardd", DISPATCH_QUEUE_SERIAL);
 		sProcesses = [NSMutableArray array];
+		sSystemBundleIdentifier = [[FBSSystemService sharedService] systemApplicationBundleIdentifier];
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--no-system-app") == 0)
+				sLaunchSystemApp = NO;
+			else {
+				fprintf(stderr, "usage: frontboardd [--no-system-app]\n");
+				return 2;
+			}
+		}
 
 		int listener = FBSLiteListen();
 		if (listener < 0) {
@@ -338,6 +441,9 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		FBDLog(@"listening on %@", FBSLiteSocketPath());
+		dispatch_async(sQueue, ^{
+			FBDLaunchSystemApp();
+		});
 
 		for (;;) {
 			int fd = accept(listener, NULL, NULL);

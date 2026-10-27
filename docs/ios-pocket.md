@@ -113,10 +113,44 @@ calling process (`tests/ios-board-services.m` covers all three):
 
   ![A, then B, then A in front](images/frontboard-lite-switches.png)
 
-  It draws nothing. The darling-pocket launcher (or any home screen) is a
-  client of its socket: open, home, list, terminate. It is not started
-  automatically yet; the launcher or a LaunchDaemon plist should start it.
+  It draws nothing itself. Clients use its socket: open, home, list,
+  terminate, and Home button presses. frontboardd itself still has to be
+  started by hand or by the host (a LaunchDaemon plist would do it).
   Suspension (stopping background apps) and scenes are not done.
+- SpringBoard-lite (`src/SpringBoard`, installed as
+  `/System/Library/CoreServices/SpringBoard.app`, bundle identifier
+  `com.apple.springboard`) is the home screen. To frontboardd it is the system
+  app:
+  - frontboardd launches it at startup (unless given `--no-system-app`) and
+    relaunches it if it dies;
+  - it is in front whenever no other app is;
+  - it hears each Home button press, and two presses within 400 ms count as
+    a double press.
+
+  The home screen shows `FBSInstalledApplications()` as pages of rounded
+  icons with names, laid out 4 columns wide in portrait and 6 in landscape.
+  An app's own PNG icon is used if it has one; otherwise a colored monogram.
+  Around the grid are a status bar clock, page dots, a dock and a dot under
+  each running app.
+  - Tapping an icon opens the app; swiping turns the page.
+  - On a phone the Home button comes from the host; under X11 it is the
+    keyboard's Home key, which every UIKit app forwards to frontboardd.
+  - A double press opens the app switcher. Tapping a card brings that app
+    back; tapping its × terminates it.
+  - The dock holds the apps listed in the `SBDockApplications` default.
+
+  Behind this, UIKit gained pointer-driven touches (`UITouch`, `UIEvent`,
+  `touches*:withEvent:` passed up the superview chain), `UIImage` and
+  `UIGraphicsGetCurrentContext`. Darling's Core Graphics clips to a path's
+  bounding box only, so the rounded corners are drawn as rectangle-clipped
+  strips. Checked by hand with xdotool on x86_64 (home screen and switcher
+  below) and on the Pi 4, where it launches the unmodified Hello World IPA:
+
+  ![SpringBoard-lite: home screen and app switcher](images/springboard-lite.png)
+
+  Not done yet: rearranging icons and deleting apps (the wiggle mode),
+  folders, search, notifications and lock screen. On the Pi a full-screen
+  redraw takes many seconds over a forwarded X display.
 
 ### 3. Android display backend
 

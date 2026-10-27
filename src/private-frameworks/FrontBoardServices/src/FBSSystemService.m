@@ -55,6 +55,35 @@ NSArray<NSString *> *FBSApplicationSearchPaths(void)
 	];
 }
 
+NSString *const FBSSystemApplicationPath = @"/System/Library/CoreServices/SpringBoard.app";
+
+NSArray<NSBundle *> *FBSInstalledApplications(void)
+{
+	NSFileManager *fm = [NSFileManager defaultManager];
+	NSMutableArray<NSBundle *> *bundles = [NSMutableArray array];
+	for (NSString *root in FBSApplicationSearchPaths()) {
+		NSArray<NSString *> *entries = [[fm contentsOfDirectoryAtPath:root error:NULL] sortedArrayUsingSelector:@selector(compare:)];
+		for (NSString *entry in entries) {
+			NSString *path = [root stringByAppendingPathComponent:entry];
+			NSArray<NSString *> *candidates = @[ path ];
+			/* Installed apps sit one directory deeper, in a container. */
+			if (![[entry pathExtension] isEqualToString:@"app"]) {
+				NSMutableArray *nested = [NSMutableArray array];
+				for (NSString *inner in [fm contentsOfDirectoryAtPath:path error:NULL])
+					if ([[inner pathExtension] isEqualToString:@"app"])
+						[nested addObject:[path stringByAppendingPathComponent:inner]];
+				candidates = nested;
+			}
+			for (NSString *candidate in candidates) {
+				NSBundle *bundle = [NSBundle bundleWithPath:candidate];
+				if ([bundle bundleIdentifier] != nil)
+					[bundles addObject:bundle];
+			}
+		}
+	}
+	return bundles;
+}
+
 @implementation FBSOpenApplicationOptions
 
 + (instancetype)optionsWithDictionary:(NSDictionary<NSString *, id> *)dictionary
@@ -90,25 +119,14 @@ NSArray<NSString *> *FBSApplicationSearchPaths(void)
 
 - (NSBundle *)bundleForApplication:(NSString *)bundleIdentifier
 {
-	NSFileManager *fm = [NSFileManager defaultManager];
-	for (NSString *root in FBSApplicationSearchPaths()) {
-		for (NSString *entry in [fm contentsOfDirectoryAtPath:root error:NULL]) {
-			NSString *path = [root stringByAppendingPathComponent:entry];
-			NSArray<NSString *> *candidates = @[ path ];
-			if (![[entry pathExtension] isEqualToString:@"app"]) {
-				NSMutableArray *nested = [NSMutableArray array];
-				for (NSString *inner in [fm contentsOfDirectoryAtPath:path error:NULL])
-					if ([[inner pathExtension] isEqualToString:@"app"])
-						[nested addObject:[path stringByAppendingPathComponent:inner]];
-				candidates = nested;
-			}
-			for (NSString *candidate in candidates) {
-				NSBundle *bundle = [NSBundle bundleWithPath:candidate];
-				if ([[bundle bundleIdentifier] isEqualToString:bundleIdentifier])
-					return bundle;
-			}
-		}
+	if ([bundleIdentifier isEqualToString:[self systemApplicationBundleIdentifier]]) {
+		NSBundle *bundle = [NSBundle bundleWithPath:FBSSystemApplicationPath];
+		if ([[bundle bundleIdentifier] isEqualToString:bundleIdentifier])
+			return bundle;
 	}
+	for (NSBundle *bundle in FBSInstalledApplications())
+		if ([[bundle bundleIdentifier] isEqualToString:bundleIdentifier])
+			return bundle;
 	return nil;
 }
 

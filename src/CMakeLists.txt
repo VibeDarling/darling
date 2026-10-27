@@ -531,6 +531,7 @@ if (COMPONENT_gui)
 	add_subdirectory(external/cups)
 	add_subdirectory(pboard)
 	add_subdirectory(frontboardd)
+	add_subdirectory(SpringBoard)
 
 	# not currently used by anything we build
 	add_subdirectory(external/dbuskit)

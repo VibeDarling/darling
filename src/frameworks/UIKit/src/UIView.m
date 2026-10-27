@@ -12,7 +12,10 @@
 #import <UIKit/UIView.h>
 #import <UIKit/UIColor.h>
 #import <UIKit/UIWindow.h>
+#import <UIKit/UITouch.h>
+#import <UIKit/UIEvent.h>
 #import <AppKit/NSGraphics.h>
+#import <AppKit/NSEvent.h>
 
 #import "UIKitPrivate.h"
 
@@ -87,6 +90,89 @@
 		_uiNeedsLayout = NO;
 		[self layoutSubviews];
 	}
+}
+
+#pragma mark - Touches
+
+/* The pointer is the only finger, so one touch is live at a time. */
+static UITouch *sActiveTouch;
+
+- (BOOL)isUserInteractionEnabled
+{
+	return !_uiUserInteractionDisabled;
+}
+
+- (void)setUserInteractionEnabled:(BOOL)enabled
+{
+	_uiUserInteractionDisabled = !enabled;
+}
+
+- (NSView *)hitTest:(NSPoint)point
+{
+	if (_uiUserInteractionDisabled || [self isHidden])
+		return nil;
+	return [super hitTest:point];
+}
+
+/* A tap on a window that is not key is still a tap. */
+- (BOOL)acceptsFirstMouse:(NSEvent *)event
+{
+	return YES;
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+	UITouch *touch = [[UITouch alloc] init];
+	touch.view = self;
+	touch.window = _uiWindow;
+	[touch updateWithEvent:event phase:UITouchPhaseBegan];
+	sActiveTouch = touch;
+	[self touchesBegan:[NSSet setWithObject:touch] withEvent:[[UIEvent alloc] initWithTouch:touch]];
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+	UITouch *touch = sActiveTouch;
+	if (touch == nil)
+		return;
+	[touch updateWithEvent:event phase:UITouchPhaseMoved];
+	[touch.view touchesMoved:[NSSet setWithObject:touch] withEvent:[[UIEvent alloc] initWithTouch:touch]];
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+	UITouch *touch = sActiveTouch;
+	if (touch == nil)
+		return;
+	sActiveTouch = nil;
+	[touch updateWithEvent:event phase:UITouchPhaseEnded];
+	[touch.view touchesEnded:[NSSet setWithObject:touch] withEvent:[[UIEvent alloc] initWithTouch:touch]];
+}
+
+- (UIView *)touchParent
+{
+	NSView *superview = [self superview];
+	return [superview isKindOfClass:[UIView class]] ? (UIView *)superview : nil;
+}
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	[[self touchParent] touchesBegan:touches withEvent:event];
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	[[self touchParent] touchesMoved:touches withEvent:event];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	[[self touchParent] touchesEnded:touches withEvent:event];
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	[[self touchParent] touchesCancelled:touches withEvent:event];
 }
 
 - (void)drawRect:(NSRect)rect

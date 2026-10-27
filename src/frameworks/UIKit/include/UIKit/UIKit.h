@@ -23,6 +23,10 @@
 #import <UIKit/UIApplication.h>
 #import <UIKit/UIApplicationDelegate.h>
 #import <UIKit/UIScreen.h>
+#import <UIKit/UIGraphics.h>
+#import <UIKit/UIImage.h>
+#import <UIKit/UITouch.h>
+#import <UIKit/UIEvent.h>
 #import <UIKit/UIColor.h>
 #import <UIKit/UIFont.h>
 #import <UIKit/UIView.h>

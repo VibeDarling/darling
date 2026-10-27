@@ -35,4 +35,20 @@
 - (void)attachToWindow:(UIWindow *)window;
 @end
 
+@class NSEvent;
+
+@interface UITouch ()
+@property (nonatomic, readwrite) UITouchPhase phase;
+@property (nonatomic, readwrite) NSUInteger tapCount;
+@property (nonatomic, readwrite) NSTimeInterval timestamp;
+@property (nonatomic, readwrite, strong) UIView *view;
+@property (nonatomic, readwrite, strong) UIWindow *window;
+/* Moves the touch to where the pointer event happened. */
+- (void)updateWithEvent:(NSEvent *)event phase:(UITouchPhase)phase;
+@end
+
+@interface UIEvent ()
+- (instancetype)initWithTouch:(UITouch *)touch;
+@end
+
 #endif /* UIKIT_UIKITPRIVATE_H */
