@@ -104,3 +104,18 @@ at startup and validates its user and exact prefix socket environment before
 obtaining a shutdown target. Existing nonroot containers started by an older
 launcher lack this record and are refused rather than falling back to a global
 process-name search. Start disposable nonroot tests with the fixed launcher.
+
+## Shellspawn accept loop
+
+Run without root or any Darling container:
+
+```sh
+python3 tests/launcher/test-shellspawn-accept.py src/shellspawn/shellspawn.c --run
+```
+
+The script extracts `listenForConnections()` from the given source, compiles it
+with mocked `accept`, `usleep`, `perror` and `fork` in a temporary directory, and
+runs scripted accept results. `EINTR`, `EAGAIN` and `ECONNABORTED` retry without
+sleeping. `EMFILE`, `ENFILE`, `ENOBUFS` and `ENOMEM` sleep on every retry but log
+once per streak, and a successful accept resets the streak. `EINVAL` and
+`ENOTSOCK` log once and return -1. The script fails if the function's shape changes.
