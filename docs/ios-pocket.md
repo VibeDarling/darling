@@ -85,6 +85,25 @@ text and a display backend today. What changes is what the app sees:
 - Later: UIView backed by CALayer instead of NSView, once QuartzCore can
   composite; needed for animation and for apps that use layers directly.
 
+System services, the part of SpringBoard that apps talk to. Their interfaces
+are copied on a best-effort basis from class-dumped headers. With no
+FrontBoard or runningboardd behind them yet, each call does its work in the
+calling process (`tests/ios-board-services.m` covers all three):
+
+- GraphicsServices: `GSEventRunModal` and its run loop mode stack, screen
+  info, event timestamps. GSEvents themselves have been dead since iOS 7.
+- RunningBoardServices: process handles, identifiers and predicates (found
+  through `kern.proc.all` and `proc_pidpath`, with the bundle taken from the
+  executable's enclosing `.app`), and assertions that are recorded but not
+  enforced.
+- FrontBoardServices: `FBSSystemService` finds an installed app by bundle
+  identifier in `/Applications`, `/var/containers/Bundle/Application/*/` and
+  `~/Applications`, launches it with `posix_spawn`, gives its pid, and
+  terminates it. Scene settings are only value objects so far.
+- Still to come: a FrontBoard-lite in one process that owns the display and
+  sends apps their lifecycle (foreground, background, suspend). The
+  darling-pocket launcher would sit on top of it.
+
 ### 3. Android display backend
 
 A third Cocotron backend next to `X11.backend` and `Wayland.backend`:

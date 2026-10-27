@@ -459,4 +459,5 @@
 	url = https://github.com/VibeDarling/darling-metal.git
 [submodule "src/external/xnu"]
 	path = src/external/xnu
-	url = https://github.com/VibeDarling/darling-xnu.git
+	url = https://github.com/Kreijstal/darling-xnu.git
+	branch = ios
