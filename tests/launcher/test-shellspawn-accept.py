@@ -20,6 +20,7 @@ for required in ('accept(g_serverSocket', 'usleep(', 'perror("shellspawn: accept
 header = r'''
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -31,6 +32,12 @@ static int seq[64], nseq, pos, accepts, sleeps, perrors, forks, closes;
 static int mock_accept(void)
 {
     ++accepts;
+    if (accepts > nseq + 8)
+    {
+        printf("FAIL runaway: accept called %d times past the scripted results\n", accepts - nseq);
+        fflush(stdout);
+        _exit(1);
+    }
     if (pos >= nseq) { errno = EBADF; return -1; }
     int v = seq[pos++];
     if (v > 0) return v;
@@ -77,5 +84,5 @@ with tempfile.TemporaryDirectory(prefix='darling-shellspawn-accept-') as tmp:
     print('generated=' + str(output), flush=True)
     if args.run:
         binary = pathlib.Path(tmp) / 'accept-mock'
-        subprocess.run(['cc', '-std=c11', '-Wall', '-Werror', str(output), '-o', str(binary)], check=True)
-        raise SystemExit(subprocess.run([str(binary)]).returncode)
+        subprocess.run(['cc', '-std=c11', '-Wall', '-Werror', str(output), '-o', str(binary)], check=True, timeout=30)
+        raise SystemExit(subprocess.run([str(binary)], timeout=30).returncode)
