@@ -12,19 +12,36 @@
 #import <UIKit/UIApplication.h>
 #import <UIKit/UIApplicationDelegate.h>
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSWindow.h>
+#import <FrontBoardServices/FrontBoardServices.h>
+#import <Foundation/NSBundle.h>
+#import <Foundation/NSProcessInfo.h>
+#import <objc/message.h>
 #import <Foundation/NSNotification.h>
 #import <Foundation/NSObjCRuntime.h>
 #import <Foundation/NSString.h>
 
+NSString *const UIApplicationDidFinishLaunchingNotification = @"UIApplicationDidFinishLaunchingNotification";
+NSString *const UIApplicationDidBecomeActiveNotification = @"UIApplicationDidBecomeActiveNotification";
+NSString *const UIApplicationWillResignActiveNotification = @"UIApplicationWillResignActiveNotification";
+NSString *const UIApplicationDidEnterBackgroundNotification = @"UIApplicationDidEnterBackgroundNotification";
+NSString *const UIApplicationWillEnterForegroundNotification = @"UIApplicationWillEnterForegroundNotification";
+NSString *const UIApplicationWillTerminateNotification = @"UIApplicationWillTerminateNotification";
+
 /* -[NSApplication run] delivers the AppKit delegate callbacks; UIApplication
- * implements them and forwards to the iOS delegate, which never sees AppKit. */
-@interface UIApplication () <NSApplicationDelegate>
+ * implements them and forwards to the iOS delegate, which never sees AppKit.
+ * frontboardd's lifecycle events arrive through FBSWorkspace. */
+@interface UIApplication () <NSApplicationDelegate, FBSWorkspaceDelegate>
 @end
 
 static UIApplication *sSharedApplication;
 static id<UIApplicationDelegate> sDelegateStorage;
 
-@implementation UIApplication
+@implementation UIApplication {
+	UIApplicationState _state;
+	FBSWorkspace *_workspace;
+	NSArray<NSWindow *> *_hiddenWindows;
+}
 
 - (id<UIApplicationDelegate>)delegate
 {
@@ -43,9 +60,81 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	return sSharedApplication;
 }
 
+- (instancetype)init
+{
+	if ((self = [super init]))
+		_state = UIApplicationStateInactive;
+	return self;
+}
+
 - (UIApplicationState)applicationState
 {
-	return UIApplicationStateActive;
+	return _state;
+}
+
+- (void)ui_notify:(SEL)selector name:(NSString *)name
+{
+	id<UIApplicationDelegate> delegate = [self delegate];
+	if ([delegate respondsToSelector:selector])
+		((void (*)(id, SEL, UIApplication *))objc_msgSend)(delegate, selector, self);
+	[[NSNotificationCenter defaultCenter] postNotificationName:name object:self];
+}
+
+- (void)ui_becomeActive
+{
+	if (_state == UIApplicationStateActive)
+		return;
+	if (_state == UIApplicationStateBackground) {
+		[self ui_notify:@selector(applicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification];
+		for (NSWindow *window in _hiddenWindows)
+			[window orderFront:nil];
+		_hiddenWindows = nil;
+	}
+	_state = UIApplicationStateActive;
+	[self ui_notify:@selector(applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification];
+}
+
+- (void)ui_enterBackground
+{
+	if (_state == UIApplicationStateBackground)
+		return;
+	if (_state == UIApplicationStateActive) {
+		_state = UIApplicationStateInactive;
+		[self ui_notify:@selector(applicationWillResignActive:) name:UIApplicationWillResignActiveNotification];
+	}
+	_state = UIApplicationStateBackground;
+	[self ui_notify:@selector(applicationDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification];
+
+	/* Off screen while in the background, as iOS does; back on return. */
+	NSMutableArray<NSWindow *> *hidden = [NSMutableArray array];
+	for (NSWindow *window in [NSApp windows]) {
+		if ([window isVisible]) {
+			[hidden addObject:window];
+			[window orderOut:nil];
+		}
+	}
+	_hiddenWindows = hidden;
+}
+
+#pragma mark - FBSWorkspaceDelegate
+
+- (void)workspace:(FBSWorkspace *)workspace didChangeApplicationState:(FBSApplicationState)state
+{
+	if (state == FBSApplicationStateForeground)
+		[self ui_becomeActive];
+	else if (state == FBSApplicationStateBackground)
+		[self ui_enterBackground];
+}
+
+- (void)workspaceDidRequestTermination:(FBSWorkspace *)workspace
+{
+	[NSApp terminate:nil];
+}
+
+- (void)workspaceDidDisconnect:(FBSWorkspace *)workspace
+{
+	_workspace = nil;
+	[self ui_becomeActive];
 }
 
 - (void)run
@@ -60,13 +149,22 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	id<UIApplicationDelegate> delegate = [self delegate];
 	if ([delegate respondsToSelector:@selector(application:didFinishLaunchingWithOptions:)])
 		[delegate application:self didFinishLaunchingWithOptions:nil];
+	[[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidFinishLaunchingNotification object:self];
+
+	/* With frontboardd, wait for it to say whether we are in front. */
+	NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier] ?: [[NSProcessInfo processInfo] processName];
+	_workspace = [FBSWorkspace checkInWithBundleIdentifier:bundleIdentifier delegate:self queue:dispatch_get_main_queue()];
+	if (_workspace == nil)
+		[self ui_becomeActive];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification
 {
-	id<UIApplicationDelegate> delegate = [self delegate];
-	if ([delegate respondsToSelector:@selector(applicationWillTerminate:)])
-		[delegate applicationWillTerminate:self];
+	if (_state == UIApplicationStateActive) {
+		_state = UIApplicationStateInactive;
+		[self ui_notify:@selector(applicationWillResignActive:) name:UIApplicationWillResignActiveNotification];
+	}
+	[self ui_notify:@selector(applicationWillTerminate:) name:UIApplicationWillTerminateNotification];
 }
 
 /* Terminate when the run loop asks, instead of falling through to AppKit's

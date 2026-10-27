@@ -100,9 +100,23 @@ calling process (`tests/ios-board-services.m` covers all three):
   identifier in `/Applications`, `/var/containers/Bundle/Application/*/` and
   `~/Applications`, launches it with `posix_spawn`, gives its pid, and
   terminates it. Scene settings are only value objects so far.
-- Still to come: a FrontBoard-lite in one process that owns the display and
-  sends apps their lifecycle (foreground, background, suspend). The
-  darling-pocket launcher would sit on top of it.
+- `frontboardd` (FrontBoard-lite) owns the application lifecycle. It
+  launches installed apps, keeps at most one in the foreground, and tells
+  each app when it moves between foreground and background or should
+  terminate. FrontBoardServices forwards to it whenever it runs. UIKit
+  checks in with it after `didFinishLaunching` and turns its events into
+  `applicationDidBecomeActive:`, `WillResignActive:`, `DidEnterBackground:`,
+  `WillEnterForeground:` and `WillTerminate:`, plus the notifications.
+  `applicationState` follows them, and a backgrounded app's windows go off
+  screen. Without frontboardd an app becomes active after launching.
+  `tests/ios-frontboard-lite.m` switches two apps on x86_64 and on the Pi:
+
+  ![A, then B, then A in front](images/frontboard-lite-switches.png)
+
+  It draws nothing. The darling-pocket launcher (or any home screen) is a
+  client of its socket: open, home, list, terminate. It is not started
+  automatically yet; the launcher or a LaunchDaemon plist should start it.
+  Suspension (stopping background apps) and scenes are not done.
 
 ### 3. Android display backend
 

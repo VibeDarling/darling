@@ -23,6 +23,7 @@ add_framework(UIKit
         Foundation
         AppKit
         CoreGraphics
+        FrontBoardServices
         objc
         system
 )

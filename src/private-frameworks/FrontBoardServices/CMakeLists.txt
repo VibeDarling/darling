@@ -24,6 +24,8 @@ add_framework(FrontBoardServices
     SOURCES
         src/FBSSystemService.m
         src/FBSSceneSettings.m
+        src/FBSWorkspace.m
+        src/FBSLite.m
 
     DEPENDENCIES
         system

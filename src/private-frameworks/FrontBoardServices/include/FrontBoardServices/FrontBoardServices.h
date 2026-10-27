@@ -86,6 +86,42 @@ extern NSArray<NSString *> *FBSApplicationSearchPaths(void);
 - (nullable NSBundle *)bundleForApplication:(NSString *)bundleIdentifier;
 @end
 
+/* What frontboardd tells an app about itself. */
+typedef NS_ENUM(NSInteger, FBSApplicationState) {
+	FBSApplicationStateUnknown = 0,
+	FBSApplicationStateForeground = 1,
+	FBSApplicationStateBackground = 2,
+};
+
+@class FBSWorkspace;
+
+@protocol FBSWorkspaceDelegate <NSObject>
+- (void)workspace:(FBSWorkspace *)workspace didChangeApplicationState:(FBSApplicationState)state;
+- (void)workspaceDidRequestTermination:(FBSWorkspace *)workspace;
+@optional
+/* frontboardd went away; the app is on its own again. */
+- (void)workspaceDidDisconnect:(FBSWorkspace *)workspace;
+@end
+
+/* An app's connection to frontboardd. Not Apple's FBSWorkspace interface,
+   which is built around scenes: this carries only the application
+   lifecycle, the part UIKit needs to deliver the delegate callbacks. */
+@interface FBSWorkspace : NSObject
+/* nil when no frontboardd is running. Delegate calls arrive on queue. */
++ (nullable instancetype)checkInWithBundleIdentifier:(NSString *)bundleIdentifier delegate:(id<FBSWorkspaceDelegate>)delegate queue:(dispatch_queue_t)queue;
+@property (nonatomic, readonly) FBSApplicationState applicationState;
+- (void)invalidate;
+@end
+
+/* Not in Apple's API: ask frontboardd to background the foreground app, as
+   the home button does. NO when no frontboardd is running. */
+@interface FBSSystemService (FBSHome)
+- (BOOL)backgroundForegroundApplication;
+/* bundleIdentifier, pid and state (FBSApplicationState) of each app
+   frontboardd knows about; nil when none is running. */
+- (nullable NSArray<NSDictionary *> *)applicationStates;
+@end
+
 typedef NS_ENUM(NSInteger, FBSSceneLevel) {
 	FBSSceneLevelNormal = 1,
 };

@@ -19,13 +19,11 @@
 
 #import <FrontBoardServices/FrontBoardServices.h>
 #import <RunningBoardServices/RunningBoardServices.h>
-#include <spawn.h>
+#import "FBSLite.h"
 #include <signal.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <sys/wait.h>
 
-extern char **environ;
 
 NSString * const FBSOpenApplicationOptionKeyActivateSuspended = @"__ActivateSuspended";
 NSString * const FBSOpenApplicationOptionKeyDebuggingOptions = @"__DebugOptions";
@@ -121,66 +119,41 @@ NSArray<NSString *> *FBSApplicationSearchPaths(void)
 
 - (NSError *)fbs_launch:(NSBundle *)bundle options:(NSDictionary *)options
 {
-	NSString *executable = [bundle executablePath];
-	if (executable == nil)
-		return FBSOpenError(FBSOpenApplicationErrorCodeLaunchFailed, [NSString stringWithFormat:@"%@ has no executable", [bundle bundlePath]]);
-
-	NSDictionary *debug = options[FBSOpenApplicationOptionKeyDebuggingOptions];
-	NSMutableArray<NSString *> *arguments = [NSMutableArray arrayWithObject:executable];
-	[arguments addObjectsFromArray:debug[FBSDebugOptionKeyArguments] ?: @[]];
-
-	/* Start from the raw environ, not NSProcessInfo: Darling's loader hides
-	   its own __mldr_* variables from the latter, and exec needs them. */
-	NSDictionary<NSString *, NSString *> *overrides = debug[FBSDebugOptionKeyEnvironment] ?: @{};
-	NSMutableArray<NSString *> *environment = [NSMutableArray array];
-	for (char **entry = environ; *entry != NULL; entry++) {
-		NSString *string = [NSString stringWithUTF8String:*entry];
-		NSRange equals = [string rangeOfString:@"="];
-		if (string == nil || (equals.location != NSNotFound && overrides[[string substringToIndex:equals.location]] != nil))
-			continue;
-		[environment addObject:string];
-	}
-	[overrides enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
-		[environment addObject:[NSString stringWithFormat:@"%@=%@", key, value]];
-	}];
-
-	posix_spawn_file_actions_t actions;
-	posix_spawn_file_actions_init(&actions);
-	if (debug[FBSDebugOptionKeyStandardOutPath] != nil)
-		posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, [debug[FBSDebugOptionKeyStandardOutPath] fileSystemRepresentation], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (debug[FBSDebugOptionKeyStandardErrorPath] != nil)
-		posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, [debug[FBSDebugOptionKeyStandardErrorPath] fileSystemRepresentation], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-
-	size_t argc = [arguments count];
-	char **argv = calloc(argc + 1, sizeof(char *));
-	for (size_t i = 0; i < argc; i++)
-		argv[i] = strdup([arguments[i] UTF8String]);
-	size_t envc = [environment count];
-	char **envp = calloc(envc + 1, sizeof(char *));
-	for (size_t i = 0; i < envc; i++)
-		envp[i] = strdup([environment[i] UTF8String]);
-
 	pid_t pid;
-	int rc = posix_spawn(&pid, argv[0], &actions, NULL, argv, envp);
-	posix_spawn_file_actions_destroy(&actions);
-	for (size_t i = 0; i < argc; i++)
-		free(argv[i]);
-	free(argv);
-	for (size_t i = 0; i < envc; i++)
-		free(envp[i]);
-	free(envp);
-
-	if (rc != 0)
-		return FBSOpenError(FBSOpenApplicationErrorCodeLaunchFailed, [NSString stringWithFormat:@"posix_spawn %@: %s", executable, strerror(rc)]);
+	NSError *error = FBSLiteSpawnApplication(bundle, options, &pid);
+	if (error != nil)
+		return error;
 
 	/* We are its parent, so reap it, or it lingers as a zombie that still
 	   looks alive to kill(pid, 0). */
-	dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-		int status;
-		while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
-			;
-	});
+	[NSThread detachNewThreadSelector:@selector(fbs_reap:) toTarget:[self class] withObject:@(pid)];
 	return nil;
+}
+
+/* On a thread of its own: blocked in waitpid on a GCD worker it would take
+   one of the few threads GCD runs per CPU. */
++ (void)fbs_reap:(NSNumber *)pid
+{
+	int status;
+	while (waitpid([pid intValue], &status, 0) < 0 && errno == EINTR)
+		;
+}
+
++ (void)fbs_awaitTermination:(NSArray *)arguments
+{
+	int fd = [arguments[0] intValue];
+	FBSLiteReceive(fd);
+	close(fd);
+	if (arguments[1] != [NSNull null])
+		((void (^)(void))arguments[1])();
+}
+
+/* frontboardd's reply as an NSError, or nil for success. */
+static NSError *FBSErrorFromReply(NSDictionary *reply)
+{
+	if (reply[@"error"] == nil)
+		return nil;
+	return FBSOpenError([reply[@"code"] integerValue], reply[@"error"]);
 }
 
 - (void)openApplication:(NSString *)bundleIdentifier options:(FBSOpenApplicationOptions *)options withResult:(void (^)(NSError *))result
@@ -193,11 +166,17 @@ NSArray<NSString *> *FBSApplicationSearchPaths(void)
 	NSDictionary *dictionary = [options dictionary] ?: @{};
 	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
 		NSError *error = nil;
-		if ([bundleIdentifier length] == 0) {
+		NSDictionary *reply = [bundleIdentifier length] > 0
+			? FBSLiteRequest(@{ @"op": @"open", @"bundleIdentifier": bundleIdentifier, @"options": FBSLiteWireOptions(dictionary) })
+			: nil;
+		if (reply != nil) {
+			/* frontboardd launched or activated it. */
+			error = FBSErrorFromReply(reply);
+		} else if ([bundleIdentifier length] == 0) {
 			error = FBSOpenError(FBSOpenApplicationErrorCodeInvalidRequest, @"No bundle identifier");
 		} else if ([self fbs_runningProcessForApplication:bundleIdentifier] != nil) {
-			/* Already running. Bringing it to the front is the display
-			   owner's job, and there is none to ask yet. */
+			/* Already running. Bringing it to the front is frontboardd's
+			   job, and none is running. */
 		} else {
 			NSBundle *bundle = [self bundleForApplication:bundleIdentifier];
 			if (bundle == nil)
@@ -228,6 +207,9 @@ NSArray<NSString *> *FBSApplicationSearchPaths(void)
 
 - (pid_t)pidForApplication:(NSString *)bundleIdentifier
 {
+	NSDictionary *reply = FBSLiteRequest(@{ @"op": @"pid", @"bundleIdentifier": bundleIdentifier ?: @"" });
+	if (reply != nil)
+		return [reply[@"pid"] intValue];
 	RBSProcessHandle *handle = [self fbs_runningProcessForApplication:bundleIdentifier];
 	return handle != nil ? [handle pid] : 0;
 }
@@ -239,6 +221,15 @@ NSArray<NSString *> *FBSApplicationSearchPaths(void)
 
 - (void)terminateApplication:(NSString *)bundleIdentifier forReason:(NSInteger)reason andReport:(BOOL)report withDescription:(NSString *)description completion:(void (^)(void))completion
 {
+	int fd = FBSLiteConnect();
+	if (fd >= 0) {
+		/* frontboardd lets the app run applicationWillTerminate: and replies
+		   once it has exited. */
+		FBSLiteSend(fd, @{ @"op": @"terminate", @"bundleIdentifier": bundleIdentifier ?: @"" });
+		[NSThread detachNewThreadSelector:@selector(fbs_awaitTermination:) toTarget:[self class]
+			withObject:@[ @(fd), completion ? [completion copy] : [NSNull null] ]];
+		return;
+	}
 	for (RBSProcessHandle *handle in [RBSProcessHandle handlesForPredicate:[RBSProcessPredicate predicateMatchingBundleIdentifier:bundleIdentifier]])
 		if ([handle pid] != getpid())
 			kill([handle pid], SIGTERM);

@@ -24,6 +24,20 @@ typedef NS_ENUM(NSInteger, UIApplicationState) {
 	UIApplicationStateBackground,
 };
 
+extern NSString *const UIApplicationDidFinishLaunchingNotification;
+extern NSString *const UIApplicationDidBecomeActiveNotification;
+extern NSString *const UIApplicationWillResignActiveNotification;
+extern NSString *const UIApplicationDidEnterBackgroundNotification;
+extern NSString *const UIApplicationWillEnterForegroundNotification;
+extern NSString *const UIApplicationWillTerminateNotification;
+
+/*
+ * When frontboardd runs, it decides when the app is in the foreground or the
+ * background, and UIApplication turns its word into the delegate callbacks
+ * and notifications; a backgrounded app's windows are taken off screen.
+ * Without frontboardd the app becomes active once it has finished launching
+ * and stays so.
+ */
 @interface UIApplication : UIResponder
 
 + (UIApplication *)sharedApplication;
