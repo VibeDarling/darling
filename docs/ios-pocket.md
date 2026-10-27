@@ -152,9 +152,14 @@ calling process (`tests/ios-board-services.m` covers all three):
   the whole window to the screen once per view it drew (each push a
   texture upload and a `glFinish`); now `-[NSView unlockFocus]` flushes
   through `-[NSWindow flushWindow]`, which waits for the end of the display
-  pass. On the Pi 4 over a forwarded X display, the first full home screen
-  went from about 15 s to under 0.5 s, and opening an app, Home and the
-  clock now redraw in tens of milliseconds. Checked by hand with xdotool on x86_64 (home screen and switcher
+  pass. And the tree builds without optimization unless a build type is
+  set, which made Core Graphics' pixel loops 3 to 6 times slower, so the
+  Cocotron frameworks are now built with `-O2` regardless. On the Pi 4
+  over a forwarded X display, the first full home screen went from about
+  15 s to under 0.5 s; a tap, Home and the clock redraw in tens of
+  milliseconds, and the switcher opens in about 0.1 s (switcher cards are
+  kept per app). Most of what is left is per-view overhead in Foundation
+  and the Objective-C runtime, which are still built at `-O0`. Checked by hand with xdotool on x86_64 (home screen and switcher
   below) and on the Pi 4, where it launches the unmodified Hello World IPA:
 
   ![SpringBoard-lite: home screen and app switcher](images/springboard-lite.png)

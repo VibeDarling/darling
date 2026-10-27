@@ -438,31 +438,38 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 @property (nonatomic) CGRect closeRect;
 @end
 
-@implementation SBSwitcherCardView {
-	CGImageRef _cardImage;
-}
+@implementation SBSwitcherCardView
 
-- (void)dealloc
+/* Cards are drawn once per app and size and kept, so the switcher opens
+   without redrawing them; see SBCreateImage. */
+- (CGImageRef)cardImageOfSize:(CGSize)size
 {
-	CGImageRelease(_cardImage);
+	static NSMutableDictionary<NSString *, id> *cache;
+	if (cache == nil)
+		cache = [NSMutableDictionary dictionary];
+	NSString *key = [NSString stringWithFormat:@"%@ %gx%g", _application.bundleIdentifier, size.width, size.height];
+	id image = cache[key];
+	if (image == nil) {
+		CGRect shape = { CGPointZero, size };
+		SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
+		image = (__bridge_transfer id)SBCreateImage(size, ^(CGContextRef context) {
+			SBClipToRoundedRect(context, shape, 18, ^(CGRect strip) {
+				SBFillVerticalGradientWithin(context, shape, strip, (SBRGB){ 0.97, 0.97, 0.98 }, (SBRGB){ 0.85, 0.86, 0.9 }, 1);
+				CGContextSetRGBFillColor(context, color.r, color.g, color.b, 1);
+				CGContextFillRect(context, CGRectIntersection(strip, CGRectMake(0, 0, size.width, 40)));
+			});
+		});
+		if (image != nil)
+			cache[key] = image;
+	}
+	return (__bridge CGImageRef)image;
 }
 
 - (void)drawRect:(NSRect)rect
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
 	CGRect card = CGRectMake(0, 24, [self bounds].size.width, [self bounds].size.height - 24);
-	if (_cardImage == NULL) {
-		CGRect shape = { CGPointZero, card.size };
-		SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
-		_cardImage = SBCreateImage(shape.size, ^(CGContextRef context) {
-			SBClipToRoundedRect(context, shape, 18, ^(CGRect strip) {
-				SBFillVerticalGradientWithin(context, shape, strip, (SBRGB){ 0.97, 0.97, 0.98 }, (SBRGB){ 0.85, 0.86, 0.9 }, 1);
-				CGContextSetRGBFillColor(context, color.r, color.g, color.b, 1);
-				CGContextFillRect(context, CGRectIntersection(strip, CGRectMake(0, 0, shape.size.width, 40)));
-			});
-		});
-	}
-	SBDrawImage(context, _cardImage, card);
+	SBDrawImage(context, [self cardImageOfSize:card.size], card);
 
 	/* The close mark: a dark disc with a cross. */
 	CGRect close = _closeRect;
