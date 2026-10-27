@@ -26,7 +26,18 @@ VibeDarling, so this branch stays a thin layer over it.
   to `/System/iOSSupport`, `didFinishLaunching` and `viewDidLoad` run, and the X11
   backend under Xvfb shows the centred label in a frameless window. The same
   binary marked `PLATFORM_IOS` fails to find UIKit on x86_64, as the code above
-  predicts (the iOS root path is arm64-only). The arm64 run is still open.
+  predicts (the iOS root path is arm64-only).
+- **Measured on arm64: an unmodified iOS IPA runs.** The same sample's IPA as
+  Theos built it (arm64, `PLATFORM_IOS`, iOS 14 deployment target, SDK 16.5,
+  `LC_DYLD_INFO_ONLY` binds) runs on a Raspberry Pi 4 under this tree
+  cross-built from x86_64: dyld loads UIKit from `/System/iOSSupport`,
+  `didFinishLaunching` and `viewDidLoad` run and the label is drawn centred
+  (X11 backend, display tunnelled from Xvfb). It took three fixes: a generic
+  ARMv8.0 CPU baseline for compiled Mach-O code (`DARLING_ARM64_CPU`), dyld2
+  instead of closure mode for iOS executables (darling-dyld), and the iOS
+  `NSTextAlignment` numbering on arm64 (darling-cocotron).
+
+  ![Unmodified Hello World IPA on a Raspberry Pi 4](images/ios-hello-world-pi4.png)
 - **Non-root mode for Android exists** (`src/startup/darling.c`: no namespaces,
   the prefix a plain directory, the real procfs), along with bionic/Termux build
   support in mldr, darlingserver and the launcher. Termux is an ordinary app
@@ -42,11 +53,12 @@ Each phase ends with a run of a real binary, not only a build.
 
 ### 1. arm64 iOS binaries on arm64 Linux
 
-- Build this tree for arm64. The Pi (3 GB) is too small for a native build;
-  use the host-tools cross build (`src/CMakeLists.txt` builds host tools
-  separately for cross compilation) on x86_64, or a larger aarch64 machine.
-- Run the ios-android-runtime Hello World **IPA as built by Theos** (arm64,
-  `PLATFORM_IOS`, chained fixups) with no relinking or patching.
+- Done: cross build on x86_64 against a copy of the target's `/usr` as sysroot,
+  with a CMake toolchain file for `aarch64-unknown-linux-gnu` and
+  `-DTARGET_ARM64=ON -DTARGET_x86_64=OFF -DTARGET_i386=OFF`; the Theos-built
+  Hello World IPA runs unmodified (above).
+- Next: the chained-fixups variant of the same IPA
+  (`make package FIXUP_CHAINS=1`), and the multi-image and table-view samples.
 - Add an `.app` launcher: take the executable from `CFBundleExecutable`, give
   the app an iOS-shaped container (`Documents`, `Library`, `tmp`) as its home,
   and make `[NSBundle mainBundle]` work with the **flat iOS bundle layout**
