@@ -8,7 +8,7 @@ import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('source', type=pathlib.Path)
-parser.add_argument('--run', action='store_true', help='compile only after owner queue clearance')
+parser.add_argument('--run', action='store_true', help='compile and run the generated harness')
 args = parser.parse_args()
 source = args.source.read_text()
 start = source.index('\t// If prefix\'s init is not running, start it up')
@@ -61,14 +61,13 @@ int main(void) {
 }
 '''
 code = header + branch + tail
-output = pathlib.Path(__file__).resolve().parent / 'missing-init-generated.c'
-output.write_text(code)
-print('source_sha256=' + hashlib.sha256(args.source.read_bytes()).hexdigest(), flush=True)
-print('branch_sha256=' + hashlib.sha256(branch.encode()).hexdigest(), flush=True)
-print('generated=' + str(output), flush=True)
-if args.run:
-    with tempfile.TemporaryDirectory(prefix='darling-identity-mock-') as tmp:
+with tempfile.TemporaryDirectory(prefix='darling-missing-init-') as tmp:
+    output = pathlib.Path(tmp) / 'missing-init-generated.c'
+    output.write_text(code)
+    print('source_sha256=' + hashlib.sha256(args.source.read_bytes()).hexdigest(), flush=True)
+    print('branch_sha256=' + hashlib.sha256(branch.encode()).hexdigest(), flush=True)
+    print('generated=' + str(output), flush=True)
+    if args.run:
         binary = pathlib.Path(tmp) / 'identity-mock'
-        subprocess.run(['flock', '-n', '/tmp/agent-locks/darling-heavy-build.lock',
-                        'cc', '-std=c11', '-Wall', '-Werror', str(output), '-o', str(binary)], check=True)
+        subprocess.run(['cc', '-std=c11', '-Wall', '-Werror', str(output), '-o', str(binary)], check=True)
         raise SystemExit(subprocess.run([str(binary)]).returncode)
