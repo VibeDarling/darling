@@ -167,6 +167,22 @@ calling process (`tests/ios-board-services.m` covers all three):
   Not done yet: rearranging icons and deleting apps (the wiggle mode),
   folders, search, notifications and lock screen.
 
+- Cydia packages. Procursus' rootless bootstrap tools are iOS arm64
+  binaries, and they run unmodified under this tree: placed at `/var/jb`
+  (`/var/jb` a link to `/private/var/jb`), `dpkg` 1.22.6 installs a real
+  `.deb`. It needs GNU `tar` ahead of Darling's bsdtar on `PATH`, and
+  `libreadline8` and `libncursesw6` for `bash`, because libiosexec sends
+  maintainer scripts' `#!/bin/bash` to `/var/jb/bin/bash`. On the Pi 4,
+  `dpkg -i --force-all cydia_1.1.30_iphoneos-arm.deb` unpacks
+  `/Applications/Cydia.app`, and its native postinst runs until an iOS-only
+  call (`setnsfpn`). SpringBoard-lite then lists Cydia with its own icon.
+  That needed Onyx2D to decode Apple's CgBI PNGs, which every
+  Xcode-built app ships and which libpng rejects. Cydia itself does not
+  start yet: it links `SpringBoardServices`, and iOS `WebCore` and `WebKit`
+  (UIWebView), which this tree does not have. Tweaks (MobileSubstrate) hook
+  Apple's SpringBoard classes, which SpringBoard-lite does not have, so they
+  are out of scope.
+
 ### 3. Android display backend
 
 A third Cocotron backend next to `X11.backend` and `Wayland.backend`:
