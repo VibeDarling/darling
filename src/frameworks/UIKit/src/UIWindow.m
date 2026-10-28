@@ -16,8 +16,64 @@
 #import <Foundation/NSProcessInfo.h>
 
 #import "UIKitPrivate.h"
+#import <UIKit/UIScreen.h>
+
+/* UIKit's windows, oldest first, and the one made key last. */
+static NSHashTable<UIWindow *> *sWindows;
+static __weak UIWindow *sKeyWindow;
 
 @implementation UIWindow
+
++ (UIWindow *)uikitKeyWindow
+{
+	if (sKeyWindow != nil)
+		return sKeyWindow;
+	for (UIWindow *window in sWindows)
+		if ([(NSWindow *)window->_hostWindow isVisible])
+			return window;
+	return nil;
+}
+
++ (NSArray *)uikitWindows
+{
+	return [sWindows allObjects] ?: @[];
+}
+
+- (CGFloat)windowLevel { return 0; }
+- (void)setWindowLevel:(CGFloat)level { }
+- (BOOL)isKeyWindow { return sKeyWindow == self; }
+- (id)screen { return [UIScreen mainScreen]; }
+- (void)setScreen:(id)screen { }
+- (void)sendEvent:(UIEvent *)event { }
+
+- (id)firstResponder
+{
+	return [(NSWindow *)_hostWindow firstResponder];
+}
+
+- (void)orderFront:(id)sender
+{
+	[super setHidden:NO];
+	[(NSWindow *)_hostWindow orderFront:nil];
+	[[_rootViewController view] layoutIfNeeded];
+	[_rootViewController uikitAppear:NO];
+}
+
+- (void)makeKey:(id)sender
+{
+	[self makeKeyWindow];
+}
+
+- (void)setHidden:(BOOL)hidden
+{
+	[super setHidden:hidden];
+	if (hidden) {
+		[(NSWindow *)_hostWindow orderOut:nil];
+		[_rootViewController uikitDisappear:NO];
+	} else {
+		[self orderFront:nil];
+	}
+}
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -38,6 +94,9 @@
 	[host setTitle:[[NSProcessInfo processInfo] processName]];
 	[host setContentView:self];
 	_hostWindow = host;
+	if (sWindows == nil)
+		sWindows = [NSHashTable weakObjectsHashTable];
+	[sWindows addObject:self];
 
 	[self setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
 	[self setFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height)];
@@ -73,12 +132,16 @@
 
 - (void)makeKeyAndVisible
 {
-	[self setHidden:NO];
+	sKeyWindow = self;
+	[super setHidden:NO];
 	[(NSWindow *)_hostWindow makeKeyAndOrderFront:nil];
+	[[_rootViewController view] layoutIfNeeded];
+	[_rootViewController uikitAppear:NO];
 }
 
 - (void)makeKeyWindow
 {
+	sKeyWindow = self;
 	[(NSWindow *)_hostWindow makeKeyWindow];
 }
 

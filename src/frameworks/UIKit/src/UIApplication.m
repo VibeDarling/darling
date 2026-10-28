@@ -21,6 +21,9 @@
 #import <Foundation/NSNotification.h>
 #import <Foundation/NSObjCRuntime.h>
 #import <Foundation/NSString.h>
+#import <UIKit/UIWindow.h>
+#import <UIKit/UIScreen.h>
+#import "UIKitPrivate.h"
 
 NSString *const UIApplicationDidFinishLaunchingNotification = @"UIApplicationDidFinishLaunchingNotification";
 NSString *const UIApplicationDidBecomeActiveNotification = @"UIApplicationDidBecomeActiveNotification";
@@ -32,7 +35,41 @@ NSString *const UIApplicationWillTerminateNotification = @"UIApplicationWillTerm
 /* -[NSApplication run] delivers the AppKit delegate callbacks; UIApplication
  * implements them and forwards to the iOS delegate, which never sees AppKit.
  * frontboardd's lifecycle events arrive through FBSWorkspace. */
-@interface UIApplication () <NSApplicationDelegate, FBSWorkspaceDelegate>
+@interface UIApplication () <FBSWorkspaceDelegate>
+- (void)uikitDidFinishLaunching;
+- (void)uikitWillTerminate;
+@end
+
+/* AppKit's delegate.  A separate object, so that an app's UIApplication
+ * subclass (which may have its own -applicationDidFinishLaunching:) never
+ * receives AppKit's callbacks. */
+@interface UIKitAppKitDelegate : NSObject <NSApplicationDelegate>
+@end
+
+@implementation UIKitAppKitDelegate
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{
+	[[UIApplication sharedApplication] uikitDidFinishLaunching];
+}
+
+- (void)applicationWillTerminate:(NSNotification *)notification
+{
+	[[UIApplication sharedApplication] uikitWillTerminate];
+}
+
+/* Terminate when the run loop asks, instead of falling through to AppKit's
+ * last-window handling. */
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+{
+	return NSTerminateNow;
+}
+
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender
+{
+	return NO;
+}
+
 @end
 
 /* The keyboard's Home key is the device's Home button: frontboardd sends
@@ -72,6 +109,13 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	UIApplicationState _state;
 	FBSWorkspace *_workspace;
 	NSArray<NSWindow *> *_hiddenWindows;
+	BOOL _networkActivityIndicatorVisible;
+	BOOL _statusBarHidden;
+	BOOL _idleTimerDisabled;
+	BOOL _applicationSupportsShakeToEdit;
+	NSInteger _statusBarStyle;
+	NSInteger _applicationIconBadgeNumber;
+	NSInteger _ignoringInteractionEvents;
 }
 
 - (id<UIApplicationDelegate>)delegate
@@ -173,13 +217,18 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	[NSApp run];
 }
 
-#pragma mark - NSApplicationDelegate
+#pragma mark - Launch and termination
 
-- (void)applicationDidFinishLaunching:(NSNotification *)notification
+- (void)uikitDidFinishLaunching
 {
 	id<UIApplicationDelegate> delegate = [self delegate];
+	if ([delegate respondsToSelector:@selector(application:willFinishLaunchingWithOptions:)])
+		[(id)delegate application:self willFinishLaunchingWithOptions:nil];
 	if ([delegate respondsToSelector:@selector(application:didFinishLaunchingWithOptions:)])
 		[delegate application:self didFinishLaunchingWithOptions:nil];
+	else if ([delegate respondsToSelector:@selector(applicationDidFinishLaunching:)])
+		/* iPhone OS 2's callback, which takes the application. */
+		((void (*)(id, SEL, id))objc_msgSend)(delegate, @selector(applicationDidFinishLaunching:), self);
 	[[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidFinishLaunchingNotification object:self];
 
 	/* With frontboardd, wait for it to say whether we are in front. */
@@ -189,7 +238,7 @@ static id<UIApplicationDelegate> sDelegateStorage;
 		[self ui_becomeActive];
 }
 
-- (void)applicationWillTerminate:(NSNotification *)notification
+- (void)uikitWillTerminate
 {
 	if (_state == UIApplicationStateActive) {
 		_state = UIApplicationStateInactive;
@@ -198,34 +247,151 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	[self ui_notify:@selector(applicationWillTerminate:) name:UIApplicationWillTerminateNotification];
 }
 
-/* Terminate when the run loop asks, instead of falling through to AppKit's
- * last-window handling. */
-- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+#pragma mark - Status bar, windows and the rest
+
+- (CGRect)statusBarFrame
 {
-	return NSTerminateNow;
+	if (_statusBarHidden)
+		return CGRectZero;
+	return CGRectMake(0, 0, [[UIScreen mainScreen] bounds].size.width, UIKitStatusBarHeight);
+}
+
+- (UIInterfaceOrientation)statusBarOrientation { return UIInterfaceOrientationPortrait; }
+- (void)setStatusBarOrientation:(UIInterfaceOrientation)orientation { }
+- (void)setStatusBarOrientation:(UIInterfaceOrientation)orientation animated:(BOOL)animated { }
+- (BOOL)isStatusBarHidden { return _statusBarHidden; }
+- (void)setStatusBarHidden:(BOOL)hidden { _statusBarHidden = hidden; }
+- (void)setStatusBarHidden:(BOOL)hidden animated:(BOOL)animated { _statusBarHidden = hidden; }
+- (void)setStatusBarHidden:(BOOL)hidden withAnimation:(NSInteger)animation { _statusBarHidden = hidden; }
+- (NSInteger)statusBarStyle { return _statusBarStyle; }
+- (void)setStatusBarStyle:(NSInteger)style { _statusBarStyle = style; }
+- (void)setStatusBarStyle:(NSInteger)style animated:(BOOL)animated { _statusBarStyle = style; }
+- (void)setStatusBarShowsProgress:(BOOL)shows { }
+- (BOOL)isNetworkActivityIndicatorVisible { return _networkActivityIndicatorVisible; }
+- (void)setNetworkActivityIndicatorVisible:(BOOL)visible { _networkActivityIndicatorVisible = visible; }
+- (BOOL)isIdleTimerDisabled { return _idleTimerDisabled; }
+- (void)setIdleTimerDisabled:(BOOL)disabled { _idleTimerDisabled = disabled; }
+- (BOOL)applicationSupportsShakeToEdit { return _applicationSupportsShakeToEdit; }
+- (void)setApplicationSupportsShakeToEdit:(BOOL)supports { _applicationSupportsShakeToEdit = supports; }
+- (NSInteger)applicationIconBadgeNumber { return _applicationIconBadgeNumber; }
+- (void)setApplicationIconBadgeNumber:(NSInteger)number { _applicationIconBadgeNumber = number; }
+- (void)setApplicationBadgeString:(NSString *)badge { }
+- (void)beginIgnoringInteractionEvents { _ignoringInteractionEvents++; }
+- (void)endIgnoringInteractionEvents { if (_ignoringInteractionEvents > 0) _ignoringInteractionEvents--; }
+- (BOOL)isIgnoringInteractionEvents { return _ignoringInteractionEvents > 0; }
+- (NSInteger)userInterfaceLayoutDirection { return 0; }
+- (NSString *)preferredContentSizeCategory { return @"UICTContentSizeCategoryL"; }
+- (NSTimeInterval)backgroundTimeRemaining { return 600; }
+- (NSUInteger)beginBackgroundTaskWithExpirationHandler:(void (^)(void))handler { return 1; }
+- (NSUInteger)beginBackgroundTaskWithName:(NSString *)name expirationHandler:(void (^)(void))handler { return 1; }
+- (void)endBackgroundTask:(NSUInteger)identifier { }
+- (void)registerForRemoteNotificationTypes:(NSUInteger)types { }
+- (void)registerForRemoteNotifications { }
+- (void)registerUserNotificationSettings:(id)settings { }
+- (void)scheduleLocalNotification:(id)notification { }
+- (void)cancelAllLocalNotifications { }
+
+- (UIWindow *)keyWindow
+{
+	return [UIWindow uikitKeyWindow];
+}
+
+- (NSArray *)windows
+{
+	return [UIWindow uikitWindows];
+}
+
+- (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender forEvent:(UIEvent *)event
+{
+	if (target == nil || ![target respondsToSelector:action])
+		return NO;
+	((void (*)(id, SEL, id))objc_msgSend)(target, action, sender);
+	return YES;
+}
+
+- (BOOL)canOpenURL:(NSURL *)url
+{
+	NSString *scheme = [[url scheme] lowercaseString];
+	return [scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"] || [scheme isEqualToString:@"mailto"];
+}
+
+- (BOOL)openURL:(NSURL *)url
+{
+	if (url == nil)
+		return NO;
+	[[FBSSystemService sharedService] openURL:url application:nil options:nil clientPort:MACH_PORT_NULL withResult:nil];
+	return YES;
+}
+
+- (void)openURL:(NSURL *)url options:(NSDictionary *)options completionHandler:(void (^)(BOOL success))completion
+{
+	BOOL opened = [self openURL:url];
+	if (completion != nil)
+		completion(opened);
+}
+
+- (void)openURL:(NSURL *)url asPanel:(BOOL)panel
+{
+	[self openURL:url];
+}
+
+- (BOOL)launchApplicationWithIdentifier:(NSString *)identifier suspended:(BOOL)suspended
+{
+	if (identifier == nil)
+		return NO;
+	[[FBSSystemService sharedService] openApplication:identifier options:nil withResult:nil];
+	return YES;
+}
+
+/* Back to the home screen, as the Home button does. */
+- (void)suspend
+{
+	[[FBSSystemService sharedService] sendHomeButtonPress];
+}
+
+- (void)suspendReturningToLastApp:(BOOL)returning
+{
+	[self suspend];
+}
+
+- (void)terminateWithSuccess
+{
+	[NSApp terminate:nil];
 }
 
 @end
 
 int UIApplicationMain(int argc, char *argv[], NSString *principalClassName, NSString *delegateClassName)
 {
-	/* iOS ignores these; the delegate is instantiated by name instead. */
+	/* The command line reaches the app through NSProcessInfo. */
 	(void)argc;
 	(void)argv;
-	(void)principalClassName;
 
 	@autoreleasepool {
 		[UIKitHostApplication sharedApplication];
 
-		UIApplication *application = [UIApplication sharedApplication];
-		[NSApp setDelegate:application];
+		/* The principal class (from the argument or Info.plist) is the
+		 * shared application; it may also be its own delegate. */
+		if (principalClassName == nil)
+			principalClassName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSPrincipalClass"];
+		Class principalClass = principalClassName != nil ? NSClassFromString(principalClassName) : Nil;
+		if (principalClass == Nil || ![principalClass isSubclassOfClass:[UIApplication class]])
+			principalClass = [UIApplication class];
+		if (sSharedApplication == nil)
+			sSharedApplication = [[principalClass alloc] init];
+		UIApplication *application = sSharedApplication;
+
+		static UIKitAppKitDelegate *appKitDelegate;
+		appKitDelegate = [[UIKitAppKitDelegate alloc] init];
+		[NSApp setDelegate:appKitDelegate];
 
 		if (delegateClassName != nil) {
 			Class delegateClass = NSClassFromString(delegateClassName);
-			if (delegateClass != Nil) {
+			if (delegateClass == principalClass || [application isKindOfClass:delegateClass]) {
+				sDelegateStorage = application;
+			} else if (delegateClass != Nil) {
 				id delegate = [[delegateClass alloc] init];
 				sDelegateStorage = delegate;
-				application.delegate = delegate;
 			}
 		}
 

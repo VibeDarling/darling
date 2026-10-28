@@ -20,7 +20,36 @@
 
 #import "UIKitPrivate.h"
 
-@implementation UILabel
+@implementation UILabel {
+	NSLineBreakMode _lineBreakMode;
+	NSInteger _numberOfLines;
+	UIColor *_highlightedTextColor;
+	BOOL _highlighted;
+	BOOL _disabled;
+}
+
+@synthesize adjustsFontSizeToFitWidth = _adjustsFontSizeToFitWidth;
+@synthesize minimumFontSize = _minimumFontSize;
+@synthesize minimumScaleFactor = _minimumScaleFactor;
+@synthesize shadowColor = _shadowColor;
+@synthesize shadowOffset = _shadowOffset;
+
+- (NSLineBreakMode)lineBreakMode { return _lineBreakMode; }
+- (void)setLineBreakMode:(NSLineBreakMode)mode { _lineBreakMode = mode; [self setNeedsDisplay:YES]; }
+- (NSInteger)numberOfLines { return _numberOfLines; }
+- (void)setNumberOfLines:(NSInteger)lines { _numberOfLines = lines; [self setNeedsDisplay:YES]; }
+- (UIColor *)highlightedTextColor { return _highlightedTextColor; }
+- (void)setHighlightedTextColor:(UIColor *)color { _highlightedTextColor = color; [self setNeedsDisplay:YES]; }
+- (BOOL)isHighlighted { return _highlighted; }
+- (void)setHighlighted:(BOOL)highlighted { _highlighted = highlighted; [self setNeedsDisplay:YES]; }
+- (BOOL)isEnabled { return !_disabled; }
+- (void)setEnabled:(BOOL)enabled { _disabled = !enabled; [self setNeedsDisplay:YES]; }
+
+/* Labels do not take touches, as on iOS. */
+- (NSView *)hitTest:(NSPoint)point
+{
+	return nil;
+}
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -29,6 +58,9 @@
 		_textColor = [UIColor blackColor];
 		_font = [UIFont systemFontOfSize:17];
 		_textAlignment = NSTextAlignmentLeft;
+		_lineBreakMode = NSLineBreakByTruncatingTail;
+		_numberOfLines = 1;
+		_shadowOffset = CGSizeMake(0, -1);
 	}
 	return self;
 }
@@ -82,10 +114,14 @@
 	NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
 	if (_font != nil)
 		[attributes setObject:[_font nsFont] forKey:NSFontAttributeName];
-	if (_textColor != nil)
-		[attributes setObject:[_textColor nsColor] forKey:NSForegroundColorAttributeName];
+	UIColor *color = _highlighted && _highlightedTextColor != nil ? _highlightedTextColor : _textColor;
+	if (_disabled)
+		color = [UIColor colorWithWhite:0.6 alpha:1];
+	if (color != nil)
+		[attributes setObject:[color nsColor] forKey:NSForegroundColorAttributeName];
 	NSMutableParagraphStyle *paragraph = [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
 	[paragraph setAlignment:_textAlignment];
+	[paragraph setLineBreakMode:_numberOfLines == 1 ? NSLineBreakByClipping : NSLineBreakByWordWrapping];
 	[attributes setObject:paragraph forKey:NSParagraphStyleAttributeName];
 	return attributes;
 }
@@ -104,7 +140,15 @@
 		bounds.origin.y += (bounds.size.height - textHeight) / 2;
 		bounds.size.height = textHeight;
 	}
-	[_text drawInRect:bounds withAttributes:attributes];
+	NSString *text = _text;
+	/* One line: cut it to the width with an ellipsis. */
+	if (_numberOfLines == 1 && [text sizeWithAttributes:attributes].width > bounds.size.width && _lineBreakMode != NSLineBreakByClipping) {
+		NSUInteger length = [text length];
+		while (length > 0 && [[[text substringToIndex:length] stringByAppendingString:@"\u2026"] sizeWithAttributes:attributes].width > bounds.size.width)
+			length--;
+		text = [[text substringToIndex:length] stringByAppendingString:@"\u2026"];
+	}
+	[text drawInRect:bounds withAttributes:attributes];
 }
 
 - (CGSize)sizeThatFits:(CGSize)size

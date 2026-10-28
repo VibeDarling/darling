@@ -21,13 +21,24 @@ add_framework(UIKit
         src/UILabel.m
         src/UITouch.m
         src/UIImage.m
+        src/UIImageView.m
+        src/UIKitAdditions.m
+        src/UIScrollView.m
+        src/UITableView.m
+        src/UIControls.m
+        src/UINavigationController.m
+        src/UITabBarController.m
+        src/UIAlertView.m
+        src/UIWebView.m
     DEPENDENCIES
         Foundation
         AppKit
         CoreGraphics
         FrontBoardServices
+        WebKitLegacy_iOS
+        WebCore_iOS
         objc
         system
 )
-target_include_directories(UIKit PRIVATE include src)
+target_include_directories(UIKit PRIVATE include src ../../private-frameworks/WebKitLegacy/include)
 target_compile_options(UIKit PRIVATE -fobjc-arc)

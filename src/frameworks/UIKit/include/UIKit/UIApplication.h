@@ -15,7 +15,9 @@
 #import <Foundation/NSObjCRuntime.h>
 #import <UIKit/UIResponder.h>
 
-@class NSString;
+#import <UIKit/UIGeometry.h>
+
+@class NSString, NSArray, NSURL, NSDictionary, UIWindow, UIEvent;
 @protocol UIApplicationDelegate;
 
 typedef NS_ENUM(NSInteger, UIApplicationState) {

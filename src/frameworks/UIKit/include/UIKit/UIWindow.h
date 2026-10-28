@@ -32,6 +32,14 @@
 
 - (void)makeKeyAndVisible;
 - (void)makeKeyWindow;
+@property (nonatomic) CGFloat windowLevel;
+@property (nonatomic, readonly, getter=isKeyWindow) BOOL keyWindow;
+@property (nonatomic, strong) id screen;
+- (void)sendEvent:(UIEvent *)event;
+/* iPhone OS 2's spellings (private UIKit API). */
+- (void)orderFront:(id)sender;
+- (void)makeKey:(id)sender;
+- (id)firstResponder;
 
 @end
 

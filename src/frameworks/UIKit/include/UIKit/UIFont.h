@@ -28,6 +28,17 @@
 + (UIFont *)boldSystemFontOfSize:(CGFloat)size;
 + (UIFont *)fontWithName:(NSString *)name size:(CGFloat)size;
 
++ (UIFont *)italicSystemFontOfSize:(CGFloat)size;
++ (CGFloat)systemFontSize;
++ (CGFloat)smallSystemFontSize;
++ (CGFloat)labelFontSize;
++ (CGFloat)buttonFontSize;
+- (UIFont *)fontWithSize:(CGFloat)size;
+@property (nonatomic, readonly) CGFloat lineHeight;
+@property (nonatomic, readonly) CGFloat leading;
+@property (nonatomic, readonly) CGFloat capHeight;
+@property (nonatomic, readonly) CGFloat xHeight;
+@property (nonatomic, readonly) NSString *familyName;
 @property (nonatomic, readonly) CGFloat pointSize;
 @property (nonatomic, readonly) NSString *fontName;
 @property (nonatomic, readonly) CGFloat ascender;

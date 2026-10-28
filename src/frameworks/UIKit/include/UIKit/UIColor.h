@@ -14,6 +14,7 @@
 
 #import <Foundation/NSObject.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGColor.h>
 
 @interface UIColor : NSObject {
 @private
@@ -37,8 +38,28 @@
 @property (nonatomic, readonly) CGFloat blueComponent;
 @property (nonatomic, readonly) CGFloat alphaComponent;
 
++ (UIColor *)colorWithHue:(CGFloat)hue saturation:(CGFloat)saturation brightness:(CGFloat)brightness alpha:(CGFloat)alpha;
++ (UIColor *)colorWithCGColor:(CGColorRef)cgColor;
++ (UIColor *)colorWithPatternImage:(id)image;
+- (instancetype)initWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha;
+- (instancetype)initWithWhite:(CGFloat)white alpha:(CGFloat)alpha;
++ (UIColor *)darkGrayColor;
++ (UIColor *)lightGrayColor;
++ (UIColor *)grayColor;
++ (UIColor *)cyanColor;
++ (UIColor *)yellowColor;
++ (UIColor *)magentaColor;
++ (UIColor *)orangeColor;
++ (UIColor *)purpleColor;
++ (UIColor *)brownColor;
++ (UIColor *)groupTableViewBackgroundColor;
++ (UIColor *)systemBlueColor;
+@property (nonatomic, readonly) CGColorRef CGColor;
+- (BOOL)getRed:(CGFloat *)red green:(CGFloat *)green blue:(CGFloat *)blue alpha:(CGFloat *)alpha;
+- (BOOL)getWhite:(CGFloat *)white alpha:(CGFloat *)alpha;
 - (void)set;
 - (void)setFill;
+- (void)setStroke;
 
 @end
 

@@ -39,6 +39,55 @@
 	return font;
 }
 
++ (CGFloat)systemFontSize { return 14; }
++ (CGFloat)smallSystemFontSize { return 12; }
++ (CGFloat)labelFontSize { return 17; }
++ (CGFloat)buttonFontSize { return 18; }
+
++ (UIFont *)italicSystemFontOfSize:(CGFloat)size
+{
+	return [self systemFontOfSize:size];
+}
+
+- (UIFont *)fontWithSize:(CGFloat)size
+{
+	UIFont *font = [UIFont systemFontOfSize:size];
+	font->_bold = _bold;
+	font->_fontName = _fontName;
+	return font;
+}
+
+- (CGFloat)lineHeight
+{
+	NSFont *font = [self nsFont];
+	return ceil([font ascender] - [font descender]);
+}
+
+- (CGFloat)leading
+{
+	return [self lineHeight];
+}
+
+- (CGFloat)capHeight
+{
+	return [[self nsFont] capHeight];
+}
+
+- (CGFloat)xHeight
+{
+	return [[self nsFont] xHeight];
+}
+
+- (NSString *)familyName
+{
+	return [[self nsFont] familyName];
+}
+
+- (id)copyWithZone:(NSZone *)zone
+{
+	return self;
+}
+
 - (CGFloat)pointSize { return _pointSize; }
 - (NSString *)fontName { return _fontName; }
 
