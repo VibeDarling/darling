@@ -2227,6 +2227,13 @@ int main(int argc, char ** argv)
 		pid_t liveServer;
 		if (stopPrefixOrphans(&liveServer) < 0)
 			return 1;
+		if (liveServer)
+		{
+			fprintf(stderr, "darlingserver %d still serves %s but .init.pid is missing or does not name it; refusing to reinitialize it. "
+				"If another darling is starting this prefix, retry shortly; otherwise stop darlingserver %d and run darling again.\n",
+				liveServer, prefix, liveServer);
+			return 1;
+		}
 
 		char socketPath[4096];
 

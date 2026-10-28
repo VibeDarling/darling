@@ -78,6 +78,21 @@ and one running a since-replaced binary, are stopped; and that a non-`mldr` proc
 another prefix's guest and a process without the socket environment survive. The
 prefix is the run's own temporary directory.
 
+## Missing init pid file
+
+Run without root or any Darling container:
+
+```sh
+python3 tests/launcher/test-missing-init.py src/startup/darling.c --run
+```
+
+The script extracts the launcher's "start the prefix's init" branch from the
+given source, compiles it with mocked process and filesystem helpers in a
+temporary directory, and runs three cases. A live darlingserver with a missing
+or invalid `.init.pid` and a failed server inspection must both refuse with
+exit 1 and no unlink, setup, spawn or pid write. A verified absence of a server
+must proceed with setup. The script fails if the branch's shape changes.
+
 For container integration testing, use the fixed launcher with two disposable
 prefixes. Boot both, shut down the first, check the second server PID remains
 alive and serves another request, then shut down the second. Do not run the
