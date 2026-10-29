@@ -43,10 +43,6 @@
 #define EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT 0x00000001
 #endif
 
-#ifndef EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR
-#define EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR 0x00000002
-#endif
-
 #define APPLE
 #define __APPLE__
 
@@ -214,6 +210,7 @@ CGLError CGLRegisterNativeDisplayForPlatform(void *native_display, unsigned int 
         EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8,
         EGL_ALPHA_SIZE, 8,
         EGL_DEPTH_SIZE, 24,
+        EGL_STENCIL_SIZE, 8,
         EGL_NONE
     };
     EGLint count = 0;
@@ -516,7 +513,7 @@ CGLError CGLChoosePixelFormat(
     GLint *number_of_screens
 ) {
     if (!attrs) {
-        return kCGLBadPixelFormat;
+        return kCGLBadAttribute;
     }
     if (!result) {
         return kCGLBadAddress;
@@ -839,138 +836,4 @@ void CGLGetVersion(GLint *majorvers, GLint *minorvers) {
         *majorvers = 1;
     if (minorvers)
         *minorvers = 0;
-}
-
-// GLSL shader source interception and sanitization for macOS compatibility
-typedef void (*PFNGLSHADERSOURCEPROC)(GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length);
-static PFNGLSHADERSOURCEPROC real_glShaderSource = NULL;
-
-static void init_real_glShaderSource(void) {
-    if (!real_glShaderSource) {
-        real_glShaderSource = (PFNGLSHADERSOURCEPROC)dlsym(RTLD_NEXT, "glShaderSource");
-        if (!real_glShaderSource) {
-            real_glShaderSource = (PFNGLSHADERSOURCEPROC)eglGetProcAddress("glShaderSource");
-        }
-    }
-}
-
-static char *sanitize_glsl_source(const char *src) {
-    if (!src)
-        return NULL;
-    size_t len = strlen(src);
-    // Allocate extra space for expansions
-    char *result = malloc(len + 512);
-    if (!result)
-        return strdup(src);
-
-    const char *p = src;
-    char *dst = result;
-
-    while (*p) {
-        // 1. Comment out Apple-specific extensions not supported by Linux Mesa
-        if (strncmp(p, "#extension GL_APPLE_", 20) == 0) {
-            const char repl[] = "// #extension GL_APPLE_";
-            memcpy(dst, repl, sizeof(repl) - 1);
-            dst += sizeof(repl) - 1;
-            p += 20;
-            continue;
-        }
-
-        // 2. Default initializer for bare uniform vec2 uSize; to avoid 0-size quads
-        // when an application fails to update the uniform per-frame
-        if (strncmp(p, "uniform vec2 uSize;", 19) == 0) {
-            const char repl[] = "uniform vec2 uSize = vec2(0.015, 0.015);";
-            memcpy(dst, repl, sizeof(repl) - 1);
-            dst += sizeof(repl) - 1;
-            p += 19;
-            continue;
-        }
-
-        *dst++ = *p++;
-    }
-    *dst = '\0';
-    return result;
-}
-
-CGL_EXPORT void glShaderSource(GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length) {
-    init_real_glShaderSource();
-    if (!real_glShaderSource)
-        return;
-
-    if (count <= 0 || !string) {
-        real_glShaderSource(shader, count, string, length);
-        return;
-    }
-
-    // Calculate total length of incoming string pieces
-    size_t total_len = 0;
-    for (GLsizei i = 0; i < count; i++) {
-        if (!string[i])
-            continue;
-        if (length && length[i] >= 0) {
-            total_len += (size_t)length[i];
-        } else {
-            total_len += strlen(string[i]);
-        }
-    }
-
-    char *combined = malloc(total_len + 1);
-    if (!combined) {
-        real_glShaderSource(shader, count, string, length);
-        return;
-    }
-
-    size_t offset = 0;
-    for (GLsizei i = 0; i < count; i++) {
-        if (!string[i])
-            continue;
-        size_t part_len = (length && length[i] >= 0) ? (size_t)length[i] : strlen(string[i]);
-        memcpy(combined + offset, string[i], part_len);
-        offset += part_len;
-    }
-    combined[offset] = '\0';
-
-    char *sanitized = sanitize_glsl_source(combined);
-    free(combined);
-
-    if (sanitized) {
-        GLint san_len = (GLint)strlen(sanitized);
-        const GLchar *san_ptr = sanitized;
-        real_glShaderSource(shader, 1, &san_ptr, &san_len);
-        free(sanitized);
-    } else {
-        real_glShaderSource(shader, count, string, length);
-    }
-}
-
-// Intercept glDrawArrays to prevent point-sprite / point-expanded billboard culling
-typedef void (*PFNGLDRAWARRAYSPROC)(GLenum mode, GLint first, GLsizei count);
-static PFNGLDRAWARRAYSPROC real_glDrawArrays = NULL;
-
-static void init_real_glDrawArrays(void) {
-    if (!real_glDrawArrays) {
-        real_glDrawArrays = (PFNGLDRAWARRAYSPROC)dlsym(RTLD_NEXT, "glDrawArrays");
-        if (!real_glDrawArrays) {
-            real_glDrawArrays = (PFNGLDRAWARRAYSPROC)eglGetProcAddress("glDrawArrays");
-        }
-    }
-}
-
-CGL_EXPORT void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
-    init_real_glDrawArrays();
-    if (!real_glDrawArrays)
-        return;
-
-    // GL_POINTS primitives have no natural orientation; if a geometry shader expands
-    // them to billboards, backface culling will discard them if the winding is inverted.
-    if (mode == 0 /* GL_POINTS */) {
-        GLboolean cull = glIsEnabled(GL_CULL_FACE);
-        if (cull)
-            glDisable(GL_CULL_FACE);
-        real_glDrawArrays(mode, first, count);
-        if (cull)
-            glEnable(GL_CULL_FACE);
-    } else {
-        real_glDrawArrays(mode, first, count);
-    }
 }
