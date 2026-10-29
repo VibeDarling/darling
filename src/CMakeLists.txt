@@ -532,6 +532,7 @@ if (COMPONENT_gui)
 	add_subdirectory(pboard)
 	add_subdirectory(frontboardd)
 	add_subdirectory(SpringBoard)
+	add_subdirectory(CydiaSubstrate)
 
 	# not currently used by anything we build
 	add_subdirectory(external/dbuskit)
