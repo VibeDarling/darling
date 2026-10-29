@@ -96,6 +96,29 @@ static NSRect UIKitBadgeRect(NSRect cell, CGFloat width)
 	return [self initWithTitle:title image:nil tag:tag];
 }
 
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ([coder containsValueForKey:@"UISystemItem"]) {
+		IMP init = UIKitOwnImplementation([self class], @selector(initWithTabBarSystemItem:tag:));
+		self = ((id (*)(id, SEL, UITabBarSystemItem, NSInteger))init)(self, @selector(initWithTabBarSystemItem:tag:), [coder decodeIntegerForKey:@"UISystemItem"], 0);
+	} else {
+		self = [super init];
+	}
+	if (self != nil)
+		[self uikitDecodeNib:coder];
+	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	NSString *systemTitle = [self title];
+	[super uikitDecodeNib:coder];
+	if ([self title] == nil)
+		[self setTitle:systemTitle];
+	_selectedImage = [coder decodeObjectForKey:@"UISelectedImage"];
+	_badgeValue = [[coder decodeObjectForKey:@"UIBadgeValue"] copy];
+}
+
 - (UIImage *)selectedImage { return _selectedImage; }
 - (void)setSelectedImage:(UIImage *)image { _selectedImage = image; [[NSNotificationCenter defaultCenter] postNotificationName:UIKitBarItemDidChangeNotification object:self]; }
 - (NSString *)badgeValue { return _badgeValue; }
@@ -334,6 +357,14 @@ static NSImage *UIKitTintedImage(UIImage *image, NSColor *color)
 		_selectedIndex = NSNotFound;
 	}
 	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	NSArray *controllers = [coder decodeObjectForKey:@"UIChildViewControllers"] ?: [coder decodeObjectForKey:@"UIViewControllers"];
+	if ([controllers count] > 0)
+		[self setViewControllers:controllers];
 }
 
 - (void)loadView

@@ -50,6 +50,19 @@
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_barStyle = [coder decodeIntegerForKey:@"UIBarStyle"];
+	if ([coder containsValueForKey:@"UIBarTranslucence"])
+		_translucent = [coder decodeIntegerForKey:@"UIBarTranslucence"] != 2;
+	if ([coder containsValueForKey:@"UIBarTintColor"])
+		_barTintColor = [coder decodeObjectForKey:@"UIBarTintColor"];
+	NSArray *items = [coder decodeObjectForKey:@"UIItems"];
+	if (items != nil)
+		[self setItems:items];
+}
+
 - (NSArray *)items { return _items; }
 
 - (void)setItems:(NSArray *)items

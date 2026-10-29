@@ -53,6 +53,20 @@
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_minimumValue = [coder decodeFloatForKey:@"UIMinValue"];
+	_maximumValue = [coder containsValueForKey:@"UIMaxValue"] ? [coder decodeFloatForKey:@"UIMaxValue"] : 1;
+	_value = MIN(MAX([coder decodeFloatForKey:@"UIValue"], _minimumValue), _maximumValue);
+	if ([coder containsValueForKey:@"UIMinimumTrackTintColor"])
+		_minimumTrackTintColor = [coder decodeObjectForKey:@"UIMinimumTrackTintColor"];
+	if ([coder containsValueForKey:@"UIMaximumTrackTintColor"])
+		_maximumTrackTintColor = [coder decodeObjectForKey:@"UIMaximumTrackTintColor"];
+	if ([coder containsValueForKey:@"UIThumbTintColor"])
+		_thumbTintColor = [coder decodeObjectForKey:@"UIThumbTintColor"];
+}
+
 - (float)value { return _value; }
 
 - (void)setValue:(float)value
@@ -251,6 +265,17 @@ static UIImage *UIKitImageForState(NSDictionary *images, UIControlState state)
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_progress = MIN(MAX([coder decodeFloatForKey:@"UIProgress"], 0), 1);
+	_progressViewStyle = [coder decodeIntegerForKey:@"UIProgressViewStyle"];
+	if ([coder containsValueForKey:@"UIProgressTintColor"])
+		_progressTintColor = [coder decodeObjectForKey:@"UIProgressTintColor"];
+	if ([coder containsValueForKey:@"UITrackTintColor"])
+		_trackTintColor = [coder decodeObjectForKey:@"UITrackTintColor"];
+}
+
 - (float)progress
 {
 	if (_observedProgress != nil)
@@ -316,6 +341,18 @@ static UIImage *UIKitImageForState(NSDictionary *images, UIControlState state)
 	if ((self = [super initWithFrame:frame]))
 		[self setOpaque:NO];
 	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_numberOfPages = [coder decodeIntegerForKey:@"UINumberOfPages"];
+	_currentPage = _displayedPage = [coder decodeIntegerForKey:@"UICurrentPage"];
+	_hidesForSinglePage = [coder decodeBoolForKey:@"UIHidesForSinglePage"];
+	if ([coder containsValueForKey:@"UIPageIndicatorTintColor"])
+		_pageIndicatorTintColor = [coder decodeObjectForKey:@"UIPageIndicatorTintColor"];
+	if ([coder containsValueForKey:@"UICurrentPageIndicatorTintColor"])
+		_currentPageIndicatorTintColor = [coder decodeObjectForKey:@"UICurrentPageIndicatorTintColor"];
 }
 
 - (NSInteger)numberOfPages { return _numberOfPages; }

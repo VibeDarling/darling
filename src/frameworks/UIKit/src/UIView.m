@@ -60,6 +60,79 @@ static BOOL sUIKitUsesConstraints;
 	return [self initWithFrame:CGRectZero];
 }
 
+/* From a nib: made as UIKit's nearest class makes views (an app's own
+ * -initWithFrame: does not run, as on iOS), then given the archived
+ * properties, each UIKit class its own. */
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	self = [self uikitInitForCoder:coder];
+	if (self != nil)
+		[self uikitDecodeNib:coder];
+	return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+}
+
+/* Nibs keep a view's bounds and center, not its frame. */
+CGRect UIKitArchivedFrame(NSCoder *coder)
+{
+	CGRect bounds = [coder decodeCGRectForKey:@"UIBounds"];
+	CGPoint center = [coder decodeCGPointForKey:@"UICenter"];
+	return CGRectMake(center.x - bounds.size.width / 2, center.y - bounds.size.height / 2, bounds.size.width, bounds.size.height);
+}
+
+- (instancetype)uikitInitForCoder:(NSCoder *)coder
+{
+	IMP init = UIKitOwnImplementation([self class], @selector(initWithFrame:));
+	return ((id (*)(id, SEL, CGRect))init)(self, @selector(initWithFrame:), UIKitArchivedFrame(coder));
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	CGRect bounds = [coder decodeCGRectForKey:@"UIBounds"];
+	if (bounds.origin.x != 0 || bounds.origin.y != 0)
+		[self setBoundsOrigin:NSMakePoint(bounds.origin.x, bounds.origin.y)];
+	if ([coder containsValueForKey:@"UIBackgroundColor"])
+		[self setBackgroundColor:[coder decodeObjectForKey:@"UIBackgroundColor"]];
+	[self setAutoresizingMask:[coder decodeIntegerForKey:@"UIAutoresizingMask"]];
+	[self setAutoresizesSubviews:[coder decodeBoolForKey:@"UIAutoresizeSubviews"]];
+	[self setHidden:[coder decodeBoolForKey:@"UIHidden"]];
+	if ([coder containsValueForKey:@"UIAlpha"])
+		[self setAlpha:[coder decodeDoubleForKey:@"UIAlpha"]];
+	[self setOpaque:[coder decodeBoolForKey:@"UIOpaque"]];
+	[self setClipsToBounds:[coder decodeBoolForKey:@"UIClipsToBounds"]];
+	[self setTag:[coder decodeIntegerForKey:@"UITag"]];
+	if ([coder containsValueForKey:@"UIContentMode"])
+		[self setContentMode:[coder decodeIntegerForKey:@"UIContentMode"]];
+	[self setUserInteractionEnabled:![coder decodeBoolForKey:@"UIUserInteractionDisabled"]];
+	[self setMultipleTouchEnabled:[coder decodeBoolForKey:@"UIMultipleTouchEnabled"]];
+	[self setExclusiveTouch:[coder decodeBoolForKey:@"UIExclusiveTouch"]];
+	if ([coder containsValueForKey:@"UITintColor"])
+		[self setTintColor:[coder decodeObjectForKey:@"UITintColor"]];
+	[self setSemanticContentAttribute:[coder decodeIntegerForKey:@"UIViewSemanticContentAttribute"]];
+	if ([coder decodeBoolForKey:@"UIViewDoesNotTranslateAutoresizingMaskIntoConstraints"])
+		[self setTranslatesAutoresizingMaskIntoConstraints:NO];
+
+	for (NSView *subview in [coder decodeObjectForKey:@"UISubviews"]) {
+		if ([subview isKindOfClass:[NSView class]])
+			[self addSubview:subview];
+	}
+	/* Decoded constraints are marked active but belong to no view yet;
+	 * with the subviews in place, they can find theirs. */
+	for (NSLayoutConstraint *constraint in [coder decodeObjectForKey:@"UIViewAutolayoutConstraints"]) {
+		if (![constraint isKindOfClass:[NSLayoutConstraint class]])
+			continue;
+		@try {
+			[constraint setActive:NO];
+			[constraint setActive:YES];
+		} @catch (NSException *exception) {
+			NSLog(@"UIView: a nib's constraint does not fit its views: %@", [exception reason]);
+		}
+	}
+}
+
 /* UIKit's origin is top-left; AppKit's is bottom-left. */
 - (BOOL)isFlipped
 {
@@ -136,6 +209,10 @@ static BOOL sUIKitUsesConstraints;
 	[super setFrame:frame];
 	if (NSEqualRects(old, frame))
 		return;
+	/* A new size lays the view out again, as -setFrameSize: does; later,
+	 * since this may be the constraint solver placing views. */
+	if (!NSEqualSizes(old.size, frame.size))
+		[self setNeedsLayout];
 	NSView *superview = [self superview];
 	if (superview != nil && [self window] != nil) {
 		[superview setNeedsDisplayInRect:old];
@@ -163,8 +240,10 @@ static BOOL sUIKitUsesConstraints;
 
 - (void)layoutIfNeeded
 {
-	/* Constraints may reach anything in the window, so solve from the top. */
+	/* Constraints may reach anything in the window, so solve from the top
+	 * (with the safe areas where the views are now). */
 	if (sUIKitUsesConstraints && ([self needsUpdateConstraints] || [self needsLayout])) {
+		UIKitUpdateSafeAreas();
 		NSView *root = self;
 		while ([root superview] != nil)
 			root = [root superview];
@@ -693,4 +772,57 @@ static BOOL sAnimationsDisabled;
 	}
 }
 
+@end
+
+/*
+ * iOS 7's top and bottom layout guides, as nibs archive them: hidden views
+ * a view controller's view holds, which the controller sizes to the bars
+ * covering it. The constraints Interface Builder placed them with are
+ * replaced by the controller's own.
+ */
+@implementation _UILayoutGuide {
+	NSString *_identifier;
+	NSArray *_constraintsToRemove;
+	NSLayoutConstraint *_length;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_identifier = [coder decodeObjectForKey:@"_UILayoutGuideIdentifier"];
+	_constraintsToRemove = [coder decodeObjectForKey:@"_UILayoutGuideConstraintsToRemove"];
+}
+
+- (NSString *)uikitIdentifier { return _identifier; }
+- (void)uikitSetIdentifier:(NSString *)identifier { _identifier = [identifier copy]; }
+- (CGFloat)length { return _length != nil ? [_length constant] : 0; }
+
+/* Pins the guide to the top or the bottom of the view, length high. */
+- (void)uikitPinInView:(UIView *)view length:(CGFloat)length
+{
+	if (_length != nil) {
+		[_length setConstant:length];
+		return;
+	}
+	for (NSLayoutConstraint *constraint in _constraintsToRemove) {
+		if ([constraint isKindOfClass:[NSLayoutConstraint class]])
+			[constraint setActive:NO];
+	}
+	for (NSLayoutConstraint *constraint in [self constraints]) {
+		if ([constraint isKindOfClass:[_UILayoutSupportConstraint class]])
+			[constraint setActive:NO];
+	}
+	BOOL top = ![_identifier isEqualToString:@"_UIViewControllerBottom"];
+	_length = [[self heightAnchor] constraintEqualToConstant:length];
+	[NSLayoutConstraint activateConstraints:@[
+		top ? [[self topAnchor] constraintEqualToAnchor:[view topAnchor]] : [[self bottomAnchor] constraintEqualToAnchor:[view bottomAnchor]],
+		[[self leftAnchor] constraintEqualToAnchor:[view leftAnchor]],
+		[[self widthAnchor] constraintEqualToConstant:0],
+		_length,
+	]];
+}
+
+@end
+
+@implementation _UILayoutSupportConstraint
 @end

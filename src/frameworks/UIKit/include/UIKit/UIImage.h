@@ -20,7 +20,7 @@
 #import <CoreGraphics/CGContext.h>
 #import <UIKit/UIGeometry.h>
 
-@class NSData;
+@class NSData, NSBundle;
 @class UIColor;
 
 /* Template images draw as their shape filled with the view's tint color. */
@@ -34,6 +34,7 @@ typedef NS_ENUM(NSInteger, UIImageRenderingMode) {
 @interface UIImage : NSObject
 
 + (UIImage *)imageNamed:(NSString *)name;
++ (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle compatibleWithTraitCollection:(id)traitCollection;
 + (UIImage *)imageWithContentsOfFile:(NSString *)path;
 + (UIImage *)imageWithData:(NSData *)data;
 + (UIImage *)imageWithData:(NSData *)data scale:(CGFloat)scale;

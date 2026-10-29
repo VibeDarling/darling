@@ -36,8 +36,14 @@
 - (void)attachToWindow:(UIWindow *)window;
 @end
 
-/* The status bar UIWindow leaves room for along the top of the screen. */
-#define UIKitStatusBarHeight 20.0
+/* The status bar along the top of the screen: 20 points, or the notch's
+ * height the host gives (UIScreen.m). */
+CGFloat UIKitHostStatusBarHeight(void);
+#define UIKitStatusBarHeight UIKitHostStatusBarHeight()
+/* What the host's screen covers at its edges (a notch, a home indicator). */
+UIEdgeInsets UIKitHostSafeAreaInsets(void);
+/* Updates the safe area guides of views that moved (UIAutoLayout.m). */
+void UIKitUpdateSafeAreas(void);
 
 /* The color UIKit's string drawing uses (see UIKitAdditions.m). */
 void UIKitSetDrawColor(CGFloat red, CGFloat green, CGFloat blue, CGFloat alpha);
@@ -144,6 +150,52 @@ NSAttributedString *UIKitAppKitAttributedString(NSAttributedString *string);
 
 /* Gives a view or bar item what its classes' appearance proxies were told. */
 void UIKitApplyAppearance(id object);
+
+/* Nib loading (UINib.m). Each UIKit class reads its own archived keys in
+ * -uikitDecodeNib:, after calling super's. */
+@interface NSObject (UIKitNibDecoding)
+- (void)uikitDecodeNib:(NSCoder *)coder;
+@end
+
+@interface UIView (UIKitNibDecoding)
+/* Initializes a view being decoded, before -uikitDecodeNib:. */
+- (instancetype)uikitInitForCoder:(NSCoder *)coder __attribute__((objc_method_family(init)));
+@end
+
+/* A decoded view's frame (nibs keep its bounds and center). */
+CGRect UIKitArchivedFrame(NSCoder *coder);
+
+/* iOS 7's top and bottom layout guides, as nibs archive them. */
+@interface _UILayoutGuide : UIView
+- (NSString *)uikitIdentifier;
+- (void)uikitSetIdentifier:(NSString *)identifier;
+- (CGFloat)length;
+- (void)uikitPinInView:(UIView *)view length:(CGFloat)length;
+@end
+
+@interface _UILayoutSupportConstraint : NSLayoutConstraint
+@end
+
+/* The bundle the nib being decoded came from. */
+NSBundle *UIKitNibBundle(NSCoder *coder);
+/* The method as the nearest UIKit class among cls and its superclasses
+ * implements it: what a nib's objects are initialized with, so that an
+ * app's own overrides (-initWithFrame:) are not run, as on iOS. */
+IMP UIKitOwnImplementation(Class cls, SEL selector);
+
+@interface UIViewController (UIKitStoryboardPrivate)
+- (void)uikitSetStoryboardIdentifier:(NSString *)identifier;
+- (void)uikitSetSegueTemplates:(NSArray *)templates;
+- (void)uikitSetViewExternalObjects:(NSDictionary *)objects;
+/* Runs the relationship segues (before the view loads) or the embed ones. */
+- (void)uikitPerformSeguesOnLoad:(BOOL)viewLoaded;
+/* Loads the view from the view controller's nib, if it has one. */
+- (BOOL)uikitLoadViewFromNib;
+@end
+
+/* The Info.plist's main storyboard or nib, then its window shown. */
+void UIKitLoadMainInterface(UIApplication *application);
+void UIKitShowMainInterface(UIApplication *application);
 
 /* Hands a touch to the gesture recognizers, then to its view. */
 void UIKitDispatchTouch(UITouch *touch, UITouchPhase phase);

@@ -63,6 +63,19 @@ NSColor *UIKitTintColor(void)
 - (void)setEnabled:(BOOL)enabled { _enabled = enabled; UIKitBarItemChanged(self); }
 - (void)setTitleTextAttributes:(NSDictionary *)attributes forState:(NSUInteger)state { }
 
+- (void)encodeWithCoder:(NSCoder *)coder { }
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	_title = [[coder decodeObjectForKey:@"UITitle"] copy];
+	_image = [coder decodeObjectForKey:@"UIImage"];
+	/* Interface Builder archives the flag only for enabled items. */
+	_enabled = [coder decodeBoolForKey:@"UIEnabled"];
+	_tag = [coder decodeIntegerForKey:@"UITag"];
+	if ([coder containsValueForKey:@"UIImageInsets"])
+		_imageInsets = [coder decodeUIEdgeInsetsForKey:@"UIImageInsets"];
+}
+
 @end
 
 static NSString *UIKitSystemItemTitle(UIBarButtonSystemItem item)
@@ -136,6 +149,37 @@ static NSString *UIKitSystemItemTitle(UIBarButtonSystemItem item)
 	if (self != nil)
 		_flexibleSpace = systemItem == UIBarButtonSystemItemFlexibleSpace;
 	return self;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ([coder decodeBoolForKey:@"UIIsSystemItem"]) {
+		IMP init = UIKitOwnImplementation([self class], @selector(initWithBarButtonSystemItem:target:action:));
+		self = ((id (*)(id, SEL, UIBarButtonSystemItem, id, SEL))init)(self, @selector(initWithBarButtonSystemItem:target:action:),
+		                                                              [coder decodeIntegerForKey:@"UISystemItem"], nil, NULL);
+	} else {
+		self = [super init];
+	}
+	if (self != nil)
+		[self uikitDecodeNib:coder];
+	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	NSString *systemTitle = [self title];
+	[super uikitDecodeNib:coder];
+	if ([self title] == nil && systemTitle != nil)
+		[self setTitle:systemTitle];
+	if ([coder containsValueForKey:@"UIStyle"])
+		_style = [coder decodeIntegerForKey:@"UIStyle"];
+	_width = [coder decodeDoubleForKey:@"UIWidth"];
+	if ([coder containsValueForKey:@"UICustomView"])
+		_customView = [coder decodeObjectForKey:@"UICustomView"];
+	if ([coder containsValueForKey:@"UITintColor"])
+		_tintColor = [coder decodeObjectForKey:@"UITintColor"];
+	if ([coder containsValueForKey:@"UIPossibleTitles"])
+		_possibleTitles = [coder decodeObjectForKey:@"UIPossibleTitles"];
 }
 
 - (instancetype)initWithCustomView:(UIView *)customView
@@ -316,6 +360,24 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view)
 	return [self initWithTitle:nil];
 }
 
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ((self = [super init])) {
+		_title = [[coder decodeObjectForKey:@"UITitle"] copy];
+		_titleView = [coder decodeObjectForKey:@"UITitleView"];
+		_prompt = [[coder decodeObjectForKey:@"UIPrompt"] copy];
+		_backBarButtonItem = [coder decodeObjectForKey:@"UIBackBarButtonItem"];
+		_hidesBackButton = [coder decodeBoolForKey:@"UIHidesBackButton"];
+		UIBarButtonItem *left = [coder decodeObjectForKey:@"UILeftBarButtonItem"];
+		UIBarButtonItem *right = [coder decodeObjectForKey:@"UIRightBarButtonItem"];
+		_leftItems = [[coder decodeObjectForKey:@"UILeftBarButtonItems"] copy] ?: (left != nil ? @[ left ] : nil);
+		_rightItems = [[coder decodeObjectForKey:@"UIRightBarButtonItems"] copy] ?: (right != nil ? @[ right ] : nil);
+	}
+	return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder { }
+
 - (NSString *)title { return _title; }
 - (void)setTitle:(NSString *)title { _title = [title copy]; UIKitBarItemChanged(self); }
 - (UIView *)titleView { return _titleView; }
@@ -374,6 +436,21 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view)
 - (void)dealloc
 {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_barStyle = [coder decodeIntegerForKey:@"UIBarStyle"];
+	if ([coder containsValueForKey:@"UIBarTranslucence"])
+		_translucent = [coder decodeIntegerForKey:@"UIBarTranslucence"] != 2;
+	if ([coder containsValueForKey:@"UITintColor"])
+		_tintColor = [coder decodeObjectForKey:@"UITintColor"];
+	if ([coder containsValueForKey:@"UIBarTintColor"])
+		_barTintColor = [coder decodeObjectForKey:@"UIBarTintColor"];
+	NSArray *items = [coder decodeObjectForKey:@"UIItems"];
+	if ([items count] > 0)
+		[self setItems:items];
 }
 
 - (void)itemChanged:(NSNotification *)notification
@@ -597,6 +674,24 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 		_toolbarHidden = YES;
 	}
 	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	NSArray *controllers = [coder decodeObjectForKey:@"UIChildViewControllers"] ?: [coder decodeObjectForKey:@"UIViewControllers"];
+	if ([controllers count] > 0)
+		[self setViewControllers:controllers];
+	UINavigationBar *bar = [coder decodeObjectForKey:@"UINavigationBar"];
+	if ([bar isKindOfClass:[UINavigationBar class]]) {
+		[_navigationBar setBarStyle:[bar barStyle]];
+		if ([bar tintColor] != nil)
+			[_navigationBar setTintColor:[bar tintColor]];
+	}
+	if ([coder decodeBoolForKey:@"UINavigationBarHidden"])
+		[self setNavigationBarHidden:YES];
+	if ([coder containsValueForKey:@"UIToolbarShown"])
+		[self setToolbarHidden:![coder decodeBoolForKey:@"UIToolbarShown"]];
 }
 
 - (instancetype)initWithRootViewController:(UIViewController *)rootViewController

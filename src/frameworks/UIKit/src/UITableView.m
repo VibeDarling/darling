@@ -69,6 +69,19 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 @property (nonatomic) BOOL uikitShowsDeleteButton;
 @end
 
+/* The views nibs archive inside a cell. */
+@interface UITableViewCellContentView : UIView
+@end
+
+@implementation UITableViewCellContentView
+@end
+
+@interface _UITableViewCellSeparatorView : UIView
+@end
+
+@implementation _UITableViewCellSeparatorView
+@end
+
 @implementation UITableViewCell {
 	NSString *_reuseIdentifier;
 	UITableViewCellStyle _style;
@@ -121,6 +134,53 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 - (instancetype)initWithFrame:(CGRect)frame
 {
 	return [self initWithFrame:frame reuseIdentifier:nil];
+}
+
+- (instancetype)uikitInitForCoder:(NSCoder *)coder
+{
+	IMP init = UIKitOwnImplementation([self class], @selector(initWithStyle:reuseIdentifier:));
+	self = ((id (*)(id, SEL, UITableViewCellStyle, NSString *))init)(self, @selector(initWithStyle:reuseIdentifier:),
+	                                                                [coder decodeIntegerForKey:@"UITableViewCellStyle"], [coder decodeObjectForKey:@"UIReuseIdentifier"]);
+	[self setFrame:UIKitArchivedFrame(coder)];
+	return self;
+}
+
+/* The nib's content view (already a subview) replaces the cell's own. */
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	UIView *contentView = [coder decodeObjectForKey:@"UIContentView"];
+	if ([contentView isKindOfClass:[UIView class]] && contentView != _contentView) {
+		[_contentView removeFromSuperview];
+		_contentView = contentView;
+		if ([_contentView superview] != self)
+			[self addSubview:_contentView];
+	}
+	if ([coder containsValueForKey:@"UISelectionStyle"])
+		_selectionStyle = [coder decodeIntegerForKey:@"UISelectionStyle"];
+	_accessoryType = [coder decodeIntegerForKey:@"UIAccessoryType"];
+	_editingAccessoryType = [coder decodeIntegerForKey:@"UIEditingAccessoryType"];
+	if ([coder containsValueForKey:@"UIIndentationWidth"])
+		_indentationWidth = [coder decodeDoubleForKey:@"UIIndentationWidth"];
+	_indentationLevel = [coder decodeIntegerForKey:@"UIIndentationLevel"];
+	UILabel *textLabel = [coder decodeObjectForKey:@"UITextLabel"];
+	if ([textLabel isKindOfClass:[UILabel class]])
+		_textLabel = textLabel;
+	UILabel *detailTextLabel = [coder decodeObjectForKey:@"UIDetailTextLabel"];
+	if ([detailTextLabel isKindOfClass:[UILabel class]])
+		_detailTextLabel = detailTextLabel;
+	UIImageView *imageView = [coder decodeObjectForKey:@"UIImageView"];
+	if ([imageView isKindOfClass:[UIImageView class]])
+		_imageView = imageView;
+	UIView *backgroundView = [coder decodeObjectForKey:@"UIBackgroundView"];
+	if (backgroundView != nil)
+		[self setBackgroundView:backgroundView];
+	UIView *selectedBackgroundView = [coder decodeObjectForKey:@"UISelectedBackgroundView"];
+	if (selectedBackgroundView != nil)
+		[self setSelectedBackgroundView:selectedBackgroundView];
+	UIView *accessoryView = [coder decodeObjectForKey:@"UIAccessoryView"];
+	if (accessoryView != nil)
+		[self setAccessoryView:accessoryView];
 }
 
 - (NSString *)reuseIdentifier { return _reuseIdentifier; }
@@ -523,7 +583,8 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 	NSMutableArray<UIKitTableSection *> *_sections;
 	NSMutableDictionary<NSIndexPath *, UITableViewCell *> *_visibleCells;
 	NSMutableDictionary<NSString *, NSMutableArray<UITableViewCell *> *> *_reusableCells;
-	NSMutableDictionary<NSString *, Class> *_registeredClasses;
+	/* Cell classes, or the nibs cells come from. */
+	NSMutableDictionary<NSString *, id> *_registeredClasses;
 	NSMutableDictionary<NSString *, UIView *> *_headerViews;
 	NSMutableSet<NSIndexPath *> *_selectedRows;
 	UIView *_tableHeaderView;
@@ -573,6 +634,40 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 	[self setBackgroundColor:style == UITableViewStyleGrouped ? [UIColor groupTableViewBackgroundColor] : [UIColor whiteColor]];
 	[self setAlwaysBounceVertical:YES];
 	return self;
+}
+
+- (instancetype)uikitInitForCoder:(NSCoder *)coder
+{
+	UITableViewStyle style = [coder containsValueForKey:@"UITableViewStyle"] ? [coder decodeIntegerForKey:@"UITableViewStyle"] : [coder decodeIntegerForKey:@"UIStyle"];
+	IMP init = UIKitOwnImplementation([self class], @selector(initWithFrame:style:));
+	return ((id (*)(id, SEL, CGRect, UITableViewStyle))init)(self, @selector(initWithFrame:style:), UIKitArchivedFrame(coder), style);
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UIRowHeight"])
+		_rowHeight = [coder decodeDoubleForKey:@"UIRowHeight"];
+	if ([coder containsValueForKey:@"UISectionHeaderHeight"])
+		_sectionHeaderHeight = [coder decodeDoubleForKey:@"UISectionHeaderHeight"];
+	if ([coder containsValueForKey:@"UISectionFooterHeight"])
+		_sectionFooterHeight = [coder decodeDoubleForKey:@"UISectionFooterHeight"];
+	_estimatedRowHeight = [coder decodeDoubleForKey:@"UIEstimatedRowHeight"];
+	if ([coder containsValueForKey:@"UISeparatorStyle"])
+		_separatorStyle = [coder decodeIntegerForKey:@"UISeparatorStyle"];
+	if ([coder containsValueForKey:@"UISeparatorColor"])
+		_separatorColor = [coder decodeObjectForKey:@"UISeparatorColor"];
+	if ([coder containsValueForKey:@"UISeparatorInset"])
+		_separatorInset = [coder decodeUIEdgeInsetsForKey:@"UISeparatorInset"];
+	_allowsSelection = ![coder decodeBoolForKey:@"UIAllowsSelectionDisabled"] && ([coder containsValueForKey:@"UIAllowsSelection"] ? [coder decodeBoolForKey:@"UIAllowsSelection"] : YES);
+	_allowsSelectionDuringEditing = [coder decodeBoolForKey:@"UIAllowsSelectionDuringEditing"];
+	_allowsMultipleSelection = [coder decodeBoolForKey:@"UIAllowsMultipleSelection"];
+	if ([coder containsValueForKey:@"UIDataSource"])
+		_dataSource = [coder decodeObjectForKey:@"UIDataSource"];
+	if ([coder containsValueForKey:@"UITableHeaderView"])
+		[self setTableHeaderView:[coder decodeObjectForKey:@"UITableHeaderView"]];
+	if ([coder containsValueForKey:@"UITableFooterView"])
+		[self setTableFooterView:[coder decodeObjectForKey:@"UITableFooterView"]];
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -910,13 +1005,31 @@ static NSInteger UIKitRowAtOffset(UIKitTableSection *section, CGFloat y)
 		[cell prepareForReuse];
 		return cell;
 	}
-	Class cls = [_registeredClasses objectForKey:identifier];
-	return cls != Nil ? [[cls alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:identifier] : nil;
+	id registered = [_registeredClasses objectForKey:identifier];
+	if ([registered isKindOfClass:[UINib class]]) {
+		for (id object in [(UINib *)registered instantiateWithOwner:nil options:nil]) {
+			if ([object isKindOfClass:[UITableViewCell class]])
+				return object;
+		}
+		NSLog(@"UITableView: the nib registered for %@ holds no cell", identifier);
+		return nil;
+	}
+	return registered != nil ? [[registered alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:identifier] : nil;
 }
 
 - (UITableViewCell *)dequeueReusableCellWithIdentifier:(NSString *)identifier forIndexPath:(NSIndexPath *)indexPath
 {
 	return [self dequeueReusableCellWithIdentifier:identifier];
+}
+
+- (void)registerNib:(UINib *)nib forCellReuseIdentifier:(NSString *)identifier
+{
+	if (identifier == nil)
+		return;
+	if (nib != nil)
+		[_registeredClasses setObject:nib forKey:identifier];
+	else
+		[_registeredClasses removeObjectForKey:identifier];
 }
 
 - (void)registerClass:(Class)cellClass forCellReuseIdentifier:(NSString *)identifier

@@ -92,6 +92,39 @@ static const CGFloat UIKitDragThreshold = 6;
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_contentSize = [coder decodeCGSizeForKey:@"UIContentSize"];
+	_contentInset = [coder decodeUIEdgeInsetsForKey:@"UIContentInset"];
+	_scrollIndicatorInsets = [coder decodeUIEdgeInsetsForKey:@"UIScrollIndicatorInsets"];
+	_scrollEnabled = ![coder decodeBoolForKey:@"UIScrollDisabled"];
+	_pagingEnabled = [coder decodeBoolForKey:@"UIPagingEnabled"];
+	_directionalLockEnabled = [coder decodeBoolForKey:@"UIDirectionalLockEnabled"];
+	_bounces = ![coder decodeBoolForKey:@"UIBounceDisabled"];
+	_alwaysBounceVertical = [coder decodeBoolForKey:@"UIAlwaysBounceVertical"];
+	_alwaysBounceHorizontal = [coder decodeBoolForKey:@"UIAlwaysBounceHorizontal"];
+	if ([coder containsValueForKey:@"UIShowsVerticalScrollIndicator"])
+		_showsVerticalScrollIndicator = [coder decodeBoolForKey:@"UIShowsVerticalScrollIndicator"];
+	if ([coder containsValueForKey:@"UIShowsHorizontalScrollIndicator"])
+		_showsHorizontalScrollIndicator = [coder decodeBoolForKey:@"UIShowsHorizontalScrollIndicator"];
+	if ([coder decodeBoolForKey:@"UIVerticalScrollIndicatorDisabled"])
+		_showsVerticalScrollIndicator = NO;
+	if ([coder decodeBoolForKey:@"UIHorizontalScrollIndicatorDisabled"])
+		_showsHorizontalScrollIndicator = NO;
+	if ([coder containsValueForKey:@"UIMinimumZoomScale"])
+		_minimumZoomScale = [coder decodeDoubleForKey:@"UIMinimumZoomScale"];
+	if ([coder containsValueForKey:@"UIMaximumZoomScale"])
+		_maximumZoomScale = [coder decodeDoubleForKey:@"UIMaximumZoomScale"];
+	_contentInsetAdjustmentBehavior = [coder decodeIntegerForKey:@"UIScrollViewContentInsetAdjustmentBehavior"];
+	if ([coder containsValueForKey:@"UIDelaysContentTouches"])
+		_delaysContentTouches = [coder decodeBoolForKey:@"UIDelaysContentTouches"];
+	if ([coder containsValueForKey:@"UICanCancelContentTouches"])
+		_canCancelContentTouches = [coder decodeBoolForKey:@"UICanCancelContentTouches"];
+	if ([coder containsValueForKey:@"UIDelegate"])
+		_delegate = [coder decodeObjectForKey:@"UIDelegate"];
+}
+
 - (CGPoint)contentOffset
 {
 	NSPoint origin = [self bounds].origin;

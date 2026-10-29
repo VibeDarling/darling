@@ -39,6 +39,32 @@
 	return font;
 }
 
+/* A nib's font: the system font (in its traits, 1 italic and 2 bold) or a named one. */
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	CGFloat size = [coder containsValueForKey:@"UIFontPointSize"] ? [coder decodeDoubleForKey:@"UIFontPointSize"] : [coder decodeDoubleForKey:@"NSSize"];
+	NSString *name = [coder decodeObjectForKey:@"UIFontName"] ?: [coder decodeObjectForKey:@"NSName"];
+	NSInteger traits = [coder decodeIntegerForKey:@"UIFontTraits"];
+	if (size <= 0)
+		size = 17;
+	if ([coder decodeBoolForKey:@"UISystemFont"] || name == nil || [name hasPrefix:@"."]) {
+		if (traits & 2)
+			return [UIFont boldSystemFontOfSize:size];
+		if (traits & 1)
+			return [UIFont italicSystemFontOfSize:size];
+		return [UIFont systemFontOfSize:size];
+	}
+	return [UIFont fontWithName:name size:size];
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+	[coder encodeObject:_fontName forKey:@"UIFontName"];
+	[coder encodeDouble:_pointSize forKey:@"UIFontPointSize"];
+	[coder encodeBool:_fontName == nil forKey:@"UISystemFont"];
+	[coder encodeInteger:_bold ? 2 : 0 forKey:@"UIFontTraits"];
+}
+
 + (CGFloat)systemFontSize { return 14; }
 + (CGFloat)smallSystemFontSize { return 12; }
 + (CGFloat)labelFontSize { return 17; }

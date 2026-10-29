@@ -57,6 +57,20 @@ static NSCache *sNamedImages;
 	return image;
 }
 
++ (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle compatibleWithTraitCollection:(id)traitCollection
+{
+	if (bundle == nil || bundle == [NSBundle mainBundle])
+		return [self imageNamed:name];
+	for (NSString *suffix in @[ @"@2x", @"", @"@3x", @"@2x~iphone", @"~iphone" ]) {
+		NSString *path = [bundle pathForResource:[[name stringByDeletingPathExtension] stringByAppendingString:suffix]
+		                                  ofType:[[name pathExtension] length] > 0 ? [name pathExtension] : @"png"];
+		UIImage *image = path != nil ? [self imageWithContentsOfFile:path] : nil;
+		if (image != nil)
+			return image;
+	}
+	return nil;
+}
+
 + (UIImage *)imageAtPath:(NSString *)path
 {
 	return [self imageWithContentsOfFile:path];
@@ -310,3 +324,22 @@ CGContextRef UIGraphicsGetCurrentContext(void)
 {
 	return (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
 }
+
+/* A nib's image: named, in the nib's bundle. */
+@interface UIImageNibPlaceholder : NSObject <NSCoding>
+@end
+
+@implementation UIImageNibPlaceholder
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	NSString *name = [coder decodeObjectForKey:@"UIResourceName"];
+	UIImage *image = [name length] > 0 ? [UIImage imageNamed:name inBundle:UIKitNibBundle(coder) compatibleWithTraitCollection:nil] : nil;
+	if (image == nil && [name length] > 0)
+		NSLog(@"Could not load the \"%@\" image referenced from a nib in the bundle with identifier \"%@\"", name, [UIKitNibBundle(coder) bundleIdentifier]);
+	return (id)image;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder { }
+
+@end

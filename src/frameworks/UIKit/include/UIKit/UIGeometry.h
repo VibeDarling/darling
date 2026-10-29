@@ -15,6 +15,9 @@
 #import <Foundation/NSObjCRuntime.h>
 #import <CoreGraphics/CGGeometry.h>
 #import <CoreGraphics/CGAffineTransform.h>
+#ifdef __OBJC__
+#import <Foundation/NSCoder.h>
+#endif
 
 @class NSString;
 
@@ -89,5 +92,24 @@ typedef NS_ENUM(NSInteger, UIInterfaceOrientation) {
 
 #define UIInterfaceOrientationIsPortrait(orientation) ((orientation) == UIInterfaceOrientationPortrait || (orientation) == UIInterfaceOrientationPortraitUpsideDown)
 #define UIInterfaceOrientationIsLandscape(orientation) ((orientation) == UIInterfaceOrientationLandscapeLeft || (orientation) == UIInterfaceOrientationLandscapeRight)
+
+#ifdef __OBJC__
+/* Geometry in keyed archives: as strings ("{{x, y}, {w, h}}"), and in
+ * compiled nibs as the nib's own arrays of numbers. */
+@interface NSCoder (UIGeometryKeyedCoding)
+- (void)encodeCGPoint:(CGPoint)point forKey:(NSString *)key;
+- (void)encodeCGSize:(CGSize)size forKey:(NSString *)key;
+- (void)encodeCGRect:(CGRect)rect forKey:(NSString *)key;
+- (void)encodeCGAffineTransform:(CGAffineTransform)transform forKey:(NSString *)key;
+- (void)encodeUIEdgeInsets:(UIEdgeInsets)insets forKey:(NSString *)key;
+- (void)encodeUIOffset:(UIOffset)offset forKey:(NSString *)key;
+- (CGPoint)decodeCGPointForKey:(NSString *)key;
+- (CGSize)decodeCGSizeForKey:(NSString *)key;
+- (CGRect)decodeCGRectForKey:(NSString *)key;
+- (CGAffineTransform)decodeCGAffineTransformForKey:(NSString *)key;
+- (UIEdgeInsets)decodeUIEdgeInsetsForKey:(NSString *)key;
+- (UIOffset)decodeUIOffsetForKey:(NSString *)key;
+@end
+#endif
 
 #endif /* UIKIT_UIGEOMETRY_H */

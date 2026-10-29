@@ -48,6 +48,7 @@ add_framework(UIKit
         src/UITabBarController.m
         src/UIAlertView.m
         src/UIWebView.m
+        src/UINib.m
     RESOURCES
         Info.plist Info.plist
     DEPENDENCIES

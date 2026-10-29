@@ -106,6 +106,28 @@
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UIFont"])
+		[self setFont:[coder decodeObjectForKey:@"UIFont"]];
+	if ([coder containsValueForKey:@"UITextColor"])
+		[self setTextColor:[coder decodeObjectForKey:@"UITextColor"]];
+	if ([coder containsValueForKey:@"UIAttributedText"])
+		[self setAttributedText:[coder decodeObjectForKey:@"UIAttributedText"]];
+	else if ([coder containsValueForKey:@"UIText"])
+		[self setText:[coder decodeObjectForKey:@"UIText"]];
+	if ([coder containsValueForKey:@"UITextAlignment"])
+		[self setTextAlignment:[coder decodeIntegerForKey:@"UITextAlignment"]];
+	[self setEditable:[coder decodeBoolForKey:@"UIEditable"]];
+	[self setSelectable:[coder containsValueForKey:@"UISelectable"] ? [coder decodeBoolForKey:@"UISelectable"] : YES];
+	_dataDetectorTypes = [coder decodeIntegerForKey:@"UIDataDetectorTypes"];
+	_autocapitalizationType = [coder decodeIntegerForKey:@"UIAutocapitalizationType"];
+	_autocorrectionType = [coder decodeIntegerForKey:@"UIAutocorrectionType"];
+	_keyboardType = [coder decodeIntegerForKey:@"UIKeyboardType"];
+	_returnKeyType = [coder decodeIntegerForKey:@"UIReturnKeyType"];
+}
+
 - (instancetype)initWithFrame:(CGRect)frame textContainer:(NSTextContainer *)container
 {
 	return [self initWithFrame:frame];
@@ -147,9 +169,11 @@
 	return [[NSAttributedString alloc] initWithAttributedString:[_textView textStorage]];
 }
 
+/* AppKit's text system takes AppKit's fonts and colors, not the UIFonts and
+ * UIColors iOS apps (and their nibs) put in the attributes. */
 - (void)setAttributedText:(NSAttributedString *)text
 {
-	[[_textView textStorage] setAttributedString:text ?: [[NSAttributedString alloc] init]];
+	[[_textView textStorage] setAttributedString:text != nil ? UIKitAppKitAttributedString(text) : [[NSAttributedString alloc] init]];
 	[self uikitFitText];
 }
 

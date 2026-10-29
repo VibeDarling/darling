@@ -46,6 +46,8 @@ extern NSString *const UIApplicationWillTerminateNotification;
 
 @property (nonatomic, assign) id<UIApplicationDelegate> delegate;
 @property (nonatomic, readonly) UIApplicationState applicationState;
+@property (nonatomic, readonly) CGRect statusBarFrame;
+@property (nonatomic, getter=isStatusBarHidden) BOOL statusBarHidden;
 
 /* Drain the main run loop, as -[NSApplication run] does. */
 - (void)run;

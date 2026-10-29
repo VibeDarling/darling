@@ -59,6 +59,53 @@
 	return self;
 }
 
+/* From a storyboard or a nib: made as UIKit's nearest class makes view
+ * controllers (an app's own -initWithNibName:bundle: does not run). */
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	IMP init = UIKitOwnImplementation([self class], @selector(initWithNibName:bundle:));
+	self = ((id (*)(id, SEL, NSString *, NSBundle *))init)(self, @selector(initWithNibName:bundle:), nil, nil);
+	if (self != nil)
+		[self uikitDecodeNib:coder];
+	return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	_nibName = [[coder decodeObjectForKey:@"UINibName"] copy];
+	_nibBundle = [coder containsValueForKey:@"UINibName"] ? UIKitNibBundle(coder) : nil;
+	if ([coder containsValueForKey:@"UITitle"])
+		[self setTitle:[coder decodeObjectForKey:@"UITitle"]];
+	if ([coder containsValueForKey:@"UINavigationItem"])
+		_navigationItem = [coder decodeObjectForKey:@"UINavigationItem"];
+	if ([coder containsValueForKey:@"UITabBarItem"])
+		_tabBarItem = [coder decodeObjectForKey:@"UITabBarItem"];
+	if ([coder containsValueForKey:@"UIToolbarItems"])
+		_toolbarItems = [[coder decodeObjectForKey:@"UIToolbarItems"] copy];
+	_hidesBottomBarWhenPushed = [coder decodeBoolForKey:@"UIHidesBottomBarWhenPushed"];
+	_wantsFullScreenLayout = [coder decodeBoolForKey:@"UIWantsFullScreenLayout"];
+	_modalPresentationStyle = [coder decodeIntegerForKey:@"UIModalPresentationStyle"];
+	_modalTransitionStyle = [coder decodeIntegerForKey:@"UIModalTransitionStyle"];
+	if ([coder containsValueForKey:@"UIStoryboardIdentifier"])
+		[self uikitSetStoryboardIdentifier:[coder decodeObjectForKey:@"UIStoryboardIdentifier"]];
+	if ([coder containsValueForKey:@"UIExternalObjectsTableForViewLoading"])
+		[self uikitSetViewExternalObjects:[coder decodeObjectForKey:@"UIExternalObjectsTableForViewLoading"]];
+	if ([coder containsValueForKey:@"UIStoryboardSegueTemplates"])
+		[self uikitSetSegueTemplates:[coder decodeObjectForKey:@"UIStoryboardSegueTemplates"]];
+	/* A view archived with the controller, rather than in a nib of its own. */
+	UIView *view = [coder decodeObjectForKey:@"UIView"];
+	if ([view isKindOfClass:[UIView class]])
+		_view = view;
+	for (UIViewController *child in [coder decodeObjectForKey:@"UIChildViewControllers"]) {
+		if ([child isKindOfClass:[UIViewController class]] && ![self isKindOfClass:[UINavigationController class]] && ![self isKindOfClass:[UITabBarController class]])
+			[self addChildViewController:child];
+	}
+}
+
 - (NSString *)nibName { return _nibName; }
 - (NSBundle *)nibBundle { return _nibBundle; }
 
@@ -68,9 +115,60 @@
 		[self loadView];
 		if (_view == nil)
 			_view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]];
+		[self uikitUpdateLayoutGuides];
+		[self uikitPerformSeguesOnLoad:YES];
 		[self viewDidLoad];
 	}
 	return _view;
+}
+
+- (void)loadViewIfNeeded
+{
+	(void)[self view];
+}
+
+/* The guides iOS 7 placed under the status bar and above the bottom bar: a
+ * nib's, else made on demand. */
+- (_UILayoutGuide *)uikitLayoutGuide:(NSString *)identifier create:(BOOL)create
+{
+	for (NSView *subview in [_view subviews]) {
+		if ([subview isKindOfClass:[_UILayoutGuide class]] && [[(_UILayoutGuide *)subview uikitIdentifier] isEqualToString:identifier])
+			return (_UILayoutGuide *)subview;
+	}
+	if (!create)
+		return nil;
+	_UILayoutGuide *guide = [[_UILayoutGuide alloc] initWithFrame:CGRectZero];
+	[guide uikitSetIdentifier:identifier];
+	[guide setHidden:YES];
+	[guide setTranslatesAutoresizingMaskIntoConstraints:NO];
+	[[self view] addSubview:guide];
+	[guide uikitPinInView:_view length:0];
+	return guide;
+}
+
+/* The status bar covers the top of a view that reaches under it. */
+- (void)uikitUpdateLayoutGuides
+{
+	if (_view == nil)
+		return;
+	CGFloat top = 0;
+	if ([_view window] != nil && CGRectGetHeight([[UIApplication sharedApplication] statusBarFrame]) > 0) {
+		NSPoint origin = [_view convertPoint:NSZeroPoint toView:nil];
+		CGFloat fromTop = [[[_view window] contentView] bounds].size.height - origin.y;
+		top = MAX(0, UIKitStatusBarHeight - fromTop);
+	}
+	[[self uikitLayoutGuide:@"_UIViewControllerTop" create:NO] uikitPinInView:_view length:top];
+	[[self uikitLayoutGuide:@"_UIViewControllerBottom" create:NO] uikitPinInView:_view length:0];
+}
+
+- (id)topLayoutGuide
+{
+	return [self uikitLayoutGuide:@"_UIViewControllerTop" create:YES];
+}
+
+- (id)bottomLayoutGuide
+{
+	return [self uikitLayoutGuide:@"_UIViewControllerBottom" create:YES];
 }
 
 - (void)setView:(UIView *)view
@@ -89,6 +187,8 @@
 
 - (void)loadView
 {
+	if ([self uikitLoadViewFromNib])
+		return;
 	_view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]];
 	[_view setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
 }
@@ -216,6 +316,7 @@
 	if (_appeared)
 		return;
 	_appeared = YES;
+	[self uikitUpdateLayoutGuides];
 	[self viewWillAppear:animated];
 	[self viewDidAppear:animated];
 }

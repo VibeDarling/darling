@@ -13,6 +13,7 @@
 #import <AppKit/NSColor.h>
 
 #import "UIKitPrivate.h"
+#import <objc/message.h>
 
 @implementation UIColor
 
@@ -108,6 +109,34 @@
 - (instancetype)initWithWhite:(CGFloat)white alpha:(CGFloat)alpha
 {
 	return [self initWithRed:white green:white blue:white alpha:alpha];
+}
+
+/* A nib's color: a named system color or pattern, else its components. */
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	NSString *name = [coder decodeObjectForKey:@"UISystemColorName"] ?: [coder decodeObjectForKey:@"UIPatternSelector"];
+	SEL selector = [name isKindOfClass:[NSString class]] ? NSSelectorFromString(name) : NULL;
+	if (selector != NULL && [UIColor respondsToSelector:selector]) {
+		UIColor *system = ((id (*)(id, SEL))objc_msgSend)([UIColor class], selector);
+		if ([system isKindOfClass:[UIColor class]])
+			return system;
+	}
+	CGFloat alpha = [coder containsValueForKey:@"UIAlpha"] ? [coder decodeDoubleForKey:@"UIAlpha"] : 1;
+	if ([coder decodeIntegerForKey:@"UIColorComponentCount"] == 2 || ([coder containsValueForKey:@"UIWhite"] && ![coder containsValueForKey:@"UIRed"]))
+		return [self initWithWhite:[coder decodeDoubleForKey:@"UIWhite"] alpha:alpha];
+	CGFloat red = [coder containsValueForKey:@"UIRed-Double"] ? [coder decodeDoubleForKey:@"UIRed-Double"] : [coder decodeDoubleForKey:@"UIRed"];
+	CGFloat green = [coder containsValueForKey:@"UIGreen-Double"] ? [coder decodeDoubleForKey:@"UIGreen-Double"] : [coder decodeDoubleForKey:@"UIGreen"];
+	CGFloat blue = [coder containsValueForKey:@"UIBlue-Double"] ? [coder decodeDoubleForKey:@"UIBlue-Double"] : [coder decodeDoubleForKey:@"UIBlue"];
+	return [self initWithRed:red green:green blue:blue alpha:alpha];
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+	[coder encodeInteger:4 forKey:@"UIColorComponentCount"];
+	[coder encodeDouble:_red forKey:@"UIRed"];
+	[coder encodeDouble:_green forKey:@"UIGreen"];
+	[coder encodeDouble:_blue forKey:@"UIBlue"];
+	[coder encodeDouble:_alpha forKey:@"UIAlpha"];
 }
 
 + (UIColor *)darkGrayColor { return [self colorWithWhite:1.0 / 3 alpha:1]; }

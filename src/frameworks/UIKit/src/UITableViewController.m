@@ -63,6 +63,8 @@
 
 - (void)loadView
 {
+	if (_tableView == nil && [self uikitLoadViewFromNib])
+		return;
 	if (_tableView == nil) {
 		UITableView *tableView = [[UITableView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame] style:_style];
 		[tableView setDataSource:self];
@@ -241,19 +243,26 @@ static char UIKitHeaderFooterClassesKey;
 
 - (void)registerNib:(UINib *)nib forHeaderFooterViewReuseIdentifier:(NSString *)identifier
 {
-	NSLog(@"UITableView: cannot load header and footer views from nibs yet (%@)", identifier);
-}
-
-- (void)registerNib:(UINib *)nib forCellReuseIdentifier:(NSString *)identifier
-{
-	NSLog(@"UITableView: cannot load cells from nibs yet (%@)", identifier);
+	if (identifier == nil)
+		return;
+	if (nib == nil)
+		[[self uikitHeaderFooterClasses] removeObjectForKey:identifier];
+	else
+		[[self uikitHeaderFooterClasses] setObject:nib forKey:identifier];
 }
 
 /* Header views leave the table when it reloads, so each is a new one. */
 - (UITableViewHeaderFooterView *)dequeueReusableHeaderFooterViewWithIdentifier:(NSString *)identifier
 {
-	Class viewClass = identifier != nil ? [[self uikitHeaderFooterClasses] objectForKey:identifier] : Nil;
-	if (viewClass == Nil)
+	id viewClass = identifier != nil ? [[self uikitHeaderFooterClasses] objectForKey:identifier] : nil;
+	if ([viewClass isKindOfClass:[UINib class]]) {
+		for (id object in [(UINib *)viewClass instantiateWithOwner:nil options:nil]) {
+			if ([object isKindOfClass:[UIView class]])
+				return object;
+		}
+		return nil;
+	}
+	if (viewClass == nil)
 		return nil;
 	return [[viewClass alloc] initWithReuseIdentifier:identifier];
 }

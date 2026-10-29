@@ -22,6 +22,7 @@
 @property (nonatomic, readonly) CGRect bounds;
 @property (nonatomic, readonly) CGFloat scale;
 @property (nonatomic, readonly) CGRect nativeBounds;
+@property (nonatomic, readonly) CGFloat nativeScale;
 /* The screen less the status bar. */
 @property (nonatomic, readonly) CGRect applicationFrame;
 @property (nonatomic) CGFloat brightness;

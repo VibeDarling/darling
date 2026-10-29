@@ -50,6 +50,9 @@ const CGSize UILayoutFittingExpandedSize = { 10000, 10000 };
 @implementation UIKitInsetGuide
 @end
 
+/* Views that have a safe area guide, kept up to date as views move. */
+static NSHashTable<UIView *> *sUIKitSafeAreaViews;
+
 static char UIKitSafeAreaGuideKey, UIKitMarginsGuideKey, UIKitReadableGuideKey, UIKitMarginsKey, UIKitLayoutFlagsKey;
 
 static UIKitInsetGuide *UIKitGuide(UIView *view, const void *key, NSString *identifier, UIEdgeInsets insets)
@@ -94,16 +97,49 @@ static void UIKitSetLayoutFlag(UIView *view, NSUInteger flag, BOOL on)
 	objc_setAssociatedObject(view, &UIKitLayoutFlagsKey, @(flags), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+void UIKitUpdateSafeAreas(void)
+{
+	for (UIView *view in [sUIKitSafeAreaViews allObjects]) {
+		UIKitInsetGuide *entry = objc_getAssociatedObject(view, &UIKitSafeAreaGuideKey);
+		UIEdgeInsets insets = [view safeAreaInsets];
+		if (entry == nil || ([entry->top constant] == insets.top && [entry->left constant] == insets.left
+		                     && [entry->bottom constant] == insets.bottom && [entry->right constant] == insets.right))
+			continue;
+		UIKitSetGuideInsets(entry, insets);
+		[view safeAreaInsetsDidChange];
+	}
+}
+
 @implementation UIView (UIConstraintBasedLayout)
 
 + (BOOL)requiresConstraintBasedLayout { return NO; }
 
-/* Views here are not under a status bar or a home indicator. */
-- (UIEdgeInsets)safeAreaInsets { return UIEdgeInsetsZero; }
+/* What the status bar and the host's screen edges (a notch, a home
+ * indicator) cover of the view, where it is in its window. */
+- (UIEdgeInsets)safeAreaInsets
+{
+	NSWindow *window = [self window];
+	NSView *content = [window contentView];
+	if (window == nil || content == nil)
+		return UIEdgeInsetsZero;
+	UIEdgeInsets screen = UIKitHostSafeAreaInsets();
+	if (CGRectGetHeight([[UIApplication sharedApplication] statusBarFrame]) > 0)
+		screen.top = MAX(screen.top, UIKitStatusBarHeight);
+	NSSize size = [content bounds].size;
+	NSRect frame = [self convertRect:[self bounds] toView:nil];
+	CGFloat top = size.height - NSMaxY(frame), bottom = NSMinY(frame);
+	CGFloat left = NSMinX(frame), right = size.width - NSMaxX(frame);
+	return UIEdgeInsetsMake(MIN(MAX(screen.top - top, 0), frame.size.height), MIN(MAX(screen.left - left, 0), frame.size.width),
+	                        MIN(MAX(screen.bottom - bottom, 0), frame.size.height), MIN(MAX(screen.right - right, 0), frame.size.width));
+}
+
 - (void)safeAreaInsetsDidChange { }
 
 - (UILayoutGuide *)safeAreaLayoutGuide
 {
+	if (sUIKitSafeAreaViews == nil)
+		sUIKitSafeAreaViews = [NSHashTable weakObjectsHashTable];
+	[sUIKitSafeAreaViews addObject:self];
 	return UIKitGuide(self, &UIKitSafeAreaGuideKey, @"UIViewSafeAreaLayoutGuide", [self safeAreaInsets])->guide;
 }
 

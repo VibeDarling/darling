@@ -63,6 +63,16 @@
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_disabled = [coder decodeBoolForKey:@"UIDisabled"];
+	_selected = [coder decodeBoolForKey:@"UISelected"];
+	_highlighted = [coder decodeBoolForKey:@"UIHighlighted"];
+	_contentHorizontalAlignment = [coder decodeIntegerForKey:@"UIContentHorizontalAlignment"];
+	_contentVerticalAlignment = [coder decodeIntegerForKey:@"UIContentVerticalAlignment"];
+}
+
 - (BOOL)isEnabled { return !_disabled; }
 - (void)setEnabled:(BOOL)enabled { _disabled = !enabled; [self setNeedsDisplay:YES]; }
 - (BOOL)isSelected { return _selected; }
@@ -273,6 +283,35 @@ static UIImage *UIKitButtonGlyph(UIButtonType type)
 	return cached;
 }
 
+/* What a nib archives for one state of a button. */
+@interface UIButtonContent : NSObject <NSCoding>
+@property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSAttributedString *attributedTitle;
+@property (nonatomic, strong) UIColor *titleColor;
+@property (nonatomic, strong) UIColor *shadowColor;
+@property (nonatomic, strong) UIImage *image;
+@property (nonatomic, strong) UIImage *backgroundImage;
+@end
+
+@implementation UIButtonContent
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ((self = [super init])) {
+		_title = [[coder decodeObjectForKey:@"UITitle"] copy];
+		_attributedTitle = [[coder decodeObjectForKey:@"UIAttributedTitle"] copy];
+		_titleColor = [coder decodeObjectForKey:@"UITitleColor"];
+		_shadowColor = [coder decodeObjectForKey:@"UIShadowColor"];
+		_image = [coder decodeObjectForKey:@"UIImage"];
+		_backgroundImage = [coder decodeObjectForKey:@"UIBackgroundImage"];
+	}
+	return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder { }
+
+@end
+
 @implementation UIButton {
 	UIButtonType _buttonType;
 	UILabel *_titleLabel;
@@ -298,15 +337,20 @@ static UIImage *UIKitButtonGlyph(UIButtonType type)
 + (instancetype)buttonWithType:(UIButtonType)buttonType
 {
 	UIButton *button = [[self alloc] initWithFrame:CGRectZero];
-	button->_buttonType = buttonType;
-	/* System buttons draw their title and images in the tint color. */
-	[button->_imageView setUikitTemplateByDefault:buttonType != UIButtonTypeCustom];
-	if (buttonType != UIButtonTypeCustom && buttonType != UIButtonTypeRoundedRect) {
-		[button setImage:UIKitButtonGlyph(buttonType) forState:UIControlStateNormal];
+	[button uikitSetButtonType:buttonType];
+	if (buttonType != UIButtonTypeCustom && buttonType != UIButtonTypeRoundedRect)
 		[button setFrame:NSMakeRect(0, 0, 22, 22)];
-	}
 	[button updateContent];
 	return button;
+}
+
+- (void)uikitSetButtonType:(UIButtonType)buttonType
+{
+	_buttonType = buttonType;
+	/* System buttons draw their title and images in the tint color. */
+	[_imageView setUikitTemplateByDefault:buttonType != UIButtonTypeCustom];
+	if (buttonType != UIButtonTypeCustom && buttonType != UIButtonTypeRoundedRect)
+		[self setImage:UIKitButtonGlyph(buttonType) forState:UIControlStateNormal];
 }
 
 + (instancetype)systemButtonWithImage:(UIImage *)image target:(id)target action:(SEL)action
@@ -338,6 +382,37 @@ static UIImage *UIKitButtonGlyph(UIButtonType type)
 		[self addSubview:_imageView];
 	}
 	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	[self uikitSetButtonType:[coder decodeIntegerForKey:@"UIButtonType"]];
+	NSDictionary *content = [coder decodeObjectForKey:@"UIButtonStatefulContent"];
+	for (NSNumber *state in content) {
+		UIButtonContent *stateContent = [content objectForKey:state];
+		if (![state isKindOfClass:[NSNumber class]] || ![stateContent isKindOfClass:[UIButtonContent class]])
+			continue;
+		UIControlState controlState = [state unsignedIntegerValue];
+		UIKitSetForState(_titles, [[stateContent title] copy], controlState);
+		UIKitSetForState(_attributedTitles, [[stateContent attributedTitle] copy], controlState);
+		UIKitSetForState(_titleColors, [stateContent titleColor], controlState);
+		UIKitSetForState(_titleShadowColors, [stateContent shadowColor], controlState);
+		if ([stateContent image] != nil)
+			UIKitSetForState(_images, [stateContent image], controlState);
+		UIKitSetForState(_backgroundImages, [stateContent backgroundImage], controlState);
+	}
+	if ([coder containsValueForKey:@"UIFont"])
+		[self setFont:[coder decodeObjectForKey:@"UIFont"]];
+	_contentEdgeInsets = [coder decodeUIEdgeInsetsForKey:@"UIContentEdgeInsets"];
+	_titleEdgeInsets = [coder decodeUIEdgeInsetsForKey:@"UITitleEdgeInsets"];
+	_imageEdgeInsets = [coder decodeUIEdgeInsetsForKey:@"UIImageEdgeInsets"];
+	_adjustsImageWhenHighlighted = [coder decodeBoolForKey:@"UIAdjustsImageWhenHighlighted"];
+	_adjustsImageWhenDisabled = [coder decodeBoolForKey:@"UIAdjustsImageWhenDisabled"];
+	_showsTouchWhenHighlighted = [coder decodeBoolForKey:@"UIShowsTouchWhenHighlighted"];
+	_reversesTitleShadowWhenHighlighted = [coder decodeBoolForKey:@"UIReversesTitleShadowWhenHighlighted"];
+	[self updateContent];
+	[self setNeedsLayout];
 }
 
 - (UIButtonType)buttonType { return _buttonType; }
@@ -613,6 +688,14 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 	return [super initWithFrame:frame];
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_on = [coder decodeBoolForKey:@"UISwitchOn"];
+	if ([coder containsValueForKey:@"UIOnTintColor"])
+		_onTintColor = [coder decodeObjectForKey:@"UIOnTintColor"];
+}
+
 - (BOOL)isOn { return _on; }
 - (void)setOn:(BOOL)on { _on = on; [self setNeedsDisplay:YES]; }
 - (void)setOn:(BOOL)on animated:(BOOL)animated { [self setOn:on]; }
@@ -696,6 +779,27 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 		}
 	}
 	return self;
+}
+
+/* Interface Builder archives the segments' titles and images, or the
+ * UISegment views of older nibs. */
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	NSArray *titles = [coder decodeObjectForKey:@"UISegmentTitles"] ?: [coder decodeObjectForKey:@"UISegmentedControlSegmentTitles"];
+	NSArray *images = [coder decodeObjectForKey:@"UISegmentImages"];
+	NSUInteger count = MAX([titles count], [images count]);
+	for (NSUInteger i = 0; i < count; i++) {
+		UIKitSegment *segment = [[UIKitSegment alloc] init];
+		id title = i < [titles count] ? [titles objectAtIndex:i] : nil;
+		id image = i < [images count] ? [images objectAtIndex:i] : nil;
+		segment->title = [title isKindOfClass:[NSString class]] ? [title copy] : nil;
+		segment->image = [image isKindOfClass:[UIImage class]] ? image : nil;
+		[_segments addObject:segment];
+	}
+	_selected = [coder containsValueForKey:@"UISelectedSegmentIndex"] ? [coder decodeIntegerForKey:@"UISelectedSegmentIndex"] : UISegmentedControlNoSegment;
+	_momentary = [coder decodeBoolForKey:@"UIMomentary"];
+	[self setNeedsDisplay:YES];
 }
 
 - (NSUInteger)numberOfSegments { return [_segments count]; }
@@ -866,6 +970,19 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_style = [coder decodeIntegerForKey:@"UIActivityIndicatorViewStyle"];
+	_hidesWhenStopped = [coder decodeBoolForKey:@"UIHidesWhenStopped"];
+	if ([coder containsValueForKey:@"UIColor"])
+		_color = [coder decodeObjectForKey:@"UIColor"];
+	if ([coder decodeBoolForKey:@"UIAnimating"])
+		[self startAnimating];
+	else
+		[self setHidden:[self isHidden] || _hidesWhenStopped];
+}
+
 - (void)dealloc
 {
 	[_timer invalidate];
@@ -928,6 +1045,35 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 #pragma mark - UITextField
 
 @interface UITextField () <NSTextFieldDelegate>
+- (BOOL)uikitShouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string;
+@end
+
+/* The AppKit fields inside: their field editor asks them before each
+ * change, which iOS asks the text field's delegate. */
+static BOOL UIKitFieldShouldChange(NSTextField *field, NSRange range, NSString *string)
+{
+	id owner = [field delegate];
+	return ![owner isKindOfClass:[UITextField class]] || [owner uikitShouldChangeCharactersInRange:range replacementString:string ?: @""];
+}
+
+@interface UIKitTextFieldField : NSTextField
+@end
+
+@implementation UIKitTextFieldField
+- (BOOL)textView:(NSTextView *)textView shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)string
+{
+	return UIKitFieldShouldChange(self, range, string);
+}
+@end
+
+@interface UIKitSecureTextFieldField : NSSecureTextField
+@end
+
+@implementation UIKitSecureTextFieldField
+- (BOOL)textView:(NSTextView *)textView shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)string
+{
+	return UIKitFieldShouldChange(self, range, string);
+}
 @end
 
 @implementation UITextField {
@@ -967,12 +1113,44 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UIFont"])
+		[self setFont:[coder decodeObjectForKey:@"UIFont"]];
+	if ([coder containsValueForKey:@"UITextColor"])
+		[self setTextColor:[coder decodeObjectForKey:@"UITextColor"]];
+	if ([coder containsValueForKey:@"UIText"])
+		[self setText:[coder decodeObjectForKey:@"UIText"]];
+	if ([coder containsValueForKey:@"UIPlaceholder"])
+		[self setPlaceholder:[coder decodeObjectForKey:@"UIPlaceholder"]];
+	[self setTextAlignment:[coder decodeIntegerForKey:@"UITextAlignment"]];
+	[self setBorderStyle:[coder decodeIntegerForKey:@"UIBorderStyle"]];
+	if ([coder decodeBoolForKey:@"UISecureTextEntry"])
+		[self setSecureTextEntry:YES];
+	_clearsOnBeginEditing = [coder decodeBoolForKey:@"UIClearsOnBeginEditing"];
+	_clearButtonMode = [coder decodeIntegerForKey:@"UIClearButtonMode"];
+	_adjustsFontSizeToFitWidth = [coder decodeBoolForKey:@"UIAdjustsFontSizeToFit"];
+	_minimumFontSize = [coder decodeDoubleForKey:@"UIMinimumFontSize"];
+	_autocapitalizationType = [coder decodeIntegerForKey:@"UIAutocapitalizationType"];
+	_autocorrectionType = [coder decodeIntegerForKey:@"UIAutocorrectionType"];
+	_spellCheckingType = [coder decodeIntegerForKey:@"UISpellCheckingType"];
+	_keyboardType = [coder decodeIntegerForKey:@"UIKeyboardType"];
+	_keyboardAppearance = [coder decodeIntegerForKey:@"UIKeyboardAppearance"];
+	_returnKeyType = [coder decodeIntegerForKey:@"UIReturnKeyType"];
+	_enablesReturnKeyAutomatically = [coder decodeBoolForKey:@"UIEnablesReturnKeyAutomatically"];
+	if ([coder containsValueForKey:@"UIBackground"])
+		_background = [coder decodeObjectForKey:@"UIBackground"];
+	if ([coder containsValueForKey:@"UIDelegate"])
+		_delegate = [coder decodeObjectForKey:@"UIDelegate"];
+}
+
 - (void)makeField:(BOOL)secure
 {
 	NSString *text = [_field stringValue];
 	NSString *placeholder = [[_field cell] placeholderString];
 	[_field removeFromSuperview];
-	Class cls = secure ? [NSSecureTextField class] : [NSTextField class];
+	Class cls = secure ? [UIKitSecureTextFieldField class] : [UIKitTextFieldField class];
 	_field = [[cls alloc] initWithFrame:NSZeroRect];
 	[_field setBezeled:NO];
 	[_field setBordered:NO];
@@ -1098,6 +1276,13 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 		[_delegate textFieldDidBeginEditing:self];
 	[self sendActionsForControlEvents:UIControlEventEditingDidBegin];
 	[[NSNotificationCenter defaultCenter] postNotificationName:@"UITextFieldTextDidBeginEditingNotification" object:self];
+}
+
+- (BOOL)uikitShouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
+{
+	if ([_delegate respondsToSelector:@selector(textField:shouldChangeCharactersInRange:replacementString:)])
+		return [_delegate textField:self shouldChangeCharactersInRange:range replacementString:string];
+	return YES;
 }
 
 - (void)controlTextDidChange:(NSNotification *)notification
@@ -1256,6 +1441,12 @@ UIKIT_TRAIT(BOOL, enablesReturnKeyAutomatically, setEnablesReturnKeyAutomaticall
 {
 	if ([_delegate respondsToSelector:@selector(searchBarTextDidEndEditing:)])
 		[_delegate searchBarTextDidEndEditing:self];
+}
+
+- (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
+{
+	return ![_delegate respondsToSelector:@selector(searchBar:shouldChangeTextInRange:replacementText:)]
+		|| [_delegate searchBar:self shouldChangeTextInRange:range replacementText:string];
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField

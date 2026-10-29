@@ -61,6 +61,8 @@
 #import <UIKit/UIDatePicker.h>
 #import <UIKit/UITextView.h>
 #import <UIKit/UIBezierPath.h>
+#import <UIKit/UINib.h>
+#import <UIKit/UIStoryboard.h>
 #import <UIKit/UIStoryboardSegue.h>
 #import <UIKit/UIViewControllerTransitioning.h>
 #import <UIKit/UISplitViewController.h>

@@ -246,6 +246,17 @@ UIKIT_SWALLOW_SETTERS
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_scalesPageToFit = [coder decodeBoolForKey:@"UIScalesPageToFit"];
+	if ([coder containsValueForKey:@"UIDataDetectorTypes"])
+		_dataDetectorTypes = [coder decodeIntegerForKey:@"UIDataDetectorTypes"];
+	_allowsInlineMediaPlayback = [coder decodeBoolForKey:@"UIAllowsInlineMediaPlayback"];
+	if ([coder containsValueForKey:@"UIDelegate"])
+		_delegate = [coder decodeObjectForKey:@"UIDelegate"];
+}
+
 - (void)dealloc
 {
 	WebView *webView = [_documentView webView];

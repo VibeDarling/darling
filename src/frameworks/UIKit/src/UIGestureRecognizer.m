@@ -316,6 +316,31 @@ void UIKitDispatchTouch(UITouch *touch, UITouchPhase phase)
 	return self;
 }
 
+/* From a nib: its targets come from the nib's action connections. Each
+ * recognizer class archives its properties as "Class.property". */
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	IMP init = UIKitOwnImplementation([self class], @selector(initWithTarget:action:));
+	self = ((id (*)(id, SEL, id, SEL))init)(self, @selector(initWithTarget:action:), nil, NULL);
+	if (self != nil)
+		[self uikitDecodeNib:coder];
+	return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder { }
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	if ([coder containsValueForKey:@"UIGestureRecognizer.cancelsTouchesInView"])
+		_cancelsTouchesInView = [coder decodeBoolForKey:@"UIGestureRecognizer.cancelsTouchesInView"];
+	_delaysTouchesBegan = [coder decodeBoolForKey:@"UIGestureRecognizer.delaysTouchesBegan"];
+	if ([coder containsValueForKey:@"UIGestureRecognizer.delaysTouchesEnded"])
+		_delaysTouchesEnded = [coder decodeBoolForKey:@"UIGestureRecognizer.delaysTouchesEnded"];
+	_disabled = [coder containsValueForKey:@"UIGestureRecognizer.enabled"] && ![coder decodeBoolForKey:@"UIGestureRecognizer.enabled"];
+	if ([coder containsValueForKey:@"UIGestureRecognizer.delegate"])
+		_delegate = [coder decodeObjectForKey:@"UIGestureRecognizer.delegate"];
+}
+
 - (instancetype)init
 {
 	return [self initWithTarget:nil action:NULL];
@@ -634,6 +659,15 @@ static NSUInteger UIKitTouchesLeft(UIGestureRecognizer *recognizer, NSSet *endin
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UITapGestureRecognizer.numberOfTapsRequired"])
+		_numberOfTapsRequired = [coder decodeIntegerForKey:@"UITapGestureRecognizer.numberOfTapsRequired"];
+	if ([coder containsValueForKey:@"UITapGestureRecognizer.numberOfTouchesRequired"])
+		_numberOfTouchesRequired = [coder decodeIntegerForKey:@"UITapGestureRecognizer.numberOfTouchesRequired"];
+}
+
 - (BOOL)uikitWantsMoreTouches { return _waiting; }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
@@ -714,6 +748,18 @@ static NSUInteger UIKitTouchesLeft(UIGestureRecognizer *recognizer, NSSet *endin
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UILongPressGestureRecognizer.minimumPressDuration"])
+		_minimumPressDuration = [coder decodeDoubleForKey:@"UILongPressGestureRecognizer.minimumPressDuration"];
+	if ([coder containsValueForKey:@"UILongPressGestureRecognizer.allowableMovement"])
+		_allowableMovement = [coder decodeDoubleForKey:@"UILongPressGestureRecognizer.allowableMovement"];
+	if ([coder containsValueForKey:@"UILongPressGestureRecognizer.numberOfTouchesRequired"])
+		_numberOfTouchesRequired = [coder decodeIntegerForKey:@"UILongPressGestureRecognizer.numberOfTouchesRequired"];
+	_numberOfTapsRequired = [coder decodeIntegerForKey:@"UILongPressGestureRecognizer.numberOfTapsRequired"];
+}
+
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
 	NSUInteger required = MAX(_numberOfTouchesRequired, 1);
@@ -781,6 +827,15 @@ static NSUInteger UIKitTouchesLeft(UIGestureRecognizer *recognizer, NSSet *endin
 		_maximumNumberOfTouches = NSUIntegerMax;
 	}
 	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UIPanGestureRecognizer.minimumNumberOfTouches"])
+		_minimumNumberOfTouches = [coder decodeIntegerForKey:@"UIPanGestureRecognizer.minimumNumberOfTouches"];
+	if ([coder containsValueForKey:@"UIPanGestureRecognizer.maximumNumberOfTouches"])
+		_maximumNumberOfTouches = [coder decodeIntegerForKey:@"UIPanGestureRecognizer.maximumNumberOfTouches"];
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
@@ -889,6 +944,15 @@ static NSUInteger UIKitTouchesLeft(UIGestureRecognizer *recognizer, NSSet *endin
 		_numberOfTouchesRequired = 1;
 	}
 	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UISwipeGestureRecognizer.direction"])
+		_direction = [coder decodeIntegerForKey:@"UISwipeGestureRecognizer.direction"];
+	if ([coder containsValueForKey:@"UISwipeGestureRecognizer.numberOfTouchesRequired"])
+		_numberOfTouchesRequired = [coder decodeIntegerForKey:@"UISwipeGestureRecognizer.numberOfTouchesRequired"];
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event

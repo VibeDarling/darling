@@ -231,6 +231,7 @@ static id<UIApplicationDelegate> sDelegateStorage;
 
 - (void)uikitDidFinishLaunching
 {
+	UIKitLoadMainInterface(self);
 	id<UIApplicationDelegate> delegate = [self delegate];
 	if ([delegate respondsToSelector:@selector(application:willFinishLaunchingWithOptions:)])
 		[(id)delegate application:self willFinishLaunchingWithOptions:nil];
@@ -239,6 +240,7 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	else if ([delegate respondsToSelector:@selector(applicationDidFinishLaunching:)])
 		/* iPhone OS 2's callback, which takes the application. */
 		((void (*)(id, SEL, id))objc_msgSend)(delegate, @selector(applicationDidFinishLaunching:), self);
+	UIKitShowMainInterface(self);
 	[[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidFinishLaunchingNotification object:self];
 
 	/* With frontboardd, wait for it to say whether we are in front. */

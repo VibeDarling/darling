@@ -50,6 +50,17 @@
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	_image = [coder decodeObjectForKey:@"UIImage"];
+	_highlightedImage = [coder decodeObjectForKey:@"UIHighlightedImage"];
+	_highlighted = [coder decodeBoolForKey:@"UIHighlighted"];
+	if ([coder containsValueForKey:@"UIAnimationImages"])
+		_animationImages = [[coder decodeObjectForKey:@"UIAnimationImages"] copy];
+	_animationDuration = [coder decodeDoubleForKey:@"UIAnimationDuration"];
+}
+
 - (UIImage *)image { return _image; }
 - (void)setImage:(UIImage *)image { _image = image; [self setNeedsDisplay:YES]; }
 - (UIImage *)highlightedImage { return _highlightedImage; }

@@ -137,7 +137,13 @@
 
 + (Class)layoutAttributesClass { return [UICollectionViewLayoutAttributes class]; }
 
-- (instancetype)initWithCoder:(NSCoder *)coder { return [self init]; }
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ((self = [self init]))
+		[self uikitDecodeNib:coder];
+	return self;
+}
+
 - (void)encodeWithCoder:(NSCoder *)coder { }
 
 - (UICollectionView *)collectionView { return _collectionView; }
@@ -202,6 +208,23 @@ static NSString *UIKitSupplementaryKey(NSString *kind, NSIndexPath *indexPath)
 		_itemSize = CGSizeMake(50, 50);
 	}
 	return self;
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UIItemSize"])
+		_itemSize = [coder decodeCGSizeForKey:@"UIItemSize"];
+	if ([coder containsValueForKey:@"UIEstimatedItemSize"])
+		_estimatedItemSize = [coder decodeCGSizeForKey:@"UIEstimatedItemSize"];
+	if ([coder containsValueForKey:@"UIMinimumLineSpacing"])
+		_minimumLineSpacing = [coder decodeDoubleForKey:@"UIMinimumLineSpacing"];
+	if ([coder containsValueForKey:@"UIMinimumInteritemSpacing"])
+		_minimumInteritemSpacing = [coder decodeDoubleForKey:@"UIMinimumInteritemSpacing"];
+	_scrollDirection = [coder decodeIntegerForKey:@"UIScrollDirection"];
+	_headerReferenceSize = [coder decodeCGSizeForKey:@"UIHeaderReferenceSize"];
+	_footerReferenceSize = [coder decodeCGSizeForKey:@"UIFooterReferenceSize"];
+	_sectionInset = [coder decodeUIEdgeInsetsForKey:@"UISectionInset"];
 }
 
 - (void)setScrollDirection:(UICollectionViewScrollDirection)direction { _scrollDirection = direction; [self invalidateLayout]; }
@@ -379,6 +402,19 @@ static NSString *UIKitSupplementaryKey(NSString *kind, NSIndexPath *indexPath)
 	return self;
 }
 
+/* The nib's content view (already a subview) replaces the cell's own. */
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	UIView *contentView = [coder decodeObjectForKey:@"UIContentView"];
+	if ([contentView isKindOfClass:[UIView class]] && contentView != _contentView) {
+		[_contentView removeFromSuperview];
+		_contentView = contentView;
+		if ([_contentView superview] != self)
+			[self addSubview:_contentView];
+	}
+}
+
 - (UIView *)contentView { return _contentView; }
 - (UIView *)backgroundView { return _backgroundView; }
 - (UIView *)selectedBackgroundView { return _selectedBackgroundView; }
@@ -458,8 +494,9 @@ static void UIKitSetHighlightedInSubviews(NSView *view, BOOL highlighted)
 	NSMutableDictionary<NSIndexPath *, UICollectionViewCell *> *_visibleCells;
 	NSMutableDictionary<NSString *, UICollectionReusableView *> *_visibleSupplementary;
 	NSMutableDictionary<NSString *, NSMutableArray<UICollectionReusableView *> *> *_reuseQueues;
-	NSMutableDictionary<NSString *, Class> *_cellClasses;
-	NSMutableDictionary<NSString *, Class> *_supplementaryClasses;
+	/* Classes, or the nibs their views come from. */
+	NSMutableDictionary<NSString *, id> *_cellClasses;
+	NSMutableDictionary<NSString *, id> *_supplementaryClasses;
 	NSMutableSet<NSIndexPath *> *_selected;
 	NSIndexPath *_highlighted;
 	BOOL _needsReload;
@@ -488,6 +525,25 @@ static void UIKitSetHighlightedInSubviews(NSView *view, BOOL highlighted)
 	[self setBackgroundColor:[UIColor blackColor]];
 	[self setClipsToBounds:YES];
 	return self;
+}
+
+- (instancetype)uikitInitForCoder:(NSCoder *)coder
+{
+	UICollectionViewLayout *layout = [coder decodeObjectForKey:@"UICollectionLayout"];
+	if (![layout isKindOfClass:[UICollectionViewLayout class]])
+		layout = nil;
+	IMP init = UIKitOwnImplementation([self class], @selector(initWithFrame:collectionViewLayout:));
+	return ((id (*)(id, SEL, CGRect, UICollectionViewLayout *))init)(self, @selector(initWithFrame:collectionViewLayout:), UIKitArchivedFrame(coder), layout);
+}
+
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UIDataSource"])
+		_dataSource = [coder decodeObjectForKey:@"UIDataSource"];
+	if ([coder containsValueForKey:@"UIAllowsSelection"])
+		_allowsSelection = [coder decodeBoolForKey:@"UIAllowsSelection"];
+	_allowsMultipleSelection = [coder decodeBoolForKey:@"UIAllowsMultipleSelection"];
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -559,7 +615,12 @@ static void UIKitSetHighlightedInSubviews(NSView *view, BOOL highlighted)
 
 - (void)registerNib:(UINib *)nib forCellWithReuseIdentifier:(NSString *)identifier
 {
-	NSLog(@"UICollectionView: cannot load cells from nibs yet (%@)", identifier);
+	if (identifier == nil)
+		return;
+	if (nib == nil)
+		[_cellClasses removeObjectForKey:identifier];
+	else
+		[_cellClasses setObject:nib forKey:identifier];
 }
 
 - (void)registerClass:(Class)viewClass forSupplementaryViewOfKind:(NSString *)kind withReuseIdentifier:(NSString *)identifier
@@ -573,10 +634,15 @@ static void UIKitSetHighlightedInSubviews(NSView *view, BOOL highlighted)
 
 - (void)registerNib:(UINib *)nib forSupplementaryViewOfKind:(NSString *)kind withReuseIdentifier:(NSString *)identifier
 {
-	NSLog(@"UICollectionView: cannot load %@ views from nibs yet (%@)", kind, identifier);
+	NSString *key = [NSString stringWithFormat:@"%@/%@", kind, identifier];
+	if (nib == nil)
+		[_supplementaryClasses removeObjectForKey:key];
+	else
+		[_supplementaryClasses setObject:nib forKey:key];
 }
 
-- (UICollectionReusableView *)uikitDequeue:(NSString *)queue class:(Class)viewClass identifier:(NSString *)identifier
+/* A view class, or the nib its views come from. */
+- (UICollectionReusableView *)uikitDequeue:(NSString *)queue class:(id)viewClass identifier:(NSString *)identifier
 {
 	NSMutableArray *reusable = [_reuseQueues objectForKey:queue];
 	UICollectionReusableView *view = [reusable lastObject];
@@ -586,15 +652,26 @@ static void UIKitSetHighlightedInSubviews(NSView *view, BOOL highlighted)
 		[view prepareForReuse];
 		return view;
 	}
-	view = [[viewClass alloc] initWithFrame:CGRectZero];
+	if ([viewClass isKindOfClass:[UINib class]]) {
+		for (id object in [(UINib *)viewClass instantiateWithOwner:nil options:nil]) {
+			if ([object isKindOfClass:[UICollectionReusableView class]]) {
+				view = object;
+				break;
+			}
+		}
+		if (view == nil)
+			view = [[UICollectionViewCell alloc] initWithFrame:CGRectZero];
+	} else {
+		view = [[viewClass alloc] initWithFrame:CGRectZero];
+	}
 	[view uikitSetReuseIdentifier:identifier];
 	return view;
 }
 
 - (UICollectionViewCell *)dequeueReusableCellWithReuseIdentifier:(NSString *)identifier forIndexPath:(NSIndexPath *)indexPath
 {
-	Class cellClass = identifier != nil ? [_cellClasses objectForKey:identifier] : Nil;
-	if (cellClass == Nil) {
+	id cellClass = identifier != nil ? [_cellClasses objectForKey:identifier] : nil;
+	if (cellClass == nil) {
 		NSLog(@"UICollectionView: no cell class is registered for %@", identifier);
 		cellClass = [UICollectionViewCell class];
 	}
@@ -604,8 +681,8 @@ static void UIKitSetHighlightedInSubviews(NSView *view, BOOL highlighted)
 - (UICollectionReusableView *)dequeueReusableSupplementaryViewOfKind:(NSString *)kind withReuseIdentifier:(NSString *)identifier forIndexPath:(NSIndexPath *)indexPath
 {
 	NSString *key = [NSString stringWithFormat:@"%@/%@", kind, identifier];
-	Class viewClass = [_supplementaryClasses objectForKey:key];
-	if (viewClass == Nil) {
+	id viewClass = [_supplementaryClasses objectForKey:key];
+	if (viewClass == nil) {
 		NSLog(@"UICollectionView: no %@ view class is registered for %@", kind, identifier);
 		viewClass = [UICollectionReusableView class];
 	}
@@ -1039,6 +1116,8 @@ static void UIKitSetHighlightedInSubviews(NSView *view, BOOL highlighted)
 
 - (void)loadView
 {
+	if (_collectionView == nil && [self uikitLoadViewFromNib])
+		return;
 	if (_collectionView == nil) {
 		UICollectionView *collectionView = [[UICollectionView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]
 		                                                      collectionViewLayout:_initialLayout ?: [[UICollectionViewFlowLayout alloc] init]];

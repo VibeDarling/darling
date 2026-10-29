@@ -67,23 +67,48 @@ Each phase ends with a run of a real binary, not only a build.
 
 ### 2. UIKit for a phone
 
-UIKit currently sits on AppKit: a UIView is an NSView, and a UIWindow hosts a
-borderless NSWindow. This stays for now because it gives working drawing,
-text and a display backend today. What changes is what the app sees:
+UIKit sits on AppKit: a UIView is an NSView, and a UIWindow hosts a
+borderless NSWindow. This stays for now, because it gives working drawing,
+text and a display backend today. What changes is what the app sees. Phase 2
+is done except where marked:
 
-- `UIScreen` reports the phone's pixel size and scale from the host, not an
-  NSScreen of a desktop.
-- Touch: host touches become `UITouch`/`UIEvent` delivered through
-  `touchesBegan:`/`Moved`/`Ended`/`Cancelled` and hit-testing, not mouse events.
-- Lifecycle: the host activity's resume/pause/stop map to
-  `applicationDidBecomeActive`/`WillResignActive`/`DidEnterBackground`;
-  safe-area insets come from the host.
-- Breadth, in the order apps need it: `UIButton`, `UIImageView`, `UIScrollView`,
-  `UITableView` (port the working one from ios-android-runtime,
-  `src/uikit/tableview.cpp`), `UINavigationController`, `UITextField` with the
-  host keyboard, compiled nibs and storyboards.
+- **Screen.** `UIScreen` reports the phone's size and scale from the host
+  (`DARLING_UISCREEN=390x844@3`), not the desktop's NSScreen. The safe area
+  comes from the host too (`DARLING_UISAFEAREA=47,0,34,0`, for a notch and a
+  home indicator). The status bar is as tall as the notch, and each view's
+  `safeAreaInsets` and `safeAreaLayoutGuide` follow where it is in its
+  window (`tests/ios-phone.m`).
+- **Touch.** Every finger is a `UITouch`, and all of them are in one
+  `UIEvent`. They are delivered through `touchesBegan:`/`Moved`/`Ended`/
+  `Cancelled` and gesture recognizers (multiple touch, pinch, rotation),
+  from AppKit's `NSTouchPost`. The X11 backend feeds it from XInput 2.2
+  touch screens and the Wayland one from `wl_touch`. A phone host calls it
+  directly (`tests/ios-touch.m`).
+- **Lifecycle.** frontboardd turns foreground and background into
+  `applicationDidBecomeActive`/`WillResignActive`/`DidEnterBackground`
+  (below). A phone host reports its activity's resume and pause to
+  frontboardd.
+- **Classes.** These work, in the order apps need them: `UIButton`,
+  `UIImageView`, `UIScrollView`, `UITableView`, `UINavigationController`,
+  `UITabBarController`, and the classes file managers use
+  (`tests/ios-uikit-classes.m`). `UITextField` and `UISearchBar` take the
+  host keyboard and tell their delegates of each change.
+- **Nibs and storyboards.** Compiled nibs (ibtool's NIBArchive format, iOS
+  6 and later) and compiled storyboards load:
+  - outlets and actions;
+  - app classes made with `initWithCoder:`, then `awakeFromNib`;
+  - constraints and images;
+  - cells from registered nibs;
+  - a view controller's nib found by its class's name;
+  - scenes and segues;
+  - Info.plist's `UIMainStoryboardFile` and `NSMainNibFile`.
+
+  `tests/ios-nib.m` checks these. Every nib in FileBrowser and Filza loads,
+  and FileBrowser's main screen (its file list and cells) comes from its
+  nibs. Not yet checked against Xcode output: storyboards with navigation
+  or tab bar controllers (relationship segues).
 - Later: UIView backed by CALayer instead of NSView, once QuartzCore can
-  composite; needed for animation and for apps that use layers directly.
+  composite. Animation and apps that use layers directly need it.
 
 System services, the part of SpringBoard that apps talk to. Their interfaces
 are copied on a best-effort basis from class-dumped headers. With no
@@ -177,11 +202,12 @@ calling process (`tests/ios-board-services.m` covers all three):
   `/Applications/Cydia.app`, and its native postinst runs until an iOS-only
   call (`setnsfpn`). SpringBoard-lite then lists Cydia with its own icon.
   That needed Onyx2D to decode Apple's CgBI PNGs, which every
-  Xcode-built app ships and which libpng rejects. Cydia itself does not
-  start yet: it links `SpringBoardServices`, and iOS `WebCore` and `WebKit`
-  (UIWebView), which this tree does not have. Tweaks (MobileSubstrate) hook
-  Apple's SpringBoard classes, which SpringBoard-lite does not have, so they
-  are out of scope.
+  Xcode-built app ships and which libpng rejects. Cydia now runs: with
+  SpringBoardServices, iOS WebCore and WebKit (UIWebView, drawn by
+  WebKitGTK in `tools/darling-webhost`), it shows its pages and installs
+  packages. Tweaks load through this tree's own Cydia Substrate
+  (`src/CydiaSubstrate`). Those that hook Apple's SpringBoard classes do
+  nothing, since SpringBoard-lite does not have them.
 
 - JavaScriptCore. The in-tree JavaScriptCore (WebKit 608, iOS 13 era) builds
   for arm64 with the `jsc` component and runs an iOS test binary on the Pi 4

@@ -104,11 +104,6 @@ static void UIKitShowChild(UIViewController *parent, UIViewController *old, UIVi
 
 @implementation UIViewController (UIStoryboardSegue)
 
-- (void)performSegueWithIdentifier:(NSString *)identifier sender:(id)sender
-{
-	NSLog(@"UIViewController: no storyboard to perform segue %@ from", identifier);
-}
-
 - (BOOL)shouldPerformSegueWithIdentifier:(NSString *)identifier sender:(id)sender { return YES; }
 - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender { }
 

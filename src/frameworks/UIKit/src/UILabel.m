@@ -67,6 +67,39 @@
 	return self;
 }
 
+- (void)uikitDecodeNib:(NSCoder *)coder
+{
+	[super uikitDecodeNib:coder];
+	if ([coder containsValueForKey:@"UIAttributedText"])
+		[self setAttributedText:[coder decodeObjectForKey:@"UIAttributedText"]];
+	else if ([coder containsValueForKey:@"UIText"])
+		[self setText:[coder decodeObjectForKey:@"UIText"]];
+	if ([coder containsValueForKey:@"UIFont"])
+		[self setFont:[coder decodeObjectForKey:@"UIFont"]];
+	if ([coder containsValueForKey:@"UITextColor"])
+		[self setTextColor:[coder decodeObjectForKey:@"UITextColor"]];
+	if ([coder containsValueForKey:@"UIHighlightedColor"])
+		[self setHighlightedTextColor:[coder decodeObjectForKey:@"UIHighlightedColor"]];
+	if ([coder containsValueForKey:@"UIShadowColor"])
+		[self setShadowColor:[coder decodeObjectForKey:@"UIShadowColor"]];
+	if ([coder containsValueForKey:@"UIShadowOffset"])
+		[self setShadowOffset:[coder decodeCGSizeForKey:@"UIShadowOffset"]];
+	[self setTextAlignment:[coder decodeIntegerForKey:@"UITextAlignment"]];
+	if ([coder containsValueForKey:@"UINumberOfLines"])
+		[self setNumberOfLines:[coder decodeIntegerForKey:@"UINumberOfLines"]];
+	if ([coder containsValueForKey:@"UILineBreakMode"])
+		[self setLineBreakMode:[coder decodeIntegerForKey:@"UILineBreakMode"]];
+	[self setAdjustsFontSizeToFitWidth:[coder decodeBoolForKey:@"UIAdjustsFontSizeToFit"]];
+	if ([coder containsValueForKey:@"UIMinimumScaleFactor"])
+		[self setMinimumScaleFactor:[coder decodeDoubleForKey:@"UIMinimumScaleFactor"]];
+	if ([coder containsValueForKey:@"UIMinimumFontSize"])
+		[self setMinimumFontSize:[coder decodeDoubleForKey:@"UIMinimumFontSize"]];
+	if ([coder containsValueForKey:@"UIPreferredMaxLayoutWidth"])
+		[self setPreferredMaxLayoutWidth:[coder decodeDoubleForKey:@"UIPreferredMaxLayoutWidth"]];
+	[self setHighlighted:[coder decodeBoolForKey:@"UIHighlighted"]];
+	[self setEnabled:![coder decodeBoolForKey:@"UIDisabled"]];
+}
+
 - (NSString *)text
 {
 	return _text;
