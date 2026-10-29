@@ -194,6 +194,7 @@
 [submodule "src/external/configd"]
 	path = src/external/configd
 	url = https://github.com/Kreijstal/darling-configd.git
+	branch = ios
 [submodule "src/external/IONetworkingFamily"]
 	path = src/external/IONetworkingFamily
 	url = https://github.com/VibeDarling/darling-IONetworkingFamily.git
