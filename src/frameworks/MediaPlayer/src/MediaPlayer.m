@@ -2,6 +2,14 @@
 
 NSString *const MPMediaItemPropertyAlbumTitle = @"MPMediaItemPropertyAlbumTitle";
 NSString *const MPMediaItemPropertyAlbumTrackNumber = @"MPMediaItemPropertyAlbumTrackNumber";
+NSString *const MPMediaItemPropertyAlbumTrackCount = @"MPMediaItemPropertyAlbumTrackCount";
+NSString *const MPMoviePlayerLoadStateDidChangeNotification = @"MPMoviePlayerLoadStateDidChangeNotification";
+NSString *const MPMoviePlayerPlaybackDidFinishNotification = @"MPMoviePlayerPlaybackDidFinishNotification";
+NSString *const MPMoviePlayerPlaybackStateDidChangeNotification = @"MPMoviePlayerPlaybackStateDidChangeNotification";
+NSString *const MPMoviePlayerPlaybackDidFinishReasonUserInfoKey = @"MPMoviePlayerPlaybackDidFinishReasonUserInfoKey";
+NSString *const MPMusicPlayerControllerNowPlayingItemDidChangeNotification = @"MPMusicPlayerControllerNowPlayingItemDidChangeNotification";
+NSString *const MPMusicPlayerControllerPlaybackStateDidChangeNotification = @"MPMusicPlayerControllerPlaybackStateDidChangeNotification";
+NSString *const MPMusicPlayerControllerVolumeDidChangeNotification = @"MPMusicPlayerControllerVolumeDidChangeNotification";
 NSString *const MPMediaItemPropertyArtist = @"MPMediaItemPropertyArtist";
 NSString *const MPMediaItemPropertyArtwork = @"MPMediaItemPropertyArtwork";
 NSString *const MPMediaItemPropertyPlaybackDuration = @"MPMediaItemPropertyPlaybackDuration";

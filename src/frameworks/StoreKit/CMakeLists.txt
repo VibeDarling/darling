@@ -20,6 +20,7 @@ add_framework(StoreKit
 
     SOURCES
         src/StoreKit.m
+        src/SKConstants.m
         src/SKServiceProxy.m
         src/SKPaymentQueueClient.m
         src/SKProductSubscriptionPeriodInternal.m

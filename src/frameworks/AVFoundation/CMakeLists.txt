@@ -19,6 +19,7 @@ add_framework(AVFoundation
 
     SOURCES
         src/AVFoundation.m
+        src/AVFoundationConstants.m
         src/AVPlayerLayerIntermediateLayer.m
         src/AVPlayerLayerInternal.m
         src/AVPlayerLayer.m

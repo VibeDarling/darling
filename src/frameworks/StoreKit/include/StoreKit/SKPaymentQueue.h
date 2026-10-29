@@ -19,6 +19,17 @@
 
 #include <Foundation/Foundation.h>
 
-@interface SKPaymentQueue : NSObject
+@class SKPayment, SKPaymentTransaction;
 
+/* There is no App Store: payments cannot be made, and restoring fails. */
+@interface SKPaymentQueue : NSObject
++ (instancetype)defaultQueue;
++ (BOOL)canMakePayments;
+@property (nonatomic, readonly) NSArray<SKPaymentTransaction *> *transactions;
+- (void)addPayment:(SKPayment *)payment;
+- (void)restoreCompletedTransactions;
+- (void)restoreCompletedTransactionsWithApplicationUsername:(NSString *)username;
+- (void)finishTransaction:(SKPaymentTransaction *)transaction;
+- (void)addTransactionObserver:(id)observer;
+- (void)removeTransactionObserver:(id)observer;
 @end
