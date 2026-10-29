@@ -18,7 +18,7 @@
 
 @class UIView, UINavigationItem, UITabBarItem, UIBarButtonItem;
 @class UINavigationController, UITabBarController;
-@class NSString, NSArray;
+@class NSString, NSArray, NSBundle;
 
 typedef NS_ENUM(NSInteger, UIModalPresentationStyle) {
 	UIModalPresentationFullScreen = 0,
@@ -44,6 +44,9 @@ typedef NS_ENUM(NSInteger, UIModalTransitionStyle) {
 	NSString *_title;
 }
 
+- (instancetype)initWithNibName:(NSString *)nibName bundle:(NSBundle *)bundle;
+@property (nonatomic, readonly, copy) NSString *nibName;
+@property (nonatomic, readonly, strong) NSBundle *nibBundle;
 @property (nonatomic, strong) UIView *view;
 @property (nonatomic, copy) NSString *title;
 - (BOOL)isViewLoaded;

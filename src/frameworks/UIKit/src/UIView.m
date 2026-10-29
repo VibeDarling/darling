@@ -16,12 +16,33 @@
 #import <UIKit/UIEvent.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSEvent.h>
+#import <AppKit/NSTouch.h>
 
 #import "UIKitPrivate.h"
 #import <objc/message.h>
 #include <dispatch/dispatch.h>
+#include <math.h>
 
-@implementation UIView
+/* AppKit's: the view a finger began in, which UIKit hit tested for it. */
+@interface NSTouch (UIKitTouchView)
+- (NSView *)_view;
+@end
+
+/* AppKit installs an activated constraint on a view with this. */
+@interface NSView (UIKitConstraintInstall)
+- (void)nsli_addConstraint:(id)constraint;
+@end
+
+/* Set once any constraint is installed on a UIView: solving constraints
+ * walks the whole window, which apps without any should not pay for. */
+static BOOL sUIKitUsesConstraints;
+
+@implementation UIView {
+	BOOL _uiAppearanceApplied;
+	UISemanticContentAttribute _uiSemanticContentAttribute;
+	UIColor *_uiTintColor;
+	UIViewTintAdjustmentMode _uiTintAdjustmentMode;
+}
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -104,6 +125,24 @@
 	});
 }
 
+/*
+ * On iOS a view that moves or resizes is redrawn where it was and where it is
+ * now; AppKit leaves that to the caller.  Views laid out after their window
+ * first displayed (from -layoutSubviews) would otherwise never be drawn.
+ */
+- (void)setFrame:(NSRect)frame
+{
+	NSRect old = [self frame];
+	[super setFrame:frame];
+	if (NSEqualRects(old, frame))
+		return;
+	NSView *superview = [self superview];
+	if (superview != nil && [self window] != nil) {
+		[superview setNeedsDisplayInRect:old];
+		[superview setNeedsDisplayInRect:frame];
+	}
+}
+
 - (void)setFrameSize:(NSSize)size
 {
 	NSSize old = [self frame].size;
@@ -116,8 +155,22 @@
 	}
 }
 
+- (void)nsli_addConstraint:(id)constraint
+{
+	sUIKitUsesConstraints = YES;
+	[super nsli_addConstraint:constraint];
+}
+
 - (void)layoutIfNeeded
 {
+	/* Constraints may reach anything in the window, so solve from the top. */
+	if (sUIKitUsesConstraints && ([self needsUpdateConstraints] || [self needsLayout])) {
+		NSView *root = self;
+		while ([root superview] != nil)
+			root = [root superview];
+		[root setNeedsLayout:YES];
+		[root layoutSubtreeIfNeeded];
+	}
 	if (_uiNeedsLayout) {
 		_uiNeedsLayout = NO;
 		[self layoutSubviews];
@@ -126,8 +179,15 @@
 
 #pragma mark - Touches
 
-/* The pointer is the only finger, so one touch is live at a time. */
-static UITouch *sActiveTouch;
+/* The primary mouse button is one finger; touch screen fingers come as
+ * AppKit's direct touches, one UITouch for each. */
+static UITouch *sMouseTouch;
+static NSMutableDictionary<id, UITouch *> *sScreenTouches;
+
+/* Fingers that come down quickly in the same place count taps. */
+static NSTimeInterval sLastTapTime;
+static CGPoint sLastTapPoint;
+static NSUInteger sTapCount;
 
 - (BOOL)isUserInteractionEnabled
 {
@@ -154,32 +214,82 @@ static UITouch *sActiveTouch;
 
 - (void)mouseDown:(NSEvent *)event
 {
+	if (sMouseTouch != nil)
+		return;
 	UITouch *touch = [[UITouch alloc] init];
 	touch.view = self;
 	touch.window = _uiWindow;
 	[touch updateWithEvent:event phase:UITouchPhaseBegan];
-	sActiveTouch = touch;
-	[self touchesBegan:[NSSet setWithObject:touch] withEvent:[[UIEvent alloc] initWithTouch:touch]];
+	sMouseTouch = touch;
+	UIKitDispatchTouch(touch, UITouchPhaseBegan);
 }
 
 - (void)mouseDragged:(NSEvent *)event
 {
-	UITouch *touch = sActiveTouch;
+	UITouch *touch = sMouseTouch;
 	if (touch == nil)
 		return;
 	[touch updateWithEvent:event phase:UITouchPhaseMoved];
-	[touch.view touchesMoved:[NSSet setWithObject:touch] withEvent:[[UIEvent alloc] initWithTouch:touch]];
+	UIKitDispatchTouch(touch, UITouchPhaseMoved);
 }
 
 - (void)mouseUp:(NSEvent *)event
 {
-	UITouch *touch = sActiveTouch;
+	UITouch *touch = sMouseTouch;
 	if (touch == nil)
 		return;
-	sActiveTouch = nil;
+	sMouseTouch = nil;
 	[touch updateWithEvent:event phase:UITouchPhaseEnded];
-	[touch.view touchesEnded:[NSSet setWithObject:touch] withEvent:[[UIEvent alloc] initWithTouch:touch]];
+	UIKitDispatchTouch(touch, UITouchPhaseEnded);
 }
+
+/* All UIViews take touch screen fingers themselves. */
+- (NSUInteger)allowedTouchTypes
+{
+	return NSTouchTypeMaskDirect | NSTouchTypeMaskIndirect;
+}
+
+- (void)uikitScreenTouches:(NSEvent *)event phase:(NSTouchPhase)phase
+{
+	if (sScreenTouches == nil)
+		sScreenTouches = [NSMutableDictionary dictionary];
+	for (NSTouch *screenTouch in [event touchesMatchingPhase:phase inView:self]) {
+		if ([screenTouch _view] != self)
+			continue;
+		NSPoint location = [screenTouch locationInView:nil];
+		UITouch *touch = [sScreenTouches objectForKey:[screenTouch identity]];
+		UITouchPhase touchPhase;
+		if (phase == NSTouchPhaseBegan) {
+			touch = [[UITouch alloc] init];
+			touch.view = self;
+			touch.window = _uiWindow;
+			CGPoint point = CGPointMake(location.x, location.y);
+			if ([event timestamp] - sLastTapTime < 0.35 && hypot(point.x - sLastTapPoint.x, point.y - sLastTapPoint.y) < 30)
+				sTapCount++;
+			else
+				sTapCount = 1;
+			sLastTapTime = [event timestamp];
+			sLastTapPoint = point;
+			touch.tapCount = sTapCount;
+			[sScreenTouches setObject:touch forKey:[screenTouch identity]];
+			touchPhase = UITouchPhaseBegan;
+		} else if (touch == nil) {
+			continue;
+		} else {
+			touchPhase = phase == NSTouchPhaseMoved ? UITouchPhaseMoved
+				: phase == NSTouchPhaseEnded ? UITouchPhaseEnded : UITouchPhaseCancelled;
+		}
+		if (touchPhase == UITouchPhaseEnded || touchPhase == UITouchPhaseCancelled)
+			[sScreenTouches removeObjectForKey:[screenTouch identity]];
+		[touch uikitMoveTo:location timestamp:[event timestamp] phase:touchPhase];
+		UIKitDispatchTouch(touch, touchPhase);
+	}
+}
+
+- (void)touchesBeganWithEvent:(NSEvent *)event { [self uikitScreenTouches:event phase:NSTouchPhaseBegan]; }
+- (void)touchesMovedWithEvent:(NSEvent *)event { [self uikitScreenTouches:event phase:NSTouchPhaseMoved]; }
+- (void)touchesEndedWithEvent:(NSEvent *)event { [self uikitScreenTouches:event phase:NSTouchPhaseEnded]; }
+- (void)touchesCancelledWithEvent:(NSEvent *)event { [self uikitScreenTouches:event phase:NSTouchPhaseCancelled]; }
 
 - (UIView *)touchParent
 {
@@ -250,7 +360,6 @@ static UITouch *sActiveTouch;
 - (void)setOrigin:(CGPoint)origin
 {
 	[self setFrameOrigin:NSMakePoint(origin.x, origin.y)];
-	[[self superview] setNeedsDisplay:YES];
 }
 - (BOOL)clipsSubviews { return _uiClipsToBounds; }
 - (void)setClipsSubviews:(BOOL)clips { _uiClipsToBounds = clips; }
@@ -384,12 +493,115 @@ static UITouch *sActiveTouch;
 - (void)viewDidMoveToSuperview
 {
 	[super viewDidMoveToSuperview];
+	/* An inherited tint may now be another one. */
+	if (_uiTintColor == nil || _uiTintAdjustmentMode == UIViewTintAdjustmentModeAutomatic)
+		[self uikitTintChangedInColor:YES adjustment:YES];
 	[self didMoveToSuperview];
+}
+
+#pragma mark - Tint
+
+- (UIView *)uikitSuperview
+{
+	NSView *superview = [self superview];
+	return [superview isKindOfClass:[UIView class]] ? (UIView *)superview : nil;
+}
+
+- (UIViewTintAdjustmentMode)uikitEffectiveTintAdjustmentMode
+{
+	for (UIView *view = self; view != nil; view = [view uikitSuperview])
+		if (view->_uiTintAdjustmentMode != UIViewTintAdjustmentModeAutomatic)
+			return view->_uiTintAdjustmentMode;
+	return UIViewTintAdjustmentModeNormal;
+}
+
+- (UIColor *)tintColor
+{
+	/* Dimmed views (behind a presented alert, on iOS) draw their tint in gray. */
+	if ([self uikitEffectiveTintAdjustmentMode] == UIViewTintAdjustmentModeDimmed)
+		return [UIColor colorWithWhite:0.56 alpha:1];
+	for (UIView *view = self; view != nil; view = [view uikitSuperview])
+		if (view->_uiTintColor != nil)
+			return view->_uiTintColor;
+	return [UIColor systemBlueColor];
+}
+
+- (void)setTintColor:(UIColor *)color
+{
+	_uiTintColor = color;
+	[self uikitTintChangedInColor:YES adjustment:NO];
+}
+
+- (UIViewTintAdjustmentMode)tintAdjustmentMode
+{
+	return _uiTintAdjustmentMode == UIViewTintAdjustmentModeAutomatic ? [self uikitEffectiveTintAdjustmentMode] : _uiTintAdjustmentMode;
+}
+
+- (void)setTintAdjustmentMode:(UIViewTintAdjustmentMode)mode
+{
+	_uiTintAdjustmentMode = mode;
+	[self uikitTintChangedInColor:NO adjustment:YES];
+}
+
+- (void)tintColorDidChange
+{
+}
+
+#pragma mark - Layout direction
+
+/* Darling's text is left to right, so only a forced direction changes it. */
++ (UIUserInterfaceLayoutDirection)userInterfaceLayoutDirectionForSemanticContentAttribute:(UISemanticContentAttribute)attribute
+{
+	return [self userInterfaceLayoutDirectionForSemanticContentAttribute:attribute relativeToLayoutDirection:UIUserInterfaceLayoutDirectionLeftToRight];
+}
+
++ (UIUserInterfaceLayoutDirection)userInterfaceLayoutDirectionForSemanticContentAttribute:(UISemanticContentAttribute)attribute relativeToLayoutDirection:(UIUserInterfaceLayoutDirection)direction
+{
+	switch (attribute) {
+	case UISemanticContentAttributeForceRightToLeft:
+		return UIUserInterfaceLayoutDirectionRightToLeft;
+	case UISemanticContentAttributeForceLeftToRight:
+	case UISemanticContentAttributePlayback:
+	case UISemanticContentAttributeSpatial:
+		return UIUserInterfaceLayoutDirectionLeftToRight;
+	default:
+		return direction;
+	}
+}
+
+- (UISemanticContentAttribute)semanticContentAttribute { return _uiSemanticContentAttribute; }
+- (void)setSemanticContentAttribute:(UISemanticContentAttribute)attribute { _uiSemanticContentAttribute = attribute; }
+
+- (UIUserInterfaceLayoutDirection)effectiveUserInterfaceLayoutDirection
+{
+	return [UIView userInterfaceLayoutDirectionForSemanticContentAttribute:_uiSemanticContentAttribute];
+}
+
+/*
+ * Tells this view, and the subviews that inherit what changed (the color, the
+ * adjustment mode or both), that its tint changed.
+ */
+- (void)uikitTintChangedInColor:(BOOL)color adjustment:(BOOL)adjustment
+{
+	[self tintColorDidChange];
+	for (NSView *subview in [self subviews]) {
+		if (![subview isKindOfClass:[UIView class]])
+			continue;
+		UIView *child = (UIView *)subview;
+		BOOL inheritsColor = color && child->_uiTintColor == nil;
+		BOOL inheritsAdjustment = adjustment && child->_uiTintAdjustmentMode == UIViewTintAdjustmentModeAutomatic;
+		if (inheritsColor || inheritsAdjustment)
+			[child uikitTintChangedInColor:inheritsColor adjustment:inheritsAdjustment];
+	}
 }
 
 - (void)viewDidMoveToWindow
 {
 	[super viewDidMoveToWindow];
+	if (!_uiAppearanceApplied && [self window] != nil) {
+		_uiAppearanceApplied = YES;
+		UIKitApplyAppearance(self);
+	}
 	[self didMoveToWindow];
 }
 

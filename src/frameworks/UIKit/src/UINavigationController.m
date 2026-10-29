@@ -20,6 +20,7 @@
 #import <AppKit/NSBezierPath.h>
 #import <AppKit/NSGraphics.h>
 #import <objc/message.h>
+#import <UIKit/UIToolbar.h>
 #import "UIKitPrivate.h"
 
 NSString *const UIKitBarItemDidChangeNotification = @"UIKitBarItemDidChangeNotification";
@@ -47,8 +48,10 @@ NSColor *UIKitTintColor(void)
 
 - (instancetype)init
 {
-	if ((self = [super init]))
+	if ((self = [super init])) {
 		_enabled = YES;
+		UIKitApplyAppearance(self);
+	}
 	return self;
 }
 
@@ -94,6 +97,7 @@ static NSString *UIKitSystemItemTitle(UIBarButtonSystemItem item)
 	UIBarButtonItemStyle _style;
 	UIView *_customView;
 	BOOL _space;
+	BOOL _flexibleSpace;
 }
 
 @synthesize target = _target;
@@ -129,6 +133,8 @@ static NSString *UIKitSystemItemTitle(UIBarButtonSystemItem item)
 	UIBarButtonItemStyle style = systemItem == UIBarButtonSystemItemDone ? UIBarButtonItemStyleDone : UIBarButtonItemStyleBordered;
 	if ((self = [self initWithTitle:UIKitSystemItemTitle(systemItem) style:style target:target action:action]))
 		_space = systemItem == UIBarButtonSystemItemFlexibleSpace || systemItem == UIBarButtonSystemItemFixedSpace;
+	if (self != nil)
+		_flexibleSpace = systemItem == UIBarButtonSystemItemFlexibleSpace;
 	return self;
 }
 
@@ -144,6 +150,7 @@ static NSString *UIKitSystemItemTitle(UIBarButtonSystemItem item)
 - (UIView *)customView { return _customView; }
 - (void)setCustomView:(UIView *)view { _customView = view; UIKitBarItemChanged(self); }
 - (BOOL)uikitIsSpace { return _space; }
+- (BOOL)uikitIsFlexibleSpace { return _flexibleSpace; }
 
 /* Private UIKit API: the view showing the item, where there is one. */
 - (UIView *)view
@@ -571,6 +578,7 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 @implementation UINavigationController {
 	NSMutableArray<UIViewController *> *_stack;
 	UINavigationBar *_navigationBar;
+	UIToolbar *_toolbar;
 	UIViewController *_shown;
 	BOOL _navigationBarHidden;
 	BOOL _toolbarHidden;
@@ -578,12 +586,14 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 
 @synthesize delegate = _delegate;
 
-- (instancetype)init
+- (instancetype)initWithNibName:(NSString *)nibName bundle:(NSBundle *)bundle
 {
-	if ((self = [super init])) {
+	if ((self = [super initWithNibName:nibName bundle:bundle])) {
 		_stack = [NSMutableArray array];
 		_navigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 320, UIKitNavigationBarHeight)];
 		[_navigationBar setDelegate:self];
+		_toolbar = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, 320, 44)];
+		[_toolbar setHidden:YES];
 		_toolbarHidden = YES;
 	}
 	return self;
@@ -604,11 +614,19 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 	[view setBackgroundColor:[UIColor whiteColor]];
 	[_navigationBar setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
 	[view addSubview:_navigationBar];
+	[_toolbar setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin];
+	[view addSubview:_toolbar];
 	[self setView:view];
 	[self showTop:NO];
 }
 
 - (UINavigationBar *)navigationBar { return _navigationBar; }
+- (UIToolbar *)toolbar { return _toolbar; }
+
+- (void)uikitToolbarItemsChanged
+{
+	[_toolbar setItems:[[self topViewController] toolbarItems]];
+}
 - (NSArray *)viewControllers { return [_stack copy]; }
 - (UIViewController *)topViewController { return [_stack lastObject]; }
 
@@ -644,9 +662,15 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 		[_navigationBar setFrame:NSMakeRect(0, top, bounds.size.width, UIKitNavigationBarHeight)];
 		contentTop += UIKitNavigationBarHeight;
 	}
+	CGFloat contentBottom = bounds.size.height;
+	[_toolbar setHidden:_toolbarHidden];
+	if (!_toolbarHidden) {
+		contentBottom -= 44;
+		[_toolbar setFrame:NSMakeRect(0, contentBottom, bounds.size.width, 44)];
+	}
 	UIView *content = [_shown isViewLoaded] ? [_shown view] : nil;
 	if (content != nil && [content superview] == [self view])
-		[content setFrame:NSMakeRect(0, contentTop, bounds.size.width, MAX(0, bounds.size.height - contentTop))];
+		[content setFrame:NSMakeRect(0, contentTop, bounds.size.width, MAX(0, contentBottom - contentTop))];
 	[[self view] setNeedsDisplay:YES];
 }
 
@@ -655,6 +679,7 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 {
 	UIViewController *top = [self topViewController];
 	[_navigationBar setItems:[_stack valueForKey:@"navigationItem"] ?: @[]];
+	[_toolbar setItems:[top toolbarItems]];
 	if (![self isViewLoaded] || top == _shown)
 		return;
 	if ([_delegate respondsToSelector:@selector(navigationController:willShowViewController:animated:)] && top != nil)
@@ -778,8 +803,8 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 }
 
 - (BOOL)isToolbarHidden { return _toolbarHidden; }
-- (void)setToolbarHidden:(BOOL)hidden { _toolbarHidden = hidden; }
-- (void)setToolbarHidden:(BOOL)hidden animated:(BOOL)animated { _toolbarHidden = hidden; }
+- (void)setToolbarHidden:(BOOL)hidden { _toolbarHidden = hidden; [self layoutContainer]; }
+- (void)setToolbarHidden:(BOOL)hidden animated:(BOOL)animated { [self setToolbarHidden:hidden]; }
 
 - (void)didReceiveMemoryWarning
 {

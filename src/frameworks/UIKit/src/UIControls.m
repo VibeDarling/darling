@@ -20,6 +20,7 @@
 #import <AppKit/NSAttributedString.h>
 #import <AppKit/NSStringDrawing.h>
 #import <AppKit/NSBezierPath.h>
+#import <AppKit/NSImage.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSGraphicsContext.h>
 #import <AppKit/NSTextField.h>
@@ -217,34 +218,103 @@
 
 #pragma mark - UIButton
 
+/* Lit while a showsTouchWhenHighlighted button is held: a soft white glow. */
+@interface UIKitButtonGlow : UIView
+@end
+
+@implementation UIKitButtonGlow
+
+- (NSView *)hitTest:(NSPoint)point
+{
+	return nil;
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	NSRect bounds = [self bounds];
+	CGFloat radius = MIN(bounds.size.width, bounds.size.height) / 2;
+	/* Concentric discs, each adding a little white towards the middle. */
+	for (int i = 0; i < 8; i++) {
+		CGFloat r = radius * (8 - i) / 8;
+		[[NSColor colorWithCalibratedWhite:1 alpha:0.12] setFill];
+		[[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(NSMidX(bounds) - r, NSMidY(bounds) - r, 2 * r, 2 * r)] fill];
+	}
+}
+
+@end
+
+/* iOS 7's info and add glyphs: a ring around an "i" or a plus, 22 points wide. */
+static UIImage *UIKitButtonGlyph(UIButtonType type)
+{
+	static UIImage *info, *add;
+	UIImage *cached = type == UIButtonTypeContactAdd ? add : info;
+	if (cached != nil)
+		return cached;
+	NSImage *image = [[NSImage alloc] initWithSize:NSMakeSize(22, 22)];
+	[image lockFocus];
+	[[NSColor blackColor] set];
+	NSBezierPath *ring = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(1.5, 1.5, 19, 19)];
+	[ring setLineWidth:1.5];
+	[ring stroke];
+	if (type == UIButtonTypeContactAdd) {
+		[[NSBezierPath bezierPathWithRect:NSMakeRect(6, 10.25, 10, 1.5)] fill];
+		[[NSBezierPath bezierPathWithRect:NSMakeRect(10.25, 6, 1.5, 10)] fill];
+	} else {
+		/* The image draws upright in flipped views, top at y 0: the dot first. */
+		[[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(9.9, 5.7, 2.2, 2.2)] fill];
+		[[NSBezierPath bezierPathWithRect:NSMakeRect(10.25, 9.5, 1.5, 7)] fill];
+	}
+	[image unlockFocus];
+	cached = [[[UIImage alloc] initWithNSImage:image scale:1] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+	if (type == UIButtonTypeContactAdd)
+		add = cached;
+	else
+		info = cached;
+	return cached;
+}
+
 @implementation UIButton {
 	UIButtonType _buttonType;
 	UILabel *_titleLabel;
 	UIImageView *_imageView;
+	UIKitButtonGlow *_glow;
 	NSMutableDictionary<NSNumber *, NSString *> *_titles;
+	NSMutableDictionary<NSNumber *, NSAttributedString *> *_attributedTitles;
 	NSMutableDictionary<NSNumber *, UIColor *> *_titleColors;
+	NSMutableDictionary<NSNumber *, UIColor *> *_titleShadowColors;
 	NSMutableDictionary<NSNumber *, UIImage *> *_images;
 	NSMutableDictionary<NSNumber *, UIImage *> *_backgroundImages;
+	UIEdgeInsets _contentEdgeInsets;
+	UIEdgeInsets _titleEdgeInsets;
+	UIEdgeInsets _imageEdgeInsets;
+	BOOL _shadowReversed;
 }
 
-@synthesize contentEdgeInsets = _contentEdgeInsets;
-@synthesize titleEdgeInsets = _titleEdgeInsets;
-@synthesize imageEdgeInsets = _imageEdgeInsets;
 @synthesize showsTouchWhenHighlighted = _showsTouchWhenHighlighted;
 @synthesize adjustsImageWhenHighlighted = _adjustsImageWhenHighlighted;
+@synthesize adjustsImageWhenDisabled = _adjustsImageWhenDisabled;
+@synthesize reversesTitleShadowWhenHighlighted = _reversesTitleShadowWhenHighlighted;
 
 + (instancetype)buttonWithType:(UIButtonType)buttonType
 {
 	UIButton *button = [[self alloc] initWithFrame:CGRectZero];
 	button->_buttonType = buttonType;
-	if (buttonType != UIButtonTypeCustom)
-		[button setTitleColor:[UIColor colorWithRed:0 green:0.478 blue:1 alpha:1] forState:UIControlStateNormal];
-	if (buttonType == UIButtonTypeContactAdd)
-		[button setTitle:@"+" forState:UIControlStateNormal];
-	else if (buttonType == UIButtonTypeInfoLight || buttonType == UIButtonTypeInfoDark || buttonType == UIButtonTypeDetailDisclosure)
-		[button setTitle:@"ⓘ" forState:UIControlStateNormal];
-	if (buttonType != UIButtonTypeCustom && buttonType != UIButtonTypeRoundedRect)
+	/* System buttons draw their title and images in the tint color. */
+	[button->_imageView setUikitTemplateByDefault:buttonType != UIButtonTypeCustom];
+	if (buttonType != UIButtonTypeCustom && buttonType != UIButtonTypeRoundedRect) {
+		[button setImage:UIKitButtonGlyph(buttonType) forState:UIControlStateNormal];
 		[button setFrame:NSMakeRect(0, 0, 22, 22)];
+	}
+	[button updateContent];
+	return button;
+}
+
++ (instancetype)systemButtonWithImage:(UIImage *)image target:(id)target action:(SEL)action
+{
+	UIButton *button = [self buttonWithType:UIButtonTypeSystem];
+	[button setImage:image forState:UIControlStateNormal];
+	if (action != NULL)
+		[button addTarget:target action:action forControlEvents:UIControlEventTouchUpInside];
 	return button;
 }
 
@@ -252,10 +322,13 @@
 {
 	if ((self = [super initWithFrame:frame])) {
 		_titles = [NSMutableDictionary dictionary];
+		_attributedTitles = [NSMutableDictionary dictionary];
 		_titleColors = [NSMutableDictionary dictionary];
+		_titleShadowColors = [NSMutableDictionary dictionary];
 		_images = [NSMutableDictionary dictionary];
 		_backgroundImages = [NSMutableDictionary dictionary];
 		_adjustsImageWhenHighlighted = YES;
+		_adjustsImageWhenDisabled = YES;
 		_titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
 		[_titleLabel setTextAlignment:NSTextAlignmentCenter];
 		[_titleLabel setFont:[UIFont systemFontOfSize:15]];
@@ -271,7 +344,12 @@
 - (UILabel *)titleLabel { return _titleLabel; }
 - (UIImageView *)imageView { return _imageView; }
 - (UIFont *)font { return [_titleLabel font]; }
-- (void)setFont:(UIFont *)font { [_titleLabel setFont:font]; }
+- (void)setFont:(UIFont *)font { [_titleLabel setFont:font]; [self setNeedsLayout]; }
+
+- (BOOL)uikitIsSystem
+{
+	return _buttonType != UIButtonTypeCustom;
+}
 
 static id UIKitValueForState(NSDictionary *values, UIControlState state)
 {
@@ -279,11 +357,27 @@ static id UIKitValueForState(NSDictionary *values, UIControlState state)
 }
 
 - (NSString *)titleForState:(UIControlState)state { return UIKitValueForState(_titles, state); }
-- (UIColor *)titleColorForState:(UIControlState)state { return UIKitValueForState(_titleColors, state); }
+- (NSAttributedString *)attributedTitleForState:(UIControlState)state { return UIKitValueForState(_attributedTitles, state); }
+- (UIColor *)titleShadowColorForState:(UIControlState)state { return UIKitValueForState(_titleShadowColors, state); }
 - (UIImage *)imageForState:(UIControlState)state { return UIKitValueForState(_images, state); }
 - (UIImage *)backgroundImageForState:(UIControlState)state { return UIKitValueForState(_backgroundImages, state); }
-- (NSString *)currentTitle { return [self titleForState:[self state]]; }
+
+- (UIColor *)titleColorForState:(UIControlState)state
+{
+	UIColor *color = UIKitValueForState(_titleColors, state);
+	if (color == nil && [self uikitIsSystem])
+		color = (state & UIControlStateDisabled) ? [UIColor colorWithWhite:0.56 alpha:1] : [self tintColor];
+	return color;
+}
+
+- (NSString *)currentTitle
+{
+	return [self titleForState:[self state]] ?: [[self currentAttributedTitle] string];
+}
+
+- (NSAttributedString *)currentAttributedTitle { return [self attributedTitleForState:[self state]]; }
 - (UIColor *)currentTitleColor { return [self titleColorForState:[self state]]; }
+- (UIColor *)currentTitleShadowColor { return [self titleShadowColorForState:[self state]]; }
 - (UIImage *)currentImage { return [self imageForState:[self state]]; }
 - (UIImage *)currentBackgroundImage { return [self backgroundImageForState:[self state]]; }
 
@@ -296,52 +390,203 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 }
 
 - (void)setTitle:(NSString *)title forState:(UIControlState)state { UIKitSetForState(_titles, [title copy], state); [self updateContent]; }
+- (void)setAttributedTitle:(NSAttributedString *)title forState:(UIControlState)state { UIKitSetForState(_attributedTitles, [title copy], state); [self updateContent]; }
 - (void)setTitleColor:(UIColor *)color forState:(UIControlState)state { UIKitSetForState(_titleColors, color, state); [self updateContent]; }
-- (void)setTitleShadowColor:(UIColor *)color forState:(UIControlState)state { }
+- (void)setTitleShadowColor:(UIColor *)color forState:(UIControlState)state { UIKitSetForState(_titleShadowColors, color, state); [self updateContent]; }
 - (void)setImage:(UIImage *)image forState:(UIControlState)state { UIKitSetForState(_images, image, state); [self updateContent]; }
 - (void)setBackgroundImage:(UIImage *)image forState:(UIControlState)state { UIKitSetForState(_backgroundImages, image, state); [self updateContent]; }
 
+- (UIEdgeInsets)contentEdgeInsets { return _contentEdgeInsets; }
+- (void)setContentEdgeInsets:(UIEdgeInsets)insets { _contentEdgeInsets = insets; [self setNeedsLayout]; }
+- (UIEdgeInsets)titleEdgeInsets { return _titleEdgeInsets; }
+- (void)setTitleEdgeInsets:(UIEdgeInsets)insets { _titleEdgeInsets = insets; [self setNeedsLayout]; }
+- (UIEdgeInsets)imageEdgeInsets { return _imageEdgeInsets; }
+- (void)setImageEdgeInsets:(UIEdgeInsets)insets { _imageEdgeInsets = insets; [self setNeedsLayout]; }
+
 - (void)updateContent
 {
-	[_titleLabel setText:[self currentTitle]];
+	UIControlState state = [self state];
+	BOOL highlighted = [self isHighlighted], disabled = ![self isEnabled];
+
+	NSAttributedString *attributed = [self currentAttributedTitle];
+	if (attributed != nil)
+		[_titleLabel setAttributedText:attributed];
+	else
+		[_titleLabel setText:[self titleForState:state]];
+
 	UIColor *color = [self currentTitleColor] ?: [UIColor whiteColor];
-	if ([self isHighlighted] && [_titleColors objectForKey:@(UIControlStateHighlighted)] == nil)
+	if (highlighted && [_titleColors objectForKey:@(UIControlStateHighlighted)] == nil)
 		color = [color colorWithAlphaComponent:0.3];
-	if (![self isEnabled])
+	if (disabled && ![self uikitIsSystem] && [_titleColors objectForKey:@(UIControlStateDisabled)] == nil)
 		color = [color colorWithAlphaComponent:0.35];
 	[_titleLabel setTextColor:color];
+
+	[_titleLabel setShadowColor:[self currentTitleShadowColor]];
+	BOOL reverse = highlighted && _reversesTitleShadowWhenHighlighted;
+	if (reverse != _shadowReversed) {
+		CGSize offset = [_titleLabel shadowOffset];
+		[_titleLabel setShadowOffset:CGSizeMake(-offset.width, -offset.height)];
+		_shadowReversed = reverse;
+	}
+
 	[_imageView setImage:[self currentImage]];
+	CGFloat imageAlpha = 1;
+	BOOL darkened = NO;
+	if ([self uikitIsSystem]) {
+		/* System buttons fade, title and image alike. */
+		if (highlighted && [_images objectForKey:@(UIControlStateHighlighted)] == nil)
+			imageAlpha = 0.3;
+	} else {
+		if (highlighted && _adjustsImageWhenHighlighted && [_images objectForKey:@(UIControlStateHighlighted)] == nil)
+			darkened = YES;
+		if (disabled && _adjustsImageWhenDisabled && [_images objectForKey:@(UIControlStateDisabled)] == nil)
+			imageAlpha = 0.5;
+	}
+	[_imageView setUikitImageAlpha:imageAlpha];
+	[_imageView setUikitDarkened:darkened];
+	if (disabled && [self uikitIsSystem])
+		[_imageView setTintColor:[UIColor colorWithWhite:0.56 alpha:1]];
+	else
+		[_imageView setTintColor:nil];
+
+	if (highlighted && _showsTouchWhenHighlighted) {
+		if (_glow == nil)
+			_glow = [[UIKitButtonGlow alloc] initWithFrame:CGRectZero];
+		if ([_glow superview] != self)
+			[self addSubview:_glow];
+	} else
+		[_glow removeFromSuperview];
+
 	[self setNeedsLayout];
 	[self setNeedsDisplay:YES];
+}
+
+- (void)tintColorDidChange
+{
+	[super tintColorDidChange];
+	/* Not while building the button: the subviews do not exist yet. */
+	if (_titleLabel != nil)
+		[self updateContent];
 }
 
 - (void)setHighlighted:(BOOL)highlighted { [super setHighlighted:highlighted]; [self updateContent]; }
 - (void)setEnabled:(BOOL)enabled { [super setEnabled:enabled]; [self updateContent]; }
 - (void)setSelected:(BOOL)selected { [super setSelected:selected]; [self updateContent]; }
 
+#pragma mark Layout
+
+- (CGSize)uikitTitleSize
+{
+	if ([[self currentTitle] length] == 0)
+		return CGSizeZero;
+	CGSize size = [_titleLabel sizeThatFits:CGSizeZero];
+	return CGSizeMake(ceil(size.width), ceil(size.height));
+}
+
+- (CGSize)uikitImageSize
+{
+	UIImage *image = [self currentImage];
+	return image != nil ? [image size] : CGSizeZero;
+}
+
+- (CGRect)backgroundRectForBounds:(CGRect)bounds
+{
+	return bounds;
+}
+
+- (CGRect)contentRectForBounds:(CGRect)bounds
+{
+	return UIEdgeInsetsInsetRect(bounds, _contentEdgeInsets);
+}
+
+/*
+ * Image and title sit side by side, aligned in the content rect as one group.
+ * Each one's edge insets shrink the rect it is placed in, so an inset moves
+ * only its own element, as on iOS.
+ */
+- (CGRect)uikitRectForImage:(BOOL)image inContentRect:(CGRect)content
+{
+	content = UIEdgeInsetsInsetRect(content, image ? _imageEdgeInsets : _titleEdgeInsets);
+	CGSize imageSize = [self uikitImageSize];
+	CGSize titleSize = [self uikitTitleSize];
+	/* The title gives way when both do not fit. */
+	titleSize.width = MAX(0, MIN(titleSize.width, content.size.width - imageSize.width));
+	UIControlContentHorizontalAlignment horizontal = [self contentHorizontalAlignment];
+	if (horizontal == UIControlContentHorizontalAlignmentFill && !image)
+		titleSize.width = MAX(0, content.size.width - imageSize.width);
+	CGFloat total = imageSize.width + titleSize.width;
+	CGFloat x;
+	switch (horizontal) {
+	case UIControlContentHorizontalAlignmentLeft:
+	case UIControlContentHorizontalAlignmentFill:
+		x = content.origin.x;
+		break;
+	case UIControlContentHorizontalAlignmentRight:
+		x = CGRectGetMaxX(content) - total;
+		break;
+	default:
+		x = content.origin.x + (content.size.width - total) / 2;
+		break;
+	}
+	CGSize size = image ? imageSize : titleSize;
+	if (image && imageSize.width == 0)
+		return CGRectZero;
+	if (!image)
+		x += imageSize.width;
+	CGFloat y;
+	switch ([self contentVerticalAlignment]) {
+	case UIControlContentVerticalAlignmentTop:
+		y = content.origin.y;
+		break;
+	case UIControlContentVerticalAlignmentBottom:
+		y = CGRectGetMaxY(content) - size.height;
+		break;
+	case UIControlContentVerticalAlignmentFill:
+		y = content.origin.y;
+		size.height = content.size.height;
+		break;
+	default:
+		y = content.origin.y + (content.size.height - size.height) / 2;
+		break;
+	}
+	return CGRectMake(floor(x), floor(y), size.width, size.height);
+}
+
+- (CGRect)imageRectForContentRect:(CGRect)contentRect
+{
+	return [self uikitRectForImage:YES inContentRect:contentRect];
+}
+
+- (CGRect)titleRectForContentRect:(CGRect)contentRect
+{
+	return [self uikitRectForImage:NO inContentRect:contentRect];
+}
+
 - (CGSize)sizeThatFits:(CGSize)size
 {
-	CGSize title = [[self currentTitle] sizeWithFont:[_titleLabel font]];
-	CGSize image = [self currentImage] != nil ? [[self currentImage] size] : CGSizeZero;
+	CGSize title = [self uikitTitleSize];
+	CGSize image = [self uikitImageSize];
 	return CGSizeMake(title.width + image.width + _contentEdgeInsets.left + _contentEdgeInsets.right + 8,
 	                  MAX(title.height, image.height) + _contentEdgeInsets.top + _contentEdgeInsets.bottom + 8);
+}
+
+- (CGSize)intrinsicContentSize
+{
+	return [self sizeThatFits:CGSizeZero];
 }
 
 - (void)layoutSubviews
 {
 	[super layoutSubviews];
-	CGRect bounds = UIEdgeInsetsInsetRect(NSRectToCGRect([self bounds]), _contentEdgeInsets);
-	UIImage *image = [self currentImage];
-	CGSize imageSize = image != nil ? [image size] : CGSizeZero;
-	CGSize titleSize = [[self currentTitle] length] > 0 ? [[self currentTitle] sizeWithFont:[_titleLabel font]] : CGSizeZero;
-	CGFloat total = imageSize.width + titleSize.width;
-	CGFloat x = bounds.origin.x + (bounds.size.width - total) / 2;
-	if ([self contentHorizontalAlignment] == UIControlContentHorizontalAlignmentLeft)
-		x = bounds.origin.x;
-	else if ([self contentHorizontalAlignment] == UIControlContentHorizontalAlignmentRight)
-		x = CGRectGetMaxX(bounds) - total;
-	[_imageView setFrame:NSMakeRect(floor(x), floor(CGRectGetMidY(bounds) - imageSize.height / 2), imageSize.width, imageSize.height)];
-	[_titleLabel setFrame:NSMakeRect(floor(x + imageSize.width), floor(CGRectGetMidY(bounds) - titleSize.height / 2), ceil(titleSize.width) + 1, ceil(titleSize.height))];
+	CGRect content = [self contentRectForBounds:NSRectToCGRect([self bounds])];
+	CGRect image = [self imageRectForContentRect:content];
+	CGRect title = [self titleRectForContentRect:content];
+	[_imageView setFrame:NSRectFromCGRect(image)];
+	[_titleLabel setFrame:NSMakeRect(title.origin.x, title.origin.y, title.size.width + 1, title.size.height)];
+	if ([_glow superview] != nil) {
+		CGFloat side = MIN(40, MAX(content.size.width, content.size.height) * 2);
+		[_glow setFrame:NSMakeRect(floor(CGRectGetMidX(content) - side / 2), floor(CGRectGetMidY(content) - side / 2), side, side)];
+	}
 }
 
 - (void)drawRect:(NSRect)rect
@@ -349,7 +594,7 @@ static void UIKitSetForState(NSMutableDictionary *values, id value, UIControlSta
 	[super drawRect:rect];
 	UIImage *background = [self currentBackgroundImage];
 	if (background != nil)
-		[background drawInRect:NSRectToCGRect([self bounds])];
+		[background drawInRect:[self backgroundRectForBounds:NSRectToCGRect([self bounds])]];
 }
 
 @end

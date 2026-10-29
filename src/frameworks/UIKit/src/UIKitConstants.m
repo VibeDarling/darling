@@ -1,0 +1,110 @@
+/*
+ This file is part of Darling.
+
+ Copyright (C) 2026 Darling Team
+
+ Darling is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+*/
+
+
+#import <UIKit/UIKit.h>
+
+/*
+ * Constants iOS apps link from UIKit that nothing here reads yet. The
+ * values are the ones iOS uses, since apps compare against them and some
+ * store them.
+ */
+
+const UIWindowLevel UIWindowLevelNormal = 0;
+const UIWindowLevel UIWindowLevelStatusBar = 1000;
+const UIWindowLevel UIWindowLevelAlert = 2000;
+
+const UIBackgroundTaskIdentifier UIBackgroundTaskInvalid = 0;
+
+UIAccessibilityTraits UIAccessibilityTraitButton = 1 << 0;
+
+/* No accessibility settings are on. */
+BOOL UIAccessibilityIsReduceMotionEnabled(void) { return NO; }
+BOOL UIAccessibilityIsReduceTransparencyEnabled(void) { return NO; }
+BOOL UIAccessibilityIsVoiceOverRunning(void) { return NO; }
+BOOL UIAccessibilityIsBoldTextEnabled(void) { return NO; }
+BOOL UIAccessibilityDarkerSystemColorsEnabled(void) { return NO; }
+
+const CGFloat UIViewNoIntrinsicMetric = -1;
+NSString *const UITrackingRunLoopMode = @"UITrackingRunLoopMode";
+
+NSString *const UIApplicationWillChangeStatusBarOrientationNotification = @"UIApplicationWillChangeStatusBarOrientationNotification";
+NSString *const UIApplicationDidChangeStatusBarOrientationNotification = @"UIApplicationDidChangeStatusBarOrientationNotification";
+NSString *const UIApplicationUserDidTakeScreenshotNotification = @"UIApplicationUserDidTakeScreenshotNotification";
+
+NSString *const UITextFieldTextDidBeginEditingNotification = @"UITextFieldTextDidBeginEditingNotification";
+NSString *const UITextFieldTextDidChangeNotification = @"UITextFieldTextDidChangeNotification";
+NSString *const UITextViewTextDidBeginEditingNotification = @"UITextViewTextDidBeginEditingNotification";
+NSString *const UITextViewTextDidChangeNotification = @"UITextViewTextDidChangeNotification";
+NSString *const UITextViewTextDidEndEditingNotification = @"UITextViewTextDidEndEditingNotification";
+
+NSString *const UIPasteboardChangedNotification = @"UIPasteboardChangedNotification";
+NSArray<NSString *> *UIPasteboardTypeListString;
+NSArray<NSString *> *UIPasteboardTypeListURL;
+NSArray<NSString *> *UIPasteboardTypeListImage;
+NSArray<NSString *> *UIPasteboardTypeListColor;
+
+__attribute__((constructor))
+static void UIKitInitPasteboardTypeLists(void)
+{
+	UIPasteboardTypeListString = @[ @"public.utf8-plain-text", @"public.text" ];
+	UIPasteboardTypeListURL = @[ @"public.url" ];
+	UIPasteboardTypeListImage = @[ @"public.png", @"public.tiff", @"public.jpeg", @"com.compuserve.gif" ];
+	UIPasteboardTypeListColor = @[ @"com.apple.uikit.color" ];
+}
+
+UIActivityType const UIActivityTypePostToFacebook = @"com.apple.UIKit.activity.PostToFacebook";
+UIActivityType const UIActivityTypePostToTwitter = @"com.apple.UIKit.activity.PostToTwitter";
+UIActivityType const UIActivityTypePostToWeibo = @"com.apple.UIKit.activity.PostToWeibo";
+UIActivityType const UIActivityTypeMessage = @"com.apple.UIKit.activity.Message";
+UIActivityType const UIActivityTypeMail = @"com.apple.UIKit.activity.Mail";
+UIActivityType const UIActivityTypePrint = @"com.apple.UIKit.activity.Print";
+UIActivityType const UIActivityTypeCopyToPasteboard = @"com.apple.UIKit.activity.CopyToPasteboard";
+UIActivityType const UIActivityTypeAssignToContact = @"com.apple.UIKit.activity.AssignToContact";
+UIActivityType const UIActivityTypeSaveToCameraRoll = @"com.apple.UIKit.activity.SaveToCameraRoll";
+UIActivityType const UIActivityTypeAddToReadingList = @"com.apple.UIKit.activity.AddToReadingList";
+UIActivityType const UIActivityTypePostToFlickr = @"com.apple.UIKit.activity.PostToFlickr";
+UIActivityType const UIActivityTypePostToVimeo = @"com.apple.UIKit.activity.PostToVimeo";
+UIActivityType const UIActivityTypePostToTencentWeibo = @"com.apple.UIKit.activity.TencentWeibo";
+UIActivityType const UIActivityTypeAirDrop = @"com.apple.UIKit.activity.AirDrop";
+UIActivityType const UIActivityTypeOpenInIBooks = @"com.apple.UIKit.activity.OpenInIBooks";
+
+NSString *const UICollectionElementKindSectionHeader = @"UICollectionElementKindSectionHeader";
+NSString *const UICollectionElementKindSectionFooter = @"UICollectionElementKindSectionFooter";
+
+UIFontDescriptorAttributeName const UIFontDescriptorFamilyAttribute = @"NSFontFamilyAttribute";
+UIFontDescriptorAttributeName const UIFontDescriptorNameAttribute = @"NSFontNameAttribute";
+UIFontDescriptorAttributeName const UIFontDescriptorFaceAttribute = @"NSFontFaceAttribute";
+UIFontDescriptorAttributeName const UIFontDescriptorSizeAttribute = @"NSFontSizeAttribute";
+
+UIFontTextStyle const UIFontTextStyleTitle1 = @"UICTFontTextStyleTitle1";
+UIFontTextStyle const UIFontTextStyleTitle2 = @"UICTFontTextStyleTitle2";
+UIFontTextStyle const UIFontTextStyleTitle3 = @"UICTFontTextStyleTitle3";
+UIFontTextStyle const UIFontTextStyleHeadline = @"UICTFontTextStyleHeadline";
+UIFontTextStyle const UIFontTextStyleSubheadline = @"UICTFontTextStyleSubhead";
+UIFontTextStyle const UIFontTextStyleBody = @"UICTFontTextStyleBody";
+UIFontTextStyle const UIFontTextStyleCallout = @"UICTFontTextStyleCallout";
+UIFontTextStyle const UIFontTextStyleFootnote = @"UICTFontTextStyleFootnote";
+UIFontTextStyle const UIFontTextStyleCaption1 = @"UICTFontTextStyleCaption1";
+UIFontTextStyle const UIFontTextStyleCaption2 = @"UICTFontTextStyleCaption2";
+
+UIImagePickerControllerInfoKey const UIImagePickerControllerMediaType = @"UIImagePickerControllerMediaType";
+UIImagePickerControllerInfoKey const UIImagePickerControllerOriginalImage = @"UIImagePickerControllerOriginalImage";
+UIImagePickerControllerInfoKey const UIImagePickerControllerEditedImage = @"UIImagePickerControllerEditedImage";
+UIImagePickerControllerInfoKey const UIImagePickerControllerCropRect = @"UIImagePickerControllerCropRect";
+UIImagePickerControllerInfoKey const UIImagePickerControllerMediaURL = @"UIImagePickerControllerMediaURL";
+UIImagePickerControllerInfoKey const UIImagePickerControllerReferenceURL = @"UIImagePickerControllerReferenceURL";
+
+NSString *const UIStateRestorationViewControllerStoryboardKey = @"UIStateRestorationViewControllerStoryboardKey";
+NSString *const UITransitionContextFromViewControllerKey = @"UITransitionContextFromViewControllerKey";
+NSString *const UITransitionContextToViewControllerKey = @"UITransitionContextToViewControllerKey";
+NSString *const UITransitionContextFromViewKey = @"UITransitionContextFromViewKey";
+NSString *const UITransitionContextToViewKey = @"UITransitionContextToViewKey";

@@ -23,6 +23,24 @@ add_framework(UIKit
         src/UIImage.m
         src/UIImageView.m
         src/UIKitAdditions.m
+        src/UIGeometry.m
+        src/UIKitConstants.m
+        src/UIGestureRecognizer.m
+        src/UIAppearance.m
+        src/UIKitStubs.m
+        src/UIGraphics.m
+        src/UIAutoLayout.m
+        src/UIKitStringDrawing.m
+        src/UITableViewController.m
+        src/UIToolbar.m
+        src/UISlider.m
+        src/UIPickerView.m
+        src/UITextView.m
+        src/UIBezierPath.m
+        src/UIContainerControllers.m
+        src/UIActivityViewController.m
+        src/UIFontDescriptor.m
+        src/UICollectionView.m
         src/UIScrollView.m
         src/UITableView.m
         src/UIControls.m
@@ -30,6 +48,8 @@ add_framework(UIKit
         src/UITabBarController.m
         src/UIAlertView.m
         src/UIWebView.m
+    RESOURCES
+        Info.plist Info.plist
     DEPENDENCIES
         Foundation
         AppKit
@@ -42,3 +62,7 @@ add_framework(UIKit
 )
 target_include_directories(UIKit PRIVATE include src ../../private-frameworks/WebKitLegacy/include)
 target_compile_options(UIKit PRIVATE -fobjc-arc)
+
+# iOS's UIKit re-exports UIFoundation, where NSTextStorage, NSLayoutManager,
+# NSParagraphStyle and the other text classes live; here they are AppKit's.
+reexport(UIKit AppKit ${CMAKE_BINARY_DIR}/src/external/cocotron/AppKit/AppKit)

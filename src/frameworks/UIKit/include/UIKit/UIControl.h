@@ -15,7 +15,7 @@
 #import <UIKit/UIView.h>
 #import <UIKit/UIGeometry.h>
 
-@class UILabel, UIImage, UIColor, UIImageView, UIFont, UITextField, UISearchBar;
+@class UILabel, UIImage, UIColor, UIImageView, UIFont, UITextField, UISearchBar, NSAttributedString;
 
 typedef NS_OPTIONS(NSUInteger, UIControlEvents) {
 	UIControlEventTouchDown = 1 << 0,
@@ -90,11 +90,14 @@ typedef NS_ENUM(NSInteger, UIButtonType) {
 
 @interface UIButton : UIControl
 + (instancetype)buttonWithType:(UIButtonType)buttonType;
++ (instancetype)systemButtonWithImage:(UIImage *)image target:(id)target action:(SEL)action;
 @property (nonatomic, readonly) UIButtonType buttonType;
 @property (nonatomic, readonly) UILabel *titleLabel;
 @property (nonatomic, readonly) UIImageView *imageView;
 @property (nonatomic, readonly) NSString *currentTitle;
+@property (nonatomic, readonly) NSAttributedString *currentAttributedTitle;
 @property (nonatomic, readonly) UIColor *currentTitleColor;
+@property (nonatomic, readonly) UIColor *currentTitleShadowColor;
 @property (nonatomic, readonly) UIImage *currentImage;
 @property (nonatomic, readonly) UIImage *currentBackgroundImage;
 @property (nonatomic) UIEdgeInsets contentEdgeInsets;
@@ -102,16 +105,26 @@ typedef NS_ENUM(NSInteger, UIButtonType) {
 @property (nonatomic) UIEdgeInsets imageEdgeInsets;
 @property (nonatomic) BOOL showsTouchWhenHighlighted;
 @property (nonatomic) BOOL adjustsImageWhenHighlighted;
+@property (nonatomic) BOOL adjustsImageWhenDisabled;
+@property (nonatomic) BOOL reversesTitleShadowWhenHighlighted;
 @property (nonatomic, strong) UIFont *font;
 - (void)setTitle:(NSString *)title forState:(UIControlState)state;
+- (void)setAttributedTitle:(NSAttributedString *)title forState:(UIControlState)state;
 - (void)setTitleColor:(UIColor *)color forState:(UIControlState)state;
 - (void)setTitleShadowColor:(UIColor *)color forState:(UIControlState)state;
 - (void)setImage:(UIImage *)image forState:(UIControlState)state;
 - (void)setBackgroundImage:(UIImage *)image forState:(UIControlState)state;
 - (NSString *)titleForState:(UIControlState)state;
+- (NSAttributedString *)attributedTitleForState:(UIControlState)state;
 - (UIColor *)titleColorForState:(UIControlState)state;
+- (UIColor *)titleShadowColorForState:(UIControlState)state;
 - (UIImage *)imageForState:(UIControlState)state;
 - (UIImage *)backgroundImageForState:(UIControlState)state;
+/* Where the parts go; subclasses override these, as on iOS. */
+- (CGRect)backgroundRectForBounds:(CGRect)bounds;
+- (CGRect)contentRectForBounds:(CGRect)bounds;
+- (CGRect)titleRectForContentRect:(CGRect)contentRect;
+- (CGRect)imageRectForContentRect:(CGRect)contentRect;
 @end
 
 @interface UISwitch : UIControl

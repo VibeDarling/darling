@@ -42,6 +42,12 @@ typedef NS_ENUM(NSInteger, UIViewAnimationCurve) {
 	UIViewAnimationCurveLinear,
 };
 
+typedef NS_ENUM(NSInteger, UIViewTintAdjustmentMode) {
+	UIViewTintAdjustmentModeAutomatic,
+	UIViewTintAdjustmentModeNormal,
+	UIViewTintAdjustmentModeDimmed,
+};
+
 typedef NS_OPTIONS(NSUInteger, UIViewAnimationOptions) {
 	UIViewAnimationOptionNone = 0,
 };
@@ -71,6 +77,19 @@ typedef NS_OPTIONS(NSUInteger, UIViewAutoresizing) {
  * ivars, so the UIKit hosting window is exposed internally as -uiWindow rather
  * than shadowing -window with an incompatible type.
  */
+typedef NS_ENUM(NSInteger, UIUserInterfaceLayoutDirection) {
+	UIUserInterfaceLayoutDirectionLeftToRight,
+	UIUserInterfaceLayoutDirectionRightToLeft,
+};
+
+typedef NS_ENUM(NSInteger, UISemanticContentAttribute) {
+	UISemanticContentAttributeUnspecified,
+	UISemanticContentAttributePlayback,
+	UISemanticContentAttributeSpatial,
+	UISemanticContentAttributeForceLeftToRight,
+	UISemanticContentAttributeForceRightToLeft,
+};
+
 @interface UIView : NSView {
 @package
 	UIColor *_uiBackgroundColor;
@@ -128,6 +147,18 @@ typedef NS_OPTIONS(NSUInteger, UIViewAutoresizing) {
 @property (nonatomic, getter=isMultipleTouchEnabled) BOOL multipleTouchEnabled;
 @property (nonatomic) BOOL needsDisplayOnBoundsChange;
 @property (nonatomic) CGFloat contentScaleFactor;
+
+/*
+ * A view without its own tint color has its superview's, and the root has the
+ * system blue.  tintColorDidChange is sent to every view whose tint changes.
+ */
+@property (nonatomic, strong) UIColor *tintColor;
+@property (nonatomic) UIViewTintAdjustmentMode tintAdjustmentMode;
+- (void)tintColorDidChange;
+@property (nonatomic) UISemanticContentAttribute semanticContentAttribute;
+@property (nonatomic, readonly) UIUserInterfaceLayoutDirection effectiveUserInterfaceLayoutDirection;
++ (UIUserInterfaceLayoutDirection)userInterfaceLayoutDirectionForSemanticContentAttribute:(UISemanticContentAttribute)attribute;
++ (UIUserInterfaceLayoutDirection)userInterfaceLayoutDirectionForSemanticContentAttribute:(UISemanticContentAttribute)attribute relativeToLayoutDirection:(UIUserInterfaceLayoutDirection)direction;
 
 - (void)setNeedsDisplay;
 - (CGSize)sizeThatFits:(CGSize)size;

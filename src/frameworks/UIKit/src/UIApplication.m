@@ -24,6 +24,16 @@
 #import <UIKit/UIWindow.h>
 #import <UIKit/UIScreen.h>
 #import "UIKitPrivate.h"
+#import <dlfcn.h>
+
+/* Jailbreak tweaks: SubstrateLoader loads the ones whose filters match
+ * this app, as Cydia Substrate does in every iOS process. By the time
+ * UIKit's initializer runs, every class at launch is registered. */
+__attribute__((constructor))
+static void UIKitLoadTweaks(void)
+{
+	dlopen("/usr/lib/substrate/SubstrateLoader.dylib", RTLD_LAZY);
+}
 
 NSString *const UIApplicationDidFinishLaunchingNotification = @"UIApplicationDidFinishLaunchingNotification";
 NSString *const UIApplicationDidBecomeActiveNotification = @"UIApplicationDidBecomeActiveNotification";
@@ -361,6 +371,31 @@ static id<UIApplicationDelegate> sDelegateStorage;
 
 @end
 
+/*
+ * What iOS's Core Animation does before the main run loop sleeps: draw what
+ * changed. AppKit schedules a redraw with a run loop timer that does not
+ * wake the loop when queued from a callout (a main-queue block, where UIKit
+ * lays out), so the views laid out there would otherwise wait for the next
+ * event to appear.
+ */
+static void UIKitDisplayBeforeWaiting(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info)
+{
+	@autoreleasepool {
+		for (NSWindow *window in [NSApp windows])
+			if ([window isVisible] && [window viewsNeedDisplay])
+				[window displayIfNeeded];
+	}
+}
+
+static void UIKitInstallDisplayObserver(void)
+{
+	/* After everything else that runs before waiting, as Core Animation's commit. */
+	CFRunLoopObserverRef observer = CFRunLoopObserverCreate(kCFAllocatorDefault, kCFRunLoopBeforeWaiting | kCFRunLoopExit, true, 2000000,
+		UIKitDisplayBeforeWaiting, NULL);
+	CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes);
+	CFRelease(observer);
+}
+
 int UIApplicationMain(int argc, char *argv[], NSString *principalClassName, NSString *delegateClassName)
 {
 	/* The command line reaches the app through NSProcessInfo. */
@@ -395,6 +430,7 @@ int UIApplicationMain(int argc, char *argv[], NSString *principalClassName, NSSt
 			}
 		}
 
+		UIKitInstallDisplayObserver();
 		[NSApp run];
 	}
 	return 0;

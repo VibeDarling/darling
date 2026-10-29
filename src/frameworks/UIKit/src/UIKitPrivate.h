@@ -60,7 +60,13 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view);
 
 @interface UIBarButtonItem (DarlingPrivate)
 - (BOOL)uikitIsSpace;
+- (BOOL)uikitIsFlexibleSpace;
 - (void)uikitPerform;
+@end
+
+@interface UINavigationController (DarlingPrivate)
+/* The top controller's toolbar items changed. */
+- (void)uikitToolbarItemsChanged;
 @end
 
 @interface UITabBarController (DarlingPrivate)
@@ -95,7 +101,22 @@ extern NSString *const UIKitOverlaysDidChangeNotification;
 + (NSArray *)uikitWindows;
 @end
 
-@class NSEvent;
+@class NSEvent, NSImage;
+
+@interface UIImage (DarlingPrivate)
+- (instancetype)initWithNSImage:(NSImage *)image scale:(CGFloat)scale;
+- (NSImage *)nsImage;
+/* The image's shape filled with color. */
+- (NSImage *)uikitImageTintedWith:(NSColor *)color;
+@end
+
+@interface UIImageView (DarlingPrivate)
+/* Draw images in automatic rendering mode as templates (system buttons). */
+@property (nonatomic) BOOL uikitTemplateByDefault;
+/* Draw the image darkened, as a highlighted button's. */
+@property (nonatomic) BOOL uikitDarkened;
+@property (nonatomic) CGFloat uikitImageAlpha;
+@end
 
 @interface UITouch ()
 @property (nonatomic, readwrite) UITouchPhase phase;
@@ -103,12 +124,36 @@ extern NSString *const UIKitOverlaysDidChangeNotification;
 @property (nonatomic, readwrite) NSTimeInterval timestamp;
 @property (nonatomic, readwrite, strong) UIView *view;
 @property (nonatomic, readwrite, strong) UIWindow *window;
+/* The dispatcher's bookkeeping: the recognizers that see the touch, and
+ * whether its view does (a view without multiple touches gets only the first
+ * finger, and an exclusive one shuts out the others). */
+@property (nonatomic, strong) NSArray *uikitRecognizers;
+@property (nonatomic) BOOL uikitToView;
+@property (nonatomic) BOOL uikitViewBegan;
+@property (nonatomic) BOOL uikitViewCancelled;
 /* Moves the touch to where the pointer event happened. */
 - (void)updateWithEvent:(NSEvent *)event phase:(UITouchPhase)phase;
+- (void)uikitMoveTo:(NSPoint)location timestamp:(NSTimeInterval)timestamp phase:(UITouchPhase)phase;
+/* Where the finger went down. */
+- (CGPoint)uikitStartLocationInView:(UIView *)view;
 @end
 
+/* Attributes (or an attributed string) with UIKit's fonts and colors made AppKit's. */
+NSDictionary *UIKitAppKitAttributes(NSDictionary *attributes);
+NSAttributedString *UIKitAppKitAttributedString(NSAttributedString *string);
+
+/* Gives a view or bar item what its classes' appearance proxies were told. */
+void UIKitApplyAppearance(id object);
+
+/* Hands a touch to the gesture recognizers, then to its view. */
+void UIKitDispatchTouch(UITouch *touch, UITouchPhase phase);
+
 @interface UIEvent ()
-- (instancetype)initWithTouch:(UITouch *)touch;
+/* The one touches event, as on iOS. */
++ (UIEvent *)uikitTouchesEvent;
+- (void)uikitAddTouch:(UITouch *)touch;
+- (void)uikitRemoveTouch:(UITouch *)touch;
+- (void)uikitSetTimestamp:(NSTimeInterval)timestamp;
 @end
 
 #endif /* UIKIT_UIKITPRIVATE_H */

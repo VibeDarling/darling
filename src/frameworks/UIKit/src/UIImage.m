@@ -11,15 +11,19 @@
 
 #import <UIKit/UIImage.h>
 #import <UIKit/UIGraphics.h>
+#import "UIKitPrivate.h"
 #import <AppKit/NSImage.h>
 #import <AppKit/NSGraphicsContext.h>
+#import <AppKit/NSGraphics.h>
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSCache.h>
 #import <AppKit/NSBitmapImageRep.h>
 
 @implementation UIImage {
 	NSImage *_image;
+	CGImageRef _cgImage;
 	CGFloat _scale;
+	UIImageRenderingMode _renderingMode;
 }
 
 static NSCache *sNamedImages;
@@ -138,7 +142,15 @@ static CGFloat UIImageScaleForPath(NSString *path)
 	NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:image];
 	NSImage *nsImage = [[NSImage alloc] initWithSize:NSMakeSize(CGImageGetWidth(image), CGImageGetHeight(image))];
 	[nsImage addRepresentation:rep];
-	return [self initWithNSImage:nsImage scale:scale];
+	if ((self = [self initWithNSImage:nsImage scale:scale]) != nil)
+		_cgImage = CGImageRetain(image);
+	return self;
+}
+
+- (void)dealloc
+{
+	if (_cgImage != NULL)
+		CGImageRelease(_cgImage);
 }
 
 - (NSImage *)nsImage
@@ -162,8 +174,14 @@ static CGFloat UIImageScaleForPath(NSString *path)
 	return 0;
 }
 
+/* The pixels themselves, as on iOS, not the image drawn at its point size. */
 - (CGImageRef)CGImage
 {
+	if (_cgImage != NULL)
+		return _cgImage;
+	for (NSImageRep *rep in [_image representations])
+		if ([rep isKindOfClass:[NSBitmapImageRep class]] && [(NSBitmapImageRep *)rep CGImage] != NULL)
+			return [(NSBitmapImageRep *)rep CGImage];
 	return [_image CGImageForProposedRect:NULL context:nil hints:nil];
 }
 
@@ -178,9 +196,49 @@ static CGFloat UIImageScaleForPath(NSString *path)
 	return self;
 }
 
-- (UIImage *)imageWithRenderingMode:(NSInteger)renderingMode
+- (UIImageRenderingMode)renderingMode
 {
-	return self;
+	return _renderingMode;
+}
+
+- (UIImage *)imageWithRenderingMode:(UIImageRenderingMode)renderingMode
+{
+	if (renderingMode == _renderingMode)
+		return self;
+	UIImage *image = [[UIImage alloc] initWithNSImage:_image scale:_scale];
+	image->_renderingMode = renderingMode;
+	return image;
+}
+
+- (NSImage *)uikitImageTintedWith:(NSColor *)color
+{
+	CGSize size = [self size];
+	if (size.width <= 0 || size.height <= 0)
+		return nil;
+	NSImage *tinted = [[NSImage alloc] initWithSize:NSMakeSize(size.width, size.height)];
+	[tinted lockFocus];
+	[self drawInRect:CGRectMake(0, 0, size.width, size.height)];
+	[color set];
+	NSRectFillUsingOperation(NSMakeRect(0, 0, size.width, size.height), NSCompositeSourceAtop);
+	[tinted unlockFocus];
+	return tinted;
+}
+
+- (UIImage *)imageWithTintColor:(UIColor *)color
+{
+	return [self imageWithTintColor:color renderingMode:UIImageRenderingModeAlwaysOriginal];
+}
+
+- (UIImage *)imageWithTintColor:(UIColor *)color renderingMode:(UIImageRenderingMode)renderingMode
+{
+	NSImage *tinted = [self uikitImageTintedWith:[color nsColor]];
+	if (tinted == nil)
+		return [self imageWithRenderingMode:renderingMode];
+	/* tinted is already sized in points. */
+	UIImage *image = [[UIImage alloc] initWithNSImage:tinted scale:1];
+	image->_scale = _scale;
+	image->_renderingMode = renderingMode;
+	return image;
 }
 
 - (NSInteger)leftCapWidth

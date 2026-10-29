@@ -122,6 +122,53 @@
 /* iOS 7's grouped table background and system tint. */
 + (UIColor *)groupTableViewBackgroundColor { return [self colorWithRed:0.937 green:0.937 blue:0.957 alpha:1]; }
 + (UIColor *)systemBlueColor { return [self colorWithRed:0 green:0.478 blue:1 alpha:1]; }
+
+/* iOS 13's semantic and system colors, in their light appearance. */
++ (UIColor *)labelColor { return [self blackColor]; }
++ (UIColor *)secondaryLabelColor { return [self colorWithRed:0.235 green:0.235 blue:0.263 alpha:0.6]; }
++ (UIColor *)tertiaryLabelColor { return [self colorWithRed:0.235 green:0.235 blue:0.263 alpha:0.3]; }
++ (UIColor *)quaternaryLabelColor { return [self colorWithRed:0.235 green:0.235 blue:0.263 alpha:0.18]; }
++ (UIColor *)placeholderTextColor { return [self tertiaryLabelColor]; }
++ (UIColor *)linkColor { return [self systemBlueColor]; }
++ (UIColor *)separatorColor { return [self colorWithRed:0.235 green:0.235 blue:0.263 alpha:0.29]; }
++ (UIColor *)opaqueSeparatorColor { return [self colorWithRed:0.776 green:0.776 blue:0.784 alpha:1]; }
++ (UIColor *)systemBackgroundColor { return [self whiteColor]; }
++ (UIColor *)secondarySystemBackgroundColor { return [self colorWithRed:0.949 green:0.949 blue:0.969 alpha:1]; }
++ (UIColor *)tertiarySystemBackgroundColor { return [self whiteColor]; }
++ (UIColor *)systemGroupedBackgroundColor { return [self colorWithRed:0.949 green:0.949 blue:0.969 alpha:1]; }
++ (UIColor *)secondarySystemGroupedBackgroundColor { return [self whiteColor]; }
++ (UIColor *)tertiarySystemGroupedBackgroundColor { return [self colorWithRed:0.949 green:0.949 blue:0.969 alpha:1]; }
++ (UIColor *)systemFillColor { return [self colorWithRed:0.471 green:0.471 blue:0.502 alpha:0.2]; }
++ (UIColor *)secondarySystemFillColor { return [self colorWithRed:0.471 green:0.471 blue:0.502 alpha:0.16]; }
++ (UIColor *)tertiarySystemFillColor { return [self colorWithRed:0.463 green:0.463 blue:0.502 alpha:0.12]; }
++ (UIColor *)quaternarySystemFillColor { return [self colorWithRed:0.455 green:0.455 blue:0.502 alpha:0.08]; }
++ (UIColor *)systemRedColor { return [self colorWithRed:1 green:0.231 blue:0.188 alpha:1]; }
++ (UIColor *)systemGreenColor { return [self colorWithRed:0.204 green:0.78 blue:0.349 alpha:1]; }
++ (UIColor *)systemOrangeColor { return [self colorWithRed:1 green:0.584 blue:0 alpha:1]; }
++ (UIColor *)systemYellowColor { return [self colorWithRed:1 green:0.8 blue:0 alpha:1]; }
++ (UIColor *)systemPinkColor { return [self colorWithRed:1 green:0.176 blue:0.333 alpha:1]; }
++ (UIColor *)systemPurpleColor { return [self colorWithRed:0.686 green:0.322 blue:0.871 alpha:1]; }
++ (UIColor *)systemTealColor { return [self colorWithRed:0.353 green:0.784 blue:0.98 alpha:1]; }
++ (UIColor *)systemIndigoColor { return [self colorWithRed:0.345 green:0.337 blue:0.839 alpha:1]; }
++ (UIColor *)systemGrayColor { return [self colorWithRed:0.557 green:0.557 blue:0.576 alpha:1]; }
++ (UIColor *)systemGray2Color { return [self colorWithRed:0.682 green:0.682 blue:0.698 alpha:1]; }
++ (UIColor *)systemGray3Color { return [self colorWithRed:0.78 green:0.78 blue:0.8 alpha:1]; }
++ (UIColor *)systemGray4Color { return [self colorWithRed:0.82 green:0.82 blue:0.839 alpha:1]; }
++ (UIColor *)systemGray5Color { return [self colorWithRed:0.898 green:0.898 blue:0.918 alpha:1]; }
++ (UIColor *)systemGray6Color { return [self colorWithRed:0.949 green:0.949 blue:0.969 alpha:1]; }
+
+/* A dynamic color is its light appearance: there is no dark mode here. */
++ (UIColor *)colorWithDynamicProvider:(UIColor *(^)(id traitCollection))provider
+{
+	return provider != nil ? provider(nil) ?: [self clearColor] : [self clearColor];
+}
+
+- (instancetype)initWithDynamicProvider:(UIColor *(^)(id traitCollection))provider
+{
+	return [[self class] colorWithDynamicProvider:provider];
+}
+
+- (UIColor *)resolvedColorWithTraitCollection:(id)traitCollection { return self; }
 + (UIColor *)pinStripeColor { return [self groupTableViewBackgroundColor]; }
 + (UIColor *)tableCellBlueTextColor { return [self colorWithRed:0.22 green:0.33 blue:0.53 alpha:1]; }
 + (UIColor *)viewFlipsideBackgroundColor { return [self colorWithWhite:0.12 alpha:1]; }

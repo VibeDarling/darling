@@ -26,20 +26,38 @@ typedef NS_ENUM(NSInteger, UITouchPhase) {
 	UITouchPhaseCancelled
 };
 
+typedef NS_ENUM(NSInteger, UITouchType) {
+	UITouchTypeDirect,
+	UITouchTypeIndirect,
+	UITouchTypePencil,
+	UITouchTypeIndirectPointer
+};
+
 /*
- * Darling's displays have a pointer, not a touch screen: the primary mouse
- * button is the one finger, so there is never more than one touch.
+ * A finger on the touch screen, or the primary mouse button, which is one
+ * finger. Touch screens come from the windowing backend through AppKit's
+ * direct touches (see AppKit's NSTouch.h).
  */
 @interface UITouch : NSObject
 
 @property (nonatomic, readonly) UITouchPhase phase;
 @property (nonatomic, readonly) NSUInteger tapCount;
 @property (nonatomic, readonly) NSTimeInterval timestamp;
+@property (nonatomic, readonly) UITouchType type;
 @property (nonatomic, readonly, strong) UIView *view;
 @property (nonatomic, readonly, strong) UIWindow *window;
+@property (nonatomic, readonly, copy) NSArray *gestureRecognizers;
+/* No pressure or contact size is reported: these are a finger's typical values. */
+@property (nonatomic, readonly) CGFloat majorRadius;
+@property (nonatomic, readonly) CGFloat majorRadiusTolerance;
+@property (nonatomic, readonly) CGFloat force;
+@property (nonatomic, readonly) CGFloat maximumPossibleForce;
+@property (nonatomic, readonly) CGFloat altitudeAngle;
 
 - (CGPoint)locationInView:(UIView *)view;
 - (CGPoint)previousLocationInView:(UIView *)view;
+- (CGPoint)preciseLocationInView:(UIView *)view;
+- (CGPoint)precisePreviousLocationInView:(UIView *)view;
 
 @end
 

@@ -283,10 +283,11 @@ NSString *const UIDeviceOrientationDidChangeNotification = @"UIDeviceOrientation
 	return @"iOS";
 }
 
-/* The release Darling's UIKit and WebKit (WebKit 605/608) correspond to. */
+/* Darling Pocket targets iOS 14 on arm64: the iOS Support version Darling's
+   SystemVersion.plist gives for macOS 11, and what its iOS binaries are built for. */
 - (NSString *)systemVersion
 {
-	return @"13.7";
+	return @"14.0";
 }
 
 - (UIUserInterfaceIdiom)userInterfaceIdiom
@@ -384,45 +385,228 @@ NSString *const UIDeviceOrientationDidChangeNotification = @"UIDeviceOrientation
 
 #pragma mark - UIPasteboard
 
+NSString *const UIPasteboardNameGeneral = @"com.apple.UIKit.pboard.general";
+NSString *const UIPasteboardNameFind = @"com.apple.UIKit.pboard.find";
+
+#define UIKitPasteboardStringType @"public.utf8-plain-text"
+#define UIKitPasteboardURLType @"public.url"
+#define UIKitPasteboardImageType @"public.png"
+#define UIKitPasteboardColorType @"com.apple.uikit.color"
+
+static NSMutableDictionary<NSString *, UIPasteboard *> *sPasteboards;
+
 @implementation UIPasteboard {
-	NSString *_string;
+	NSString *_name;
+	NSMutableArray<NSDictionary *> *_items;
+	NSInteger _changeCount;
+	BOOL _persistent;
+}
+
+- (instancetype)initWithUIKitName:(NSString *)name
+{
+	if ((self = [super init])) {
+		_name = [name copy];
+		_items = [NSMutableArray array];
+	}
+	return self;
+}
+
++ (UIPasteboard *)pasteboardWithName:(NSString *)name create:(BOOL)create
+{
+	@synchronized ([UIPasteboard class]) {
+		if (sPasteboards == nil)
+			sPasteboards = [NSMutableDictionary dictionary];
+		UIPasteboard *pasteboard = [sPasteboards objectForKey:name];
+		if (pasteboard == nil && create && name != nil) {
+			pasteboard = [[UIPasteboard alloc] initWithUIKitName:name];
+			[sPasteboards setObject:pasteboard forKey:name];
+		}
+		return pasteboard;
+	}
 }
 
 + (UIPasteboard *)generalPasteboard
 {
-	static UIPasteboard *pasteboard;
-	static dispatch_once_t once;
-	dispatch_once(&once, ^{
-		pasteboard = [[UIPasteboard alloc] init];
-	});
-	return pasteboard;
+	return [self pasteboardWithName:UIPasteboardNameGeneral create:YES];
 }
 
-- (NSString *)string
++ (UIPasteboard *)pasteboardWithUniqueName
 {
-	return _string;
+	return [self pasteboardWithName:[[NSUUID UUID] UUIDString] create:YES];
 }
 
-- (void)setString:(NSString *)string
++ (void)removePasteboardWithName:(NSString *)name
 {
-	_string = [string copy];
+	@synchronized ([UIPasteboard class]) {
+		[sPasteboards removeObjectForKey:name];
+	}
 }
 
-- (NSURL *)URL
+- (NSString *)name { return _name; }
+- (BOOL)isPersistent { return _persistent; }
+- (void)setPersistent:(BOOL)persistent { _persistent = persistent; }
+- (NSInteger)changeCount { return _changeCount; }
+- (NSInteger)numberOfItems { return [_items count]; }
+- (NSArray *)items { return [_items copy]; }
+
+- (void)uikitChanged
 {
-	return _string != nil ? [NSURL URLWithString:_string] : nil;
+	_changeCount++;
+	[[NSNotificationCenter defaultCenter] postNotificationName:UIPasteboardChangedNotification object:self];
 }
 
-- (void)setURL:(NSURL *)URL
+- (void)setItems:(NSArray *)items
 {
-	_string = [URL absoluteString];
+	[_items setArray:items ?: @[]];
+	[self uikitChanged];
+}
+
+- (void)setItems:(NSArray *)items options:(NSDictionary *)options { [self setItems:items]; }
+
+- (void)addItems:(NSArray *)items
+{
+	[_items addObjectsFromArray:items ?: @[]];
+	[self uikitChanged];
+}
+
+- (NSIndexSet *)uikitAll
+{
+	return [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, [_items count])];
+}
+
+- (NSArray *)pasteboardTypesForItemSet:(NSIndexSet *)itemSet
+{
+	NSMutableArray *types = [NSMutableArray array];
+	[(itemSet ?: [self uikitAll]) enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
+		if (index < [self->_items count])
+			[types addObject:[[self->_items objectAtIndex:index] allKeys]];
+	}];
+	return types;
+}
+
+- (NSArray *)pasteboardTypes
+{
+	return [_items count] > 0 ? [[_items firstObject] allKeys] : @[];
+}
+
+- (NSIndexSet *)itemSetWithPasteboardTypes:(NSArray *)types
+{
+	NSMutableIndexSet *set = [NSMutableIndexSet indexSet];
+	[_items enumerateObjectsUsingBlock:^(NSDictionary *item, NSUInteger index, BOOL *stop) {
+		for (NSString *type in types)
+			if ([item objectForKey:type] != nil) {
+				[set addIndex:index];
+				break;
+			}
+	}];
+	return [set count] > 0 ? set : nil;
+}
+
+- (BOOL)containsPasteboardTypes:(NSArray *)types inItemSet:(NSIndexSet *)itemSet
+{
+	__block BOOL found = NO;
+	[(itemSet ?: [self uikitAll]) enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
+		if (index >= [self->_items count])
+			return;
+		NSDictionary *item = [self->_items objectAtIndex:index];
+		for (NSString *type in types)
+			if ([item objectForKey:type] != nil) {
+				found = YES;
+				*stop = YES;
+				return;
+			}
+	}];
+	return found;
+}
+
+- (BOOL)containsPasteboardTypes:(NSArray *)types
+{
+	return [self containsPasteboardTypes:types inItemSet:[_items count] > 0 ? [NSIndexSet indexSetWithIndex:0] : nil];
+}
+
+- (NSArray *)valuesForPasteboardType:(NSString *)type inItemSet:(NSIndexSet *)itemSet
+{
+	NSMutableArray *values = [NSMutableArray array];
+	[(itemSet ?: [self uikitAll]) enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
+		id value = index < [self->_items count] ? [[self->_items objectAtIndex:index] objectForKey:type] : nil;
+		if (value != nil)
+			[values addObject:value];
+	}];
+	return values;
+}
+
+- (NSArray *)dataForPasteboardType:(NSString *)type inItemSet:(NSIndexSet *)itemSet
+{
+	NSMutableArray *data = [NSMutableArray array];
+	for (id value in [self valuesForPasteboardType:type inItemSet:itemSet]) {
+		if ([value isKindOfClass:[NSData class]])
+			[data addObject:value];
+		else if ([value isKindOfClass:[NSString class]])
+			[data addObject:[value dataUsingEncoding:NSUTF8StringEncoding]];
+	}
+	return data;
+}
+
+- (id)valueForPasteboardType:(NSString *)type
+{
+	return [_items count] > 0 ? [[_items firstObject] objectForKey:type] : nil;
+}
+
+- (NSData *)dataForPasteboardType:(NSString *)type
+{
+	return [[self dataForPasteboardType:type inItemSet:[_items count] > 0 ? [NSIndexSet indexSetWithIndex:0] : nil] firstObject];
 }
 
 - (void)setValue:(id)value forPasteboardType:(NSString *)type
 {
-	if ([value isKindOfClass:[NSString class]])
-		_string = [value copy];
+	[self setItems:value != nil && type != nil ? @[ @{ type: value } ] : @[]];
 }
+
+- (void)setData:(NSData *)data forPasteboardType:(NSString *)type
+{
+	[self setValue:data forPasteboardType:type];
+}
+
+/* One type's values across all items, and setting them one item each. */
+- (NSArray *)uikitValuesOfType:(NSString *)type
+{
+	return [self valuesForPasteboardType:type inItemSet:nil];
+}
+
+- (void)uikitSetValues:(NSArray *)values ofType:(NSString *)type
+{
+	NSMutableArray *items = [NSMutableArray array];
+	for (id value in values)
+		[items addObject:@{ type: value }];
+	[self setItems:items];
+}
+
+- (NSString *)string { return [[self uikitValuesOfType:UIKitPasteboardStringType] firstObject]; }
+- (void)setString:(NSString *)string { [self uikitSetValues:string != nil ? @[ [string copy] ] : @[] ofType:UIKitPasteboardStringType]; }
+- (NSArray *)strings { return [self uikitValuesOfType:UIKitPasteboardStringType]; }
+- (void)setStrings:(NSArray *)strings { [self uikitSetValues:strings ofType:UIKitPasteboardStringType]; }
+
+- (NSURL *)URL
+{
+	id value = [[self uikitValuesOfType:UIKitPasteboardURLType] firstObject];
+	return [value isKindOfClass:[NSString class]] ? [NSURL URLWithString:value] : value;
+}
+
+- (void)setURL:(NSURL *)URL { [self uikitSetValues:URL != nil ? @[ URL ] : @[] ofType:UIKitPasteboardURLType]; }
+- (NSArray *)URLs { return [self uikitValuesOfType:UIKitPasteboardURLType]; }
+- (void)setURLs:(NSArray *)URLs { [self uikitSetValues:URLs ofType:UIKitPasteboardURLType]; }
+- (UIImage *)image { return [[self uikitValuesOfType:UIKitPasteboardImageType] firstObject]; }
+- (void)setImage:(UIImage *)image { [self uikitSetValues:image != nil ? @[ image ] : @[] ofType:UIKitPasteboardImageType]; }
+- (NSArray *)images { return [self uikitValuesOfType:UIKitPasteboardImageType]; }
+- (void)setImages:(NSArray *)images { [self uikitSetValues:images ofType:UIKitPasteboardImageType]; }
+- (UIColor *)color { return [[self uikitValuesOfType:UIKitPasteboardColorType] firstObject]; }
+- (void)setColor:(UIColor *)color { [self uikitSetValues:color != nil ? @[ color ] : @[] ofType:UIKitPasteboardColorType]; }
+- (NSArray *)colors { return [self uikitValuesOfType:UIKitPasteboardColorType]; }
+- (void)setColors:(NSArray *)colors { [self uikitSetValues:colors ofType:UIKitPasteboardColorType]; }
+- (BOOL)hasStrings { return [self containsPasteboardTypes:@[ UIKitPasteboardStringType, @"public.text" ] inItemSet:nil]; }
+- (BOOL)hasURLs { return [self containsPasteboardTypes:@[ UIKitPasteboardURLType ] inItemSet:nil]; }
+- (BOOL)hasImages { return [self containsPasteboardTypes:@[ UIKitPasteboardImageType, @"public.jpeg", @"public.tiff" ] inItemSet:nil]; }
+- (BOOL)hasColors { return [self containsPasteboardTypes:@[ UIKitPasteboardColorType ] inItemSet:nil]; }
 
 @end
 

@@ -19,6 +19,8 @@
 #import "UIKitPrivate.h"
 
 @implementation UIViewController {
+	NSString *_nibName;
+	NSBundle *_nibBundle;
 	UINavigationItem *_navigationItem;
 	UITabBarItem *_tabBarItem;
 	__weak UIViewController *_parent;
@@ -41,10 +43,24 @@
 @synthesize preferredContentSize = _preferredContentSize;
 @synthesize toolbarItems = _toolbarItems;
 
+/* As on iOS, -init is -initWithNibName:nil bundle:nil, so subclasses can
+ * override either and call the other's super. */
+- (instancetype)init
+{
+	return [self initWithNibName:nil bundle:nil];
+}
+
 - (instancetype)initWithNibName:(NSString *)nibName bundle:(NSBundle *)bundle
 {
-	return [self init];
+	if ((self = [super init])) {
+		_nibName = [nibName copy];
+		_nibBundle = bundle;
+	}
+	return self;
 }
+
+- (NSString *)nibName { return _nibName; }
+- (NSBundle *)nibBundle { return _nibBundle; }
 
 - (UIView *)view
 {
@@ -322,9 +338,17 @@
 	return _editButtonItem;
 }
 
+- (void)setToolbarItems:(NSArray *)items
+{
+	[self setToolbarItems:items animated:NO];
+}
+
 - (void)setToolbarItems:(NSArray *)items animated:(BOOL)animated
 {
 	_toolbarItems = [items copy];
+	UINavigationController *navigationController = [self navigationController];
+	if ([navigationController topViewController] == self)
+		[navigationController uikitToolbarItemsChanged];
 }
 
 #pragma mark Orientation

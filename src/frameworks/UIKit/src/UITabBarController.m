@@ -113,16 +113,7 @@ static NSRect UIKitBadgeRect(NSRect cell, CGFloat width)
 /* The image's shape filled with a color, as iOS draws template images. */
 static NSImage *UIKitTintedImage(UIImage *image, NSColor *color)
 {
-	CGSize size = [image size];
-	if (size.width <= 0 || size.height <= 0)
-		return nil;
-	NSImage *tinted = [[NSImage alloc] initWithSize:NSMakeSize(size.width, size.height)];
-	[tinted lockFocus];
-	[image drawInRect:CGRectMake(0, 0, size.width, size.height)];
-	[color set];
-	NSRectFillUsingOperation(NSMakeRect(0, 0, size.width, size.height), NSCompositeSourceAtop);
-	[tinted unlockFocus];
-	return tinted;
+	return [image uikitImageTintedWith:color];
 }
 
 @implementation UITabBar {
@@ -334,9 +325,9 @@ static NSImage *UIKitTintedImage(UIImage *image, NSColor *color)
 @synthesize delegate = _delegate;
 @synthesize customizableViewControllers = _customizableViewControllers;
 
-- (instancetype)init
+- (instancetype)initWithNibName:(NSString *)nibName bundle:(NSBundle *)bundle
 {
-	if ((self = [super init])) {
+	if ((self = [super initWithNibName:nibName bundle:bundle])) {
 		_tabBar = [[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 320, UIKitTabBarHeight)];
 		[_tabBar setDelegate:self];
 		_viewControllers = @[];

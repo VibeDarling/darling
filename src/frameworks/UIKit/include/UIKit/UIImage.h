@@ -21,6 +21,14 @@
 #import <UIKit/UIGeometry.h>
 
 @class NSData;
+@class UIColor;
+
+/* Template images draw as their shape filled with the view's tint color. */
+typedef NS_ENUM(NSInteger, UIImageRenderingMode) {
+	UIImageRenderingModeAutomatic,
+	UIImageRenderingModeAlwaysOriginal,
+	UIImageRenderingModeAlwaysTemplate,
+};
 
 /* Backed by an AppKit image, which reads the formats Darling's AppKit can. */
 @interface UIImage : NSObject
@@ -42,6 +50,12 @@
 @property (nonatomic, readonly) CGImageRef CGImage;
 @property (nonatomic, readonly) NSInteger leftCapWidth;
 @property (nonatomic, readonly) NSInteger topCapHeight;
+@property (nonatomic, readonly) UIImageRenderingMode renderingMode;
+
+- (UIImage *)imageWithRenderingMode:(UIImageRenderingMode)renderingMode;
+/* The image's shape filled with color, as an original image. */
+- (UIImage *)imageWithTintColor:(UIColor *)color;
+- (UIImage *)imageWithTintColor:(UIColor *)color renderingMode:(UIImageRenderingMode)renderingMode;
 
 /* Cap insets are not honored: the image stretches as a whole. */
 - (UIImage *)stretchableImageWithLeftCapWidth:(NSInteger)leftCapWidth topCapHeight:(NSInteger)topCapHeight;

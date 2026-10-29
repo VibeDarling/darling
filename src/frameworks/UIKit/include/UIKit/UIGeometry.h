@@ -14,6 +14,9 @@
 
 #import <Foundation/NSObjCRuntime.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGAffineTransform.h>
+
+@class NSString;
 
 typedef struct UIEdgeInsets {
 	CGFloat top, left, bottom, right;
@@ -34,7 +37,47 @@ static inline CGRect UIEdgeInsetsInsetRect(CGRect rect, UIEdgeInsets insets)
 	return rect;
 }
 
-static const UIEdgeInsets UIEdgeInsetsZero = { 0, 0, 0, 0 };
+extern const UIEdgeInsets UIEdgeInsetsZero;
+
+typedef struct UIOffset {
+	CGFloat horizontal, vertical;
+} UIOffset;
+
+static inline UIOffset UIOffsetMake(CGFloat horizontal, CGFloat vertical)
+{
+	UIOffset offset = { horizontal, vertical };
+	return offset;
+}
+
+static inline BOOL UIOffsetEqualToOffset(UIOffset a, UIOffset b)
+{
+	return a.horizontal == b.horizontal && a.vertical == b.vertical;
+}
+
+extern const UIOffset UIOffsetZero;
+
+static inline BOOL UIEdgeInsetsEqualToEdgeInsets(UIEdgeInsets a, UIEdgeInsets b)
+{
+	return a.top == b.top && a.left == b.left && a.bottom == b.bottom && a.right == b.right;
+}
+
+/* As on iOS: "{x, y}", "{{x, y}, {w, h}}", "{top, left, bottom, right}". */
+#ifdef __cplusplus
+extern "C" {
+#endif
+NSString *NSStringFromCGPoint(CGPoint point);
+NSString *NSStringFromCGSize(CGSize size);
+NSString *NSStringFromCGRect(CGRect rect);
+NSString *NSStringFromCGAffineTransform(CGAffineTransform transform);
+NSString *NSStringFromUIEdgeInsets(UIEdgeInsets insets);
+CGPoint CGPointFromString(NSString *string);
+CGSize CGSizeFromString(NSString *string);
+CGRect CGRectFromString(NSString *string);
+CGAffineTransform CGAffineTransformFromString(NSString *string);
+UIEdgeInsets UIEdgeInsetsFromString(NSString *string);
+#ifdef __cplusplus
+}
+#endif
 
 typedef NS_ENUM(NSInteger, UIInterfaceOrientation) {
 	UIInterfaceOrientationUnknown = 0,

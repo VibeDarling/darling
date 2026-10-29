@@ -54,6 +54,11 @@ static const CGFloat UIKitDragThreshold = 6;
 
 @synthesize delegate = _delegate;
 @synthesize scrollIndicatorInsets = _scrollIndicatorInsets;
+@synthesize contentInsetAdjustmentBehavior = _contentInsetAdjustmentBehavior;
+
+/* Nothing (no status or navigation bar overlap) adds to the content inset here. */
+- (UIEdgeInsets)adjustedContentInset { return [self contentInset]; }
+- (void)adjustedContentInsetDidChange { }
 @synthesize pagingEnabled = _pagingEnabled;
 @synthesize directionalLockEnabled = _directionalLockEnabled;
 @synthesize bounces = _bounces;

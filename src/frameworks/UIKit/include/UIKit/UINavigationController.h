@@ -60,6 +60,8 @@
 - (UINavigationItem *)popNavigationItemAnimated:(BOOL)animated;
 @end
 
+@class UIToolbar;
+
 @protocol UINavigationControllerDelegate <NSObject>
 @optional
 - (void)navigationController:(UINavigationController *)navigationController willShowViewController:(UIViewController *)viewController animated:(BOOL)animated;
@@ -74,6 +76,7 @@
 @property (nonatomic, readonly) UINavigationBar *navigationBar;
 @property (nonatomic, getter=isNavigationBarHidden) BOOL navigationBarHidden;
 @property (nonatomic, getter=isToolbarHidden) BOOL toolbarHidden;
+@property (nonatomic, readonly) UIToolbar *toolbar;
 @property (nonatomic, weak) id<UINavigationControllerDelegate> delegate;
 - (void)setViewControllers:(NSArray *)viewControllers animated:(BOOL)animated;
 - (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated;
