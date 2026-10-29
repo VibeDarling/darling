@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 static const char* _darling_get_shm_dir(void) {
+	// A host directory: TMPDIR may be the guest's.
+	const char* dir = getenv("DARLING_SHM_DIR");
+	if (dir && dir[0]) return dir;
 	const char* tmp = getenv("TMPDIR");
 	if (tmp && tmp[0]) return tmp;
 	const char* pfx = getenv("TERMUX_PREFIX");

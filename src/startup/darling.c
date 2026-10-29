@@ -277,6 +277,17 @@ static const char* getInstallPrefix(void)
 
 #include "container-shutdown.h"
 
+// An Android app may exec only what it ships in its native library directory,
+// so the host programs can live outside the install prefix.
+static void hostProgramPath(char* out, size_t size, const char* env, const char* relative)
+{
+	const char* path = getenvTrusted(env);
+	if (path && path[0])
+		snprintf(out, size, "%s", path);
+	else
+		snprintf(out, size, "%s/%s", getInstallPrefix(), relative);
+}
+
 // Nonroot shellspawn is launched separately from darlingserver. Pin its
 // recorded host PID and verify its uid and exact prefix socket environment.
 static pid_t shellspawnPeer(int *handle)
@@ -368,7 +379,7 @@ static int stopPrefixOrphans(pid_t *liveServer)
 {
 	const char* instPrefix = getInstallPrefix();
 	char launchdMldr[4096], guestMldr[4096], resolved[2][PATH_MAX];
-	snprintf(launchdMldr, sizeof(launchdMldr), "%s/libexec/darling/bin/mldr", instPrefix);
+	hostProgramPath(launchdMldr, sizeof(launchdMldr), "DARLING_MLDR_PATH", "libexec/darling/bin/mldr");
 	snprintf(guestMldr, sizeof(guestMldr), "%s/libexec/darling/usr/libexec/darling/mldr", instPrefix);
 	useOriginalIds();
 	// /proc/<pid>/exe is canonical, so compare against the canonical install paths.
@@ -422,7 +433,7 @@ static void spawnShellspawn(void)
 		char vchrootArg0[4096];
 		snprintf(vchrootArg0, sizeof(vchrootArg0), "mldr!%s/libexec/darling/usr/libexec/darling/vchroot", instPrefix);
 		char mldrBin[4096];
-		snprintf(mldrBin, sizeof(mldrBin), "%s/libexec/darling/bin/mldr", instPrefix);
+		hostProgramPath(mldrBin, sizeof(mldrBin), "DARLING_MLDR_PATH", "libexec/darling/bin/mldr");
 
 		setenv("DARLING_NONROOT", "1", 1);
 		setenv("__mldr_sockpath", dserverSock, 1);
@@ -3304,7 +3315,7 @@ pid_t spawnInitProcess(void)
 
 		const char* instPrefix = getInstallPrefix();
 		char dserverBin[4096];
-		snprintf(dserverBin, sizeof(dserverBin), "%s/bin/darlingserver", instPrefix);
+		hostProgramPath(dserverBin, sizeof(dserverBin), "DARLING_SERVER_PATH", "bin/darlingserver");
 		char libexecPath[4096];
 		snprintf(libexecPath, sizeof(libexecPath), "%s/libexec/darling", instPrefix);
 		setenv("DARLING_LIBEXEC_PATH", libexecPath, 1);

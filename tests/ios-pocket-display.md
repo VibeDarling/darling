@@ -9,7 +9,7 @@ top and 32 at the bottom, and shows the app's windows in a framebuffer.
 phone would, and reads pixels back.
 
 ```sh
-gcc -O2 -o pocket-host tools/pocket-host/pocket-host.c -lz
+gcc -O2 -o pocket-host tools/pocket-host/pocket-host.c tools/pocket-host/pocket-server.c -lz -lpthread
 # build ios-pocket-display.m as ios-uikit-classes.m is built, mark it iOS
 DARLING=darling tests/ios-pocket-display.sh ./pocket-host /path/in/prefix/pocket-display out
 ```

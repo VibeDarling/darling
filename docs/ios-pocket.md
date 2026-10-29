@@ -256,30 +256,61 @@ backend next to `X11.backend` and `Wayland.backend`:
     what the app drew, at 2x.
   - FileBrowser runs on it too.
 
-Left for the APK:
+Left (the first two are done in phase 4, not yet run):
 - the host side in the Android app: copy each frame into a `SurfaceView`'s
   `ANativeWindow`, and send `MotionEvent`s and the IME's text;
 - the back button;
 - moving old-SDK apps (FileBrowser) below the status bar, as iOS 7 does
   for apps linked against iOS 6. They draw their bars under the notch now;
-- fontconfig and freetype built with the NDK.
+- fontconfig and freetype built with the NDK (done in phase 4).
+
 The X11 and Wayland ELF wrappers are not built for Android. The X11 backend
 bundle still loads, since its host libraries are opened lazily.
 
 ### 4. darling-pocket APK
 
-- Build `darling` (launcher), `mldr` and `darlingserver` with the NDK. Android
-  forbids exec from app data, so they ship as `lib*.so` in `nativeLibraryDir`,
-  as aosp-pocket does for its loader.
-- The Mach-O runtime (the installed `libexec/darling` tree) is downloaded or
-  extracted into app storage on first start, checksum-pinned.
-- Keep the prefix path short: darlingserver's socket path must fit in
-  `sun_path` (108 bytes); a long prefix fails with "darlingserver socket path is
-  too long".
-- Foreground service to keep the container alive, a manager UI, and IPA import
-  (unzip `Payload/*.app` into the container).
-- First measurement in an APK: darlingserver's cross-process memory calls under
-  the `untrusted_app` SELinux domain.
+**Built, not yet run on a phone.** The app is in its own repository,
+`darling-pocket`, local for now; its README has the details.
+
+- **Host programs:** the launcher, `mldr` and `darlingserver` build with the
+  NDK (`COMPONENTS=core`, libucontext for darlingserver's contexts). They ship
+  as `libdarling.so`, `libmldr.so` and `libdarlingserver.so` in the APK's
+  native library directory, since Android executes nothing else. This tree
+  learned three things for that:
+  - `DARLING_MLDR_PATH` and `DARLING_SERVER_PATH` say where those programs
+    are (the launcher and darlingserver);
+  - darlingserver names itself `darlingserver`, which the launcher checks,
+    whatever its file is called;
+  - on Android, `DARLING_SHM_DIR` names the host directory for shared memory
+    (Android before 11 has no `memfd_create` in libc).
+- **Host libraries:** FreeType, fontconfig, libpng, libjpeg, libtiff and giflib
+  are built with the NDK, under the names the Mach-O wrappers `dlopen()`.
+- **The runtime:** the Mach-O tree (`libexec/darling`) is the arm64 Linux one,
+  packed as a tar.gz (148 MB; 700 MB unpacked, still built at -O0 with debug
+  information).
+  - The APK accepts only the archive whose sha256 it was built with.
+  - On the first start it is unpacked into the app's files, with
+    `private/tmp` pointed at the app's cache. The container is created then.
+- **The display host:** `tools/pocket-host/pocket-server.c` is the Pocket
+  protocol's host side, used by `pocket-host` and the app.
+  - The app composes frames into a `SurfaceView`, sends `MotionEvent`s as
+    touches, and holds the IME while an app edits text.
+  - The status bar, the navigation bar and the cutout are the apps' safe area.
+  - Back sends the screen to the background, as the Home button does.
+- **A foreground service** keeps the display and the running app alive. A
+  manager activity installs the runtime and IPAs.
+- **Tested off the phone:**
+  - `ios-pocket-display` passes 15/15 in the arm64 VM with `pocket-host` on the
+    shared server.
+  - It passes 15/15 again with Darling started as the app starts it: the host
+    programs only in a separate directory under `lib*.so` names, and the
+    install tree's own copies moved away.
+  - The app's tar and IPA installers reproduce the runtime tree and install
+    real IPAs, on a desktop JVM.
+  - `make verify` checks the APK's libraries: arm64, 16 KB pages, only
+    Android's public libraries, and the JNI symbols.
+- **Next:** run it on the Pi's Cuttlefish or a phone. The first measurement is
+  still darlingserver's cross-process memory calls under `untrusted_app`.
 
 ### 5. Breadth
 
