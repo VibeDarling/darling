@@ -76,6 +76,13 @@ extern const CGFloat UIScrollViewDecelerationRateFast;
 - (void)setScrollingEnabled:(BOOL)enabled;
 - (void)setShowBackgroundShadow:(BOOL)show;
 - (void)setOffset:(CGPoint)offset;
+- (void)setFixedBackgroundPattern:(BOOL)fixed;
+- (void)setScrollerIndicatorStyle:(UIScrollViewIndicatorStyle)style;
+- (void)setDirectionalScrolling:(BOOL)directional;
+- (void)setScrollDecelerationFactor:(CGFloat)factor;
+- (void)setScrollHysteresis:(CGFloat)hysteresis;
+- (void)setThumbDetectionEnabled:(BOOL)enabled;
+- (void)setEventMode:(int)mode;
 @end
 
 #endif /* UIKIT_UISCROLLVIEW_H */

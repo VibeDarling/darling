@@ -118,6 +118,9 @@ typedef NS_OPTIONS(NSUInteger, UIViewAutoresizing) {
 @property (nonatomic) NSInteger tag;
 @property (nonatomic) CGPoint center;
 @property (nonatomic) BOOL clipsToBounds;
+/* Private iOS names for frame.origin and clipsToBounds. */
+@property (nonatomic) CGPoint origin;
+@property (nonatomic) BOOL clipsSubviews;
 @property (nonatomic, getter=isOpaque) BOOL opaque;
 @property (nonatomic) UIViewContentMode contentMode;
 @property (nonatomic) CGAffineTransform transform;

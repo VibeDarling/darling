@@ -311,4 +311,13 @@ static CGPoint UIKitTouchInWindow(NSSet *touches)
 - (void)uikitTouchesEnded:(NSSet *)touches withEvent:(UIEvent *)event { }
 - (void)uikitTouchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event { }
 
+/* UIScroller tuning that has no effect here. */
+- (void)setFixedBackgroundPattern:(BOOL)fixed {}
+- (void)setScrollerIndicatorStyle:(UIScrollViewIndicatorStyle)style { [self setIndicatorStyle:style]; }
+- (void)setDirectionalScrolling:(BOOL)directional { [self setDirectionalLockEnabled:directional]; }
+- (void)setScrollDecelerationFactor:(CGFloat)factor {}
+- (void)setScrollHysteresis:(CGFloat)hysteresis {}
+- (void)setThumbDetectionEnabled:(BOOL)enabled {}
+- (void)setEventMode:(int)mode {}
+
 @end

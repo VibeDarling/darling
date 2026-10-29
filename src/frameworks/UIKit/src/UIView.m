@@ -245,6 +245,15 @@ static UITouch *sActiveTouch;
 
 - (BOOL)clipsToBounds { return _uiClipsToBounds; }
 - (void)setClipsToBounds:(BOOL)clips { _uiClipsToBounds = clips; }
+/* Private iOS names for frame.origin and clipsToBounds. */
+- (CGPoint)origin { return [self frame].origin; }
+- (void)setOrigin:(CGPoint)origin
+{
+	[self setFrameOrigin:NSMakePoint(origin.x, origin.y)];
+	[[self superview] setNeedsDisplay:YES];
+}
+- (BOOL)clipsSubviews { return _uiClipsToBounds; }
+- (void)setClipsSubviews:(BOOL)clips { _uiClipsToBounds = clips; }
 - (BOOL)isOpaque { return _uiOpaque && _uiBackgroundColor != nil && [_uiBackgroundColor alphaComponent] >= 1; }
 - (void)setOpaque:(BOOL)opaque { _uiOpaque = opaque; }
 - (UIViewContentMode)contentMode { return _uiContentMode; }

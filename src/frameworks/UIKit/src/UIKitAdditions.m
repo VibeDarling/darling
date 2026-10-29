@@ -425,3 +425,13 @@ NSString *const UIDeviceOrientationDidChangeNotification = @"UIDeviceOrientation
 }
 
 @end
+
+/* Private on iOS; apps such as Cydia call it on any string. */
+@implementation NSString (UIKitURLEscapes)
+
+- (NSString *)stringByAddingPercentEscapes
+{
+	return [self stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+}
+
+@end

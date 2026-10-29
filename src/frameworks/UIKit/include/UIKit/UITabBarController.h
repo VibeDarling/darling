@@ -40,6 +40,8 @@ typedef NS_ENUM(NSInteger, UITabBarSystemItem) {
 @property (nonatomic, strong) UIImage *selectedImage;
 @property (nonatomic, copy) NSString *badgeValue;
 - (void)setAnimatedBadge:(BOOL)animated;
+/* Private: the view behind the tab, whose _badge ivar holds the badge. */
+- (UIView *)view;
 @end
 
 @protocol UITabBarDelegate <NSObject>

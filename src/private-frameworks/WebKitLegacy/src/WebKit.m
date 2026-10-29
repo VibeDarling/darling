@@ -416,8 +416,14 @@ static NSString *const DWKDefaultUserAgent = @"Mozilla/5.0 (iPhone; CPU iPhone O
 	if (signature != nil)
 		return signature;
 	NSString *name = NSStringFromSelector(selector);
-	if ([name hasPrefix:@"set"] || [name hasPrefix:@"_set"])
-		return [NSMethodSignature signatureWithObjCTypes:"v@:@"];
+	if ([name hasPrefix:@"set"] || [name hasPrefix:@"_set"]) {
+		/* One object per argument; the values are thrown away. */
+		NSMutableString *types = [NSMutableString stringWithString:@"v@:"];
+		for (NSUInteger i = 0; i < [name length]; i++)
+			if ([name characterAtIndex:i] == ':')
+				[types appendString:@"@"];
+		return [NSMethodSignature signatureWithObjCTypes:[types UTF8String]];
+	}
 	return nil;
 }
 

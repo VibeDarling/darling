@@ -26,6 +26,18 @@
 #import <objc/message.h>
 #import "UIKitPrivate.h"
 
+/* A signature taking one object per argument of a setter such as
+   setViewportSize:forDocumentTypes:.  The arguments are thrown away, so
+   their real types do not matter. */
+static NSMethodSignature *UIKitSetterSignature(NSString *name)
+{
+	NSMutableString *types = [NSMutableString stringWithString:@"v@:"];
+	for (NSUInteger i = 0; i < [name length]; i++)
+		if ([name characterAtIndex:i] == ':')
+			[types appendString:@"@"];
+	return [NSMethodSignature signatureWithObjCTypes:[types UTF8String]];
+}
+
 /* The many tuning setters apps send these private views do nothing here. */
 #define UIKIT_SWALLOW_SETTERS \
 	- (NSMethodSignature *)methodSignatureForSelector:(SEL)selector \
@@ -35,7 +47,7 @@
 			return signature; \
 		NSString *name = NSStringFromSelector(selector); \
 		if (([name hasPrefix:@"set"] || [name hasPrefix:@"_set"]) && [name hasSuffix:@":"]) \
-			return [NSMethodSignature signatureWithObjCTypes:"v@:@"]; \
+			return UIKitSetterSignature(name); \
 		return nil; \
 	} \
 	- (void)forwardInvocation:(NSInvocation *)invocation \

@@ -24,9 +24,49 @@
 
 static const CGFloat UIKitTabBarHeight = 49;
 
+/* Where an item's badge bubble goes, in its cell. */
+static NSRect UIKitBadgeRect(NSRect cell, CGFloat width)
+{
+	return NSMakeRect(floor(cell.size.width / 2) + 6, 2, MAX(18, width), 18);
+}
+
+/* The view UIKit keeps for each tab, which the tab bar draws itself.  Apps
+   reach for it with -[UITabBarItem view] and its _badge ivar, as Cydia
+   does to put a spinner in the badge. */
+@interface UITabBarButton : UIView {
+	UIView *_badge;
+}
+@end
+
+@implementation UITabBarButton
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	if ((self = [super initWithFrame:frame])) {
+		_badge = [[UIView alloc] initWithFrame:UIKitBadgeRect(frame, 0)];
+		[self addSubview:_badge];
+	}
+	return self;
+}
+
+- (void)setFrameSize:(NSSize)size
+{
+	[super setFrameSize:size];
+	[_badge setFrame:UIKitBadgeRect(NSMakeRect(0, 0, size.width, size.height), 0)];
+}
+
+/* Touches go to the tab bar. */
+- (NSView *)hitTest:(NSPoint)point
+{
+	return nil;
+}
+
+@end
+
 @implementation UITabBarItem {
 	UIImage *_selectedImage;
 	NSString *_badgeValue;
+	UITabBarButton *_view;
 }
 
 - (instancetype)initWithTitle:(NSString *)title image:(UIImage *)image tag:(NSInteger)tag
@@ -61,7 +101,12 @@ static const CGFloat UIKitTabBarHeight = 49;
 - (NSString *)badgeValue { return _badgeValue; }
 - (void)setBadgeValue:(NSString *)value { _badgeValue = [value copy]; [[NSNotificationCenter defaultCenter] postNotificationName:UIKitBarItemDidChangeNotification object:self]; }
 - (void)setAnimatedBadge:(BOOL)animated { }
-- (UIView *)view { return nil; }
+- (UIView *)view
+{
+	if (_view == nil)
+		_view = [[UITabBarButton alloc] initWithFrame:CGRectMake(0, 0, 64, UIKitTabBarHeight)];
+	return _view;
+}
 
 @end
 
@@ -121,7 +166,14 @@ static NSImage *UIKitTintedImage(UIImage *image, NSColor *color)
 
 - (void)setItems:(NSArray *)items
 {
+	for (UITabBarItem *item in _items)
+		if (![items containsObject:item] && [[item view] superview] == self)
+			[[item view] removeFromSuperview];
 	_items = [items copy];
+	for (UITabBarItem *item in _items)
+		if ([[item view] superview] != self)
+			[self addSubview:[item view]];
+	[self layoutSubviews];
 	[_tintCache removeAllObjects];
 	if (_selectedItem != nil && ![_items containsObject:_selectedItem])
 		_selectedItem = nil;
@@ -129,6 +181,14 @@ static NSImage *UIKitTintedImage(UIImage *image, NSColor *color)
 }
 
 - (void)setItems:(NSArray *)items animated:(BOOL)animated { [self setItems:items]; }
+
+- (void)layoutSubviews
+{
+	[super layoutSubviews];
+	[_items enumerateObjectsUsingBlock:^(UITabBarItem *item, NSUInteger index, BOOL *stop) {
+		[[item view] setFrame:[self rectForItemAtIndex:index]];
+	}];
+}
 - (UITabBarItem *)selectedItem { return _selectedItem; }
 - (void)setSelectedItem:(UITabBarItem *)item { _selectedItem = item; [self setNeedsDisplay:YES]; }
 
@@ -190,14 +250,16 @@ static NSImage *UIKitTintedImage(UIImage *image, NSColor *color)
 			NSSize size = [title sizeWithAttributes:attributes];
 			[title drawAtPoint:NSMakePoint(floor(NSMidX(cell) - size.width / 2), cell.size.height - size.height - 2) withAttributes:attributes];
 		}
+		/* An empty badge is a bare bubble, as on iOS. */
 		NSString *badge = [item badgeValue];
-		if ([badge length] > 0) {
+		if (badge != nil) {
 			NSDictionary *attributes = @{
 				NSFontAttributeName: [NSFont systemFontOfSize:12],
 				NSForegroundColorAttributeName: [NSColor whiteColor],
 			};
 			NSSize size = [badge sizeWithAttributes:attributes];
-			NSRect bubble = NSMakeRect(NSMidX(cell) + 6, 2, MAX(18, size.width + 10), 18);
+			NSRect bubble = UIKitBadgeRect(cell, size.width + 10);
+			bubble.origin.x += cell.origin.x;
 			[[NSColor colorWithCalibratedRed:1 green:0.23 blue:0.19 alpha:1] setFill];
 			[[NSBezierPath bezierPathWithRoundedRect:bubble xRadius:9 yRadius:9] fill];
 			[badge drawAtPoint:NSMakePoint(NSMidX(bubble) - size.width / 2, NSMidY(bubble) - size.height / 2) withAttributes:attributes];
