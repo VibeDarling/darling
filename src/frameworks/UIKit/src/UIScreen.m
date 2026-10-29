@@ -20,7 +20,8 @@
  * On a phone the host shell says what screen apps are shown on, rather
  * than the desktop's: DARLING_UISCREEN="390x844@3" (points, then the
  * scale), and DARLING_UISAFEAREA="47,0,34,0" (the points a notch or a home
- * indicator covers at the top, left, bottom and right).
+ * indicator covers at the top, left, bottom and right). Without them, a
+ * phone host's display backend (Pocket) gives AppKit's screen all of this.
  */
 static BOOL sHostScreenRead;
 static CGSize sHostScreenSize;
@@ -40,8 +41,13 @@ static void UIKitReadHostScreen(void)
 	}
 	const char *safeArea = getenv("DARLING_UISAFEAREA");
 	double top = 0, left = 0, bottom = 0, right = 0;
-	if (safeArea != NULL && sscanf(safeArea, "%lf,%lf,%lf,%lf", &top, &left, &bottom, &right) == 4)
+	if (safeArea != NULL && sscanf(safeArea, "%lf,%lf,%lf,%lf", &top, &left, &bottom, &right) == 4) {
 		sHostSafeArea = UIEdgeInsetsMake(MAX(top, 0), MAX(left, 0), MAX(bottom, 0), MAX(right, 0));
+	} else if (sHostScreenSize.width == 0) {
+		/* A phone host's display backend knows its screen's edges. */
+		NSEdgeInsets insets = [[NSScreen mainScreen] safeAreaInsets];
+		sHostSafeArea = UIEdgeInsetsMake(insets.top, insets.left, insets.bottom, insets.right);
+	}
 }
 
 UIEdgeInsets UIKitHostSafeAreaInsets(void)

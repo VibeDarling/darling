@@ -222,17 +222,49 @@ calling process (`tests/ios-board-services.m` covers all three):
 
 ### 3. Android display backend
 
-A third Cocotron backend next to `X11.backend` and `Wayland.backend`:
+**Done on Linux; the Android side of it is phase 4.** AppKit has a third
+backend next to `X11.backend` and `Wayland.backend`:
+`src/external/cocotron/AppKit/Pocket.backend`. AppKit picks it when
+`DARLING_POCKET_DISPLAY` names a phone host's socket.
 
-- One fullscreen surface per UIWindow; Cocotron renders with cairo into a
-  shared-memory buffer (memfd) that the host maps; damage rectangles and
-  frame-ready notifications over a socket.
-- The host side draws that buffer into a SurfaceView. aosp-pocket already does
-  this for its guest compositor ("anonymous shared frame buffers", "reusable
-  host GPU buffers"); reuse it.
-- Input in the other direction: touches, keyboard, IME text, back button.
-- The X11 and Wayland ELF wrappers are not built for Android; freetype,
-  fontconfig, png, jpeg and cairo come from NDK builds shipped in the APK.
+- **The wire protocol** is `PocketProtocol.h`, plain C so the Android app's
+  native code includes it as is. Each app connects to the host's Unix
+  socket.
+  - The host first describes its screen: pixels, scale, and the pixels a
+    notch, a status bar or a navigation bar cover.
+  - Each window is a shared memory buffer (a memfd, passed with
+    SCM_RIGHTS). Onyx2D draws at the screen's scale and copies each frame
+    into it.
+  - The app does not touch the buffer again until the host releases it, so
+    the host reads in its own time and nothing tears.
+- **Input:**
+  - Touches go to `NSTouchPost`, so UIKit's multitouch path gets them.
+  - Keys come as Mac key codes, and input method text as UTF-8.
+  - The app asks the host to show the soft keyboard while a text view or
+    field is editing, and to hide it afterwards.
+- **UIKit takes the screen from AppKit's.** `NSScreen` has
+  `safeAreaInsets` (macOS 12) now, so no `DARLING_UISCREEN` or
+  `DARLING_UISAFEAREA` is needed.
+- **The backend needs no X server.** It subclasses `X11Display` for fonts and
+  colours only. CoreGraphics' X11 backend is not used without `DISPLAY`.
+- **`tools/pocket-host`** is the host on Linux: a framebuffer, input from
+  stdin commands, PNG screenshots.
+- **Tested:** `tests/ios-pocket-display.m` passes 15/15 in the arm64 VM.
+  - It checks the screen and safe area from the host, a tap, a drag, two
+    fingers, input method text and Delete, and Return.
+  - It also checks the keyboard requests, and that the host's pixels are
+    what the app drew, at 2x.
+  - FileBrowser runs on it too.
+
+Left for the APK:
+- the host side in the Android app: copy each frame into a `SurfaceView`'s
+  `ANativeWindow`, and send `MotionEvent`s and the IME's text;
+- the back button;
+- moving old-SDK apps (FileBrowser) below the status bar, as iOS 7 does
+  for apps linked against iOS 6. They draw their bars under the notch now;
+- fontconfig and freetype built with the NDK.
+The X11 and Wayland ELF wrappers are not built for Android. The X11 backend
+bundle still loads, since its host libraries are opened lazily.
 
 ### 4. darling-pocket APK
 
