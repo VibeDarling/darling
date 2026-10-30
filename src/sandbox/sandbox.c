@@ -10,8 +10,13 @@ const enum sandbox_filter_type SANDBOX_CHECK_NO_REPORT = SANDBOX_FILTER_NONE;
 
 int sandbox_init(const char *profile, uint64_t flags, char **errorbuf)
 {
+	/* Darling does not enforce seatbelt profiles, so sandbox_init succeeds
+	 * without effect. According to Apple's specification (man 3 sandbox_init),
+	 * on success (return 0), *errorbuf must be set to NULL. Setting an error string
+	 * on success causes caller memory leaks (callers do not call sandbox_free_error
+	 * on return 0) and misleading error diagnostics. */
 	if (errorbuf != NULL) {
-		*errorbuf = strdup("Not implemented");
+		*errorbuf = NULL;
 	}
 	return 0;
 }
@@ -54,7 +59,7 @@ void sandbox_free_error(char *errorbuf)
 int sandbox_init_with_parameters(const char *profile, uint64_t flags, const char *const parameters[], char **errorbuf)
 {
 	if (errorbuf != NULL) {
-		*errorbuf = strdup("Not implemented");
+		*errorbuf = NULL;
 	}
 	return 0;
 }
@@ -62,7 +67,7 @@ int sandbox_init_with_parameters(const char *profile, uint64_t flags, const char
 int sandbox_init_with_extensions(const char *profile, uint64_t flags, const char *const extensions[], char **errorbuf)
 {
 	if (errorbuf != NULL) {
-		*errorbuf = strdup("Not implemented");
+		*errorbuf = NULL;
 	}
 	return 0;
 }

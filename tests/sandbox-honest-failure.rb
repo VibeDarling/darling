@@ -2,8 +2,8 @@
 # usage: ruby tests/sandbox-honest-failure.rb [REPO_ROOT]
 # libsandbox's sandbox.c and the sandbox library's sandbox.c are built unmodified.
 # Compiling or applying a profile must report failure with a message; the
-# *_init entry points must not crash on a NULL errorbuf; sandbox_free_params
-# stays exported. A stand-in mach/message.h supplies audit_token_t.
+# *_init entry points must not crash on a NULL errorbuf and must set *errorbuf = NULL
+# on success; sandbox_free_params stays exported. A stand-in mach/message.h supplies audit_token_t.
 require 'tmpdir'
 require 'open3'
 root = ARGV.fetch(0, File.expand_path('..', __dir__))
@@ -35,9 +35,13 @@ Dir.mktmpdir('sandbox-') do |dir|
       assert(sandbox_init_with_parameters("p", 0, NULL, NULL) == 0);
       assert(sandbox_init_with_extensions("p", 0, NULL, NULL) == 0);
       assert(sandbox_wakeup_daemon(NULL) == -1);
-      assert(sandbox_init("p", 0, &err) == 0); assert(err && !strcmp(err, "Not implemented")); sandbox_free_error(err); err = NULL;
-      assert(sandbox_init_with_parameters("p", 0, NULL, &err) == 0); assert(err && !strcmp(err, "Not implemented")); sandbox_free_error(err); err = NULL;
-      assert(sandbox_init_with_extensions("p", 0, NULL, &err) == 0); assert(err && !strcmp(err, "Not implemented")); sandbox_free_error(err); err = NULL;
+      err = (char *) 0x1234;
+      assert(sandbox_init("p", 0, &err) == 0); assert(err == NULL);
+      err = (char *) 0x1234;
+      assert(sandbox_init_with_parameters("p", 0, NULL, &err) == 0); assert(err == NULL);
+      err = (char *) 0x1234;
+      assert(sandbox_init_with_extensions("p", 0, NULL, &err) == 0); assert(err == NULL);
+      assert(sandbox_wakeup_daemon(&err) == -1); assert(err && !strcmp(err, "Not implemented")); sandbox_free_error(err); err = NULL;
       /* compiling reports failure and why; the caller's params are never written */
       void *params = (void *) 0x1234;
       assert(sandbox_compile_string("(version 1)", params, &err) == NULL);
