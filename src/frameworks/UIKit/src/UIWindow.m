@@ -13,10 +13,13 @@
 #import <UIKit/UIViewController.h>
 #import <UIKit/UIView.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/NSScreen.h>
 #import <Foundation/NSProcessInfo.h>
 
 #import "UIKitPrivate.h"
 #import <UIKit/UIScreen.h>
+#import <UIKit/UIGraphics.h>
+#import <UIKit/UIColor.h>
 
 /* UIKit's windows, oldest first, and the one made key last. */
 static NSHashTable<UIWindow *> *sWindows;
@@ -39,9 +42,50 @@ static __weak UIWindow *sKeyWindow;
 	return [sWindows allObjects] ?: @[];
 }
 
-- (CGFloat)windowLevel { return 0; }
-- (void)setWindowLevel:(CGFloat)level { }
+/* The hosting window's level: windows at a higher one stay in front, even
+   of other apps' windows where the display server stacks them by level. */
+- (CGFloat)windowLevel { return [(NSWindow *)_hostWindow level]; }
+- (void)setWindowLevel:(CGFloat)level { [(NSWindow *)_hostWindow setLevel:(NSInteger)level]; }
+/* iOS 2's names for these, which old tweaks still call. */
+- (void)setLevel:(CGFloat)level { [self setWindowLevel:level]; }
+- (CGFloat)level { return [self windowLevel]; }
+- (void)setContentView:(UIView *)view
+{
+	for (UIView *subview in [[self subviews] copy])
+		[subview removeFromSuperview];
+	if (view != nil) {
+		[view setFrame:[self bounds]];
+		[self addSubview:view];
+	}
+}
 - (BOOL)isKeyWindow { return sKeyWindow == self; }
+
+/* What a window doesn't cover shows the windows behind it, as on iOS: one
+   whose background is not fully opaque is composed over them. */
+- (void)setBackgroundColor:(UIColor *)color
+{
+	[super setBackgroundColor:color];
+	BOOL opaque = color != nil && CGColorGetAlpha([color CGColor]) >= 1;
+	[(NSWindow *)_hostWindow setOpaque:opaque];
+	[(NSWindow *)_hostWindow setBackgroundColor:opaque ? [color nsColor] : [NSColor clearColor]];
+}
+
+/* Such a window's redraws start from its background, transparent where it
+   is: filling with a clear color the usual way leaves what was drawn there
+   before (a view since removed) in place. */
+- (void)drawRect:(NSRect)rect
+{
+	if ([(NSWindow *)_hostWindow isOpaque]) {
+		[super drawRect:rect];
+		return;
+	}
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGContextSaveGState(context);
+	CGContextSetBlendMode(context, kCGBlendModeCopy);
+	CGContextSetFillColorWithColor(context, [[self backgroundColor] ?: [UIColor clearColor] CGColor]);
+	CGContextFillRect(context, rect);
+	CGContextRestoreGState(context);
+}
 - (id)screen { return [UIScreen mainScreen]; }
 - (void)setScreen:(id)screen { }
 - (void)sendEvent:(UIEvent *)event { }
@@ -81,7 +125,9 @@ static __weak UIWindow *sKeyWindow;
 	if (self == nil)
 		return nil;
 
-	NSRect contentRect = NSMakeRect(frame.origin.x, frame.origin.y,
+	/* UIKit measures y from the top of the screen, AppKit from the bottom. */
+	NSRect screen = [[NSScreen mainScreen] frame];
+	NSRect contentRect = NSMakeRect(frame.origin.x, NSMaxY(screen) - frame.origin.y - frame.size.height,
 	                                frame.size.width, frame.size.height);
 	/* iOS windows have no frame, title bar or controls. */
 	NSWindow *host = [[NSWindow alloc] initWithContentRect:contentRect

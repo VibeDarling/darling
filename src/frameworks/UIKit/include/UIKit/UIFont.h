@@ -17,6 +17,17 @@
 
 @class NSString;
 
+typedef CGFloat UIFontWeight;
+extern const UIFontWeight UIFontWeightUltraLight;
+extern const UIFontWeight UIFontWeightThin;
+extern const UIFontWeight UIFontWeightLight;
+extern const UIFontWeight UIFontWeightRegular;
+extern const UIFontWeight UIFontWeightMedium;
+extern const UIFontWeight UIFontWeightSemibold;
+extern const UIFontWeight UIFontWeightBold;
+extern const UIFontWeight UIFontWeightHeavy;
+extern const UIFontWeight UIFontWeightBlack;
+
 @interface UIFont : NSObject {
 @private
 	CGFloat _pointSize;
@@ -29,6 +40,10 @@
 + (UIFont *)fontWithName:(NSString *)name size:(CGFloat)size;
 
 + (UIFont *)italicSystemFontOfSize:(CGFloat)size;
+/* The system font has a regular and a bold face: weights from semibold up
+   are bold. Its digits are all one width already. */
++ (UIFont *)systemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight;
++ (UIFont *)monospacedDigitSystemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight;
 + (CGFloat)systemFontSize;
 + (CGFloat)smallSystemFontSize;
 + (CGFloat)labelFontSize;

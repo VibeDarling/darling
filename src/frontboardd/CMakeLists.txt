@@ -7,4 +7,6 @@ target_compile_options(frontboardd PRIVATE -fobjc-arc)
 target_include_directories(frontboardd PRIVATE ../private-frameworks/FrontBoardServices/src)
 target_link_libraries(frontboardd FrontBoardServices RunningBoardServices Foundation objc)
 
-install(TARGETS frontboardd DESTINATION libexec/darling/usr/libexec)
+add_darling_executable(backboardd backboardd.c)
+
+install(TARGETS frontboardd backboardd DESTINATION libexec/darling/usr/libexec)

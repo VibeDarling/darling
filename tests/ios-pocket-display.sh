@@ -62,12 +62,16 @@ echo "up 1 $((P0X + 20)) $P0Y" >&3; echo "up 2 $((P1X - 20)) $P1Y" >&3; sleep 2
 echo "tap $FX $FY" >&3
 wait_for '^keyboard 1' 20
 expect "$(grep -q '^keyboard 1' "$OUT/host.out" && echo 1)" "editing a text field asks the host for its keyboard"
+expect "$(grep -q '^keyboard 1 type 7 return 1 caps 1 correct 1 flags 0$' "$OUT/host.out" && echo 1)" \
+	"of the kind the field's traits name" "$(grep -m1 '^keyboard 1' "$OUT/host.out")"
+echo "ime 600" >&3; sleep 1
 echo "text hello" >&3; sleep 1
 echo "key 51" >&3; sleep 1
 echo "shot $OUT/pocket-display.png" >&3; sleep 2
 echo "key 36" >&3
 wait_for '^keyboard 0' 20
 expect "$(grep -q '^keyboard 0' "$OUT/host.out" && echo 1)" "and lets it go when editing ends"
+echo "ime 0" >&3
 
 wait $APP_PID
 APP_STATUS=$?

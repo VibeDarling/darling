@@ -15,9 +15,19 @@
 #import <Foundation/NSObject.h>
 #import <CoreGraphics/CGGeometry.h>
 
+#import <Foundation/NSArray.h>
+
+/* A screen's size in pixels; the host's screen has the one. */
+@interface UIScreenMode : NSObject
+@property (nonatomic, readonly) CGSize size;
+@property (nonatomic, readonly) CGFloat pixelAspectRatio;
+@end
+
 @interface UIScreen : NSObject
 
 + (UIScreen *)mainScreen;
+/* The host's screen is the only one. */
++ (NSArray<UIScreen *> *)screens;
 
 @property (nonatomic, readonly) CGRect bounds;
 @property (nonatomic, readonly) CGFloat scale;
@@ -26,6 +36,11 @@
 /* The screen less the status bar. */
 @property (nonatomic, readonly) CGRect applicationFrame;
 @property (nonatomic) CGFloat brightness;
+@property (nonatomic, readonly) NSArray<UIScreenMode *> *availableModes;
+@property (nonatomic, readonly) UIScreenMode *preferredMode;
+@property (nonatomic, strong) UIScreenMode *currentMode;
+@property (nonatomic, readonly) NSInteger maximumFramesPerSecond;
+@property (nonatomic, readonly) UIScreen *mirroredScreen;
 
 @end
 

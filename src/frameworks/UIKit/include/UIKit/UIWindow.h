@@ -43,4 +43,12 @@
 
 @end
 
+@class UIWindowScene;
+
+@interface UIWindow (UIWindowScene)
+- (instancetype)initWithWindowScene:(UIWindowScene *)windowScene;
+/* Weak, as on iOS: the scene keeps no window alive. */
+@property (nonatomic, weak) UIWindowScene *windowScene;
+@end
+
 #endif /* UIKIT_UIWINDOW_H */

@@ -41,6 +41,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <pwd.h>
 #include <grp.h>
 #include <sys/auxv.h>
+#include <sys/resource.h>
 #include "../shellspawn/shellspawn.h"
 #include "darling.h"
 #include "darling-config.h"
@@ -123,6 +124,17 @@ static void restoreRootIds(void)
 	}
 }
 
+// faccessat(AT_EACCESS), for kernels without faccessat2: bionic then rejects
+// AT_EACCESS (EINVAL), as Samsung's 4.9 kernels do. While the real and
+// effective ids match, a plain access() checks the same thing.
+static int accessEffective(const char* path, int mode)
+{
+	int r = faccessat(AT_FDCWD, path, mode, AT_EACCESS);
+	if (r != 0 && (errno == EINVAL || errno == ENOSYS) && getuid() == geteuid() && getgid() == getegid())
+		r = access(path, mode);
+	return r;
+}
+
 // Test for a path's existence with the invoking user's ids. In root mode a plain
 // access() uses the real uid (0); switching the effective ids to the user and
 // testing with faccessat(AT_EACCESS) checks with the invoking user's rights
@@ -130,7 +142,7 @@ static void restoreRootIds(void)
 static int existsAsOriginalUser(const char* path)
 {
 	useOriginalIds();
-	int r = faccessat(AT_FDCWD, path, F_OK, AT_EACCESS);
+	int r = accessEffective(path, F_OK);
 	restoreRootIds();
 	return r;
 }
@@ -166,7 +178,7 @@ static void checkPrefixCreatable(void)
 		parent = ".";
 
 	useOriginalIds();
-	int allowed = faccessat(AT_FDCWD, parent, W_OK | X_OK, AT_EACCESS) == 0;
+	int allowed = accessEffective(parent, W_OK | X_OK) == 0;
 	restoreRootIds();
 
 	if (!allowed)
@@ -1977,6 +1989,17 @@ int main(int argc, char ** argv)
 
 	g_originalUid = getuid();
 	g_originalGid = getgid();
+
+	// mldr and darlingserver raise the soft core limit to the hard one, so
+	// that a guest that crashes leaves a core. Where that is not wanted (a
+	// phone's app storage), DARLING_NO_CORE_DUMPS lowers both to 0 here, for
+	// everything this starts.
+	if (getenv("DARLING_NO_CORE_DUMPS") != NULL)
+	{
+		struct rlimit no_core = { 0, 0 };
+		if (setrlimit(RLIMIT_CORE, &no_core) != 0)
+			fprintf(stderr, "Cannot turn core dumps off: %s\n", strerror(errno));
+	}
 
 	// Full non-root mode (e.g. Android): no user namespaces, no mount
 	// permissions at all. The container runs without any namespace

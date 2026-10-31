@@ -42,6 +42,7 @@
 #import <UIKit/UIImageView.h>
 #import <UIKit/UIControl.h>
 #import <UIKit/UITextField.h>
+#import <UIKit/UITextInput.h>
 #import <UIKit/UIBarButtonItem.h>
 #import <UIKit/UINavigationController.h>
 #import <UIKit/UITabBarController.h>
@@ -77,12 +78,26 @@
 #import <UIKit/UIFontDescriptor.h>
 #import <UIKit/UIMotionEffect.h>
 #import <UIKit/UICollectionView.h>
+#import <UIKit/UITraitCollection.h>
+#import <UIKit/UIScene.h>
+#import <UIKit/UIAlertController.h>
+#import <UIKit/UIStackView.h>
+#import <UIKit/UIVisualEffectView.h>
+#import <UIKit/UIMenu.h>
+#import <UIKit/UIFeedbackGenerator.h>
+#import <UIKit/UIFontMetrics.h>
+#import <UIKit/UIStepper.h>
+#import <UIKit/UIViewPropertyAnimator.h>
+#import <UIKit/UISearchController.h>
+#import <UIKit/UILocalNotification.h>
+#import <UIKit/UIDiffableDataSource.h>
 
 extern NSString *const UIKeyboardWillShowNotification;
 extern NSString *const UIKeyboardDidShowNotification;
 extern NSString *const UIKeyboardWillHideNotification;
 extern NSString *const UIKeyboardDidHideNotification;
 extern NSString *const UIKeyboardWillChangeFrameNotification;
+extern NSString *const UIKeyboardDidChangeFrameNotification;
 extern NSString *const UIKeyboardFrameBeginUserInfoKey;
 extern NSString *const UIKeyboardFrameEndUserInfoKey;
 extern NSString *const UIKeyboardAnimationDurationUserInfoKey;
@@ -90,6 +105,7 @@ extern NSString *const UIKeyboardAnimationCurveUserInfoKey;
 extern NSString *const UIKeyboardBoundsUserInfoKey;
 extern NSString *const UIKeyboardCenterBeginUserInfoKey;
 extern NSString *const UIKeyboardCenterEndUserInfoKey;
+extern NSString *const UIKeyboardIsLocalUserInfoKey;
 
 /* Constants apps link against; defined in UIKitConstants.m. */
 typedef CGFloat UIWindowLevel;

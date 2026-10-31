@@ -68,6 +68,8 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view);
 - (BOOL)uikitIsSpace;
 - (BOOL)uikitIsFlexibleSpace;
 - (void)uikitPerform;
+/* UIMenu.m: the item's UIAction or menu, when it has one. */
+- (BOOL)uikitPerformMenuOrPrimaryAction;
 @end
 
 @interface UINavigationController (DarlingPrivate)
@@ -207,5 +209,56 @@ void UIKitDispatchTouch(UITouch *touch, UITouchPhase phase);
 - (void)uikitRemoveTouch:(UITouch *)touch;
 - (void)uikitSetTimestamp:(NSTimeInterval)timestamp;
 @end
+
+@class UITextField, UIMenu, UISearchController, UIWindowScene;
+
+@interface UIAlertView (DarlingAlertController)
+- (void)uikitSetTextFields:(NSArray<UITextField *> *)fields;
+- (void)uikitSetDestructiveButtonIndex:(NSInteger)index;
+- (void)uikitSetPreferredButtonIndex:(NSInteger)index;
+- (void)uikitSetButtonAtIndex:(NSInteger)index enabled:(BOOL)enabled;
+@end
+
+@interface UIActionSheet (DarlingAlertController)
+- (void)uikitSetButtonAtIndex:(NSInteger)index enabled:(BOOL)enabled;
+@end
+
+/* A presented controller that shows itself (an alert) instead of having
+ * its view put over its presenter's. */
+@interface UIViewController (DarlingSelfPresenting)
+- (BOOL)uikitPresentsItself;
+- (void)uikitShowPresented;
+- (void)uikitHidePresented;
+@end
+
+/* iOS 13's scenes: whether the Info.plist asks for them, the one window
+ * scene connected at launch, and the app's state passed on to it. */
+BOOL UIKitUsesScenes(void);
+void UIKitConnectMainScene(UIApplication *application);
+void UIKitScenesEnterForeground(void);
+void UIKitScenesBecomeActive(void);
+void UIKitScenesResignActive(void);
+void UIKitScenesEnterBackground(void);
+void UIKitScenesDisconnect(void);
+UIWindowScene *UIKitMainWindowScene(void);
+
+/* Shows a menu's actions as an action sheet, over source's window. */
+void UIKitShowMenu(UIMenu *menu, UIView *source);
+/* Sends a key press to the first matching UIKeyCommand. */
+BOOL UIKitPerformKeyCommand(NSEvent *event);
+
+@interface UISearchBar (DarlingSearchController)
+@property (nonatomic, weak) UISearchController *uikitSearchController;
+@end
+
+@interface UISearchController (DarlingPrivate)
+- (void)uikitSearchBarDidBeginEditing;
+- (void)uikitSearchBarTextDidChange;
+- (void)uikitSearchBarCancelled;
+@end
+
+/* UILocalNotification's application:didReceiveLocalNotification:, from
+ * UserNotifications, for apps that use only the old API. */
+void UIKitForwardLocalNotifications(UIApplication *application);
 
 #endif /* UIKIT_UIKITPRIVATE_H */

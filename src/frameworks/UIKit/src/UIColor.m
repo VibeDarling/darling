@@ -189,7 +189,8 @@
 /* A dynamic color is its light appearance: there is no dark mode here. */
 + (UIColor *)colorWithDynamicProvider:(UIColor *(^)(id traitCollection))provider
 {
-	return provider != nil ? provider(nil) ?: [self clearColor] : [self clearColor];
+	/* Resolved now, for the current traits (light, see UITraitCollection.h). */
+	return provider != nil ? provider([UITraitCollection currentTraitCollection]) ?: [self clearColor] : [self clearColor];
 }
 
 - (instancetype)initWithDynamicProvider:(UIColor *(^)(id traitCollection))provider

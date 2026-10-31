@@ -29,6 +29,10 @@ The app checks:
   ends.
 - Input method text (`hello`) and the Delete key reach a text field (`hell`),
   and Return asks `textFieldShouldReturn:`.
+- When the host says its keyboard covers 600 pixels and later none, the app
+  gets UIKeyboardWillChangeFrame, WillShow, DidShow, DidChangeFrame, then the
+  same with Hide, with the keyboard's frame in points (300 high, from below
+  the screen to over its bottom and back).
 
 The script checks what the host saw:
 
@@ -36,10 +40,11 @@ The script checks what the host saw:
   pixels;
 - the pixels at a green view, a blue view and the white background are those
   colours (so what the app drew is shown where it drew it, at 2x);
-- the app asked for the soft keyboard when the text field began editing, and
-  let it go when Return ended editing.
+- the app asked for the soft keyboard when the text field began editing, with
+  the field's traits (e-mail keyboard, Go key, words capitalized, no
+  autocorrection), and let it go when Return ended editing.
 
-It prints one PASS/FAIL line per check (15) and exits nonzero on any
+It prints one PASS/FAIL line per check (19) and exits nonzero on any
 failure. It leaves the host's screen in `out/pocket-display.png`.
 
 Passes in an arm64 VM (Arch Linux ARM), 15/15. FileBrowser

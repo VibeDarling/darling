@@ -204,7 +204,9 @@ static NSString *UIKitSystemItemTitle(UIBarButtonSystemItem item)
 
 - (void)uikitPerform
 {
-	if (_action == NULL || ![self isEnabled])
+	if (![self isEnabled] || [self uikitPerformMenuOrPrimaryAction])
+		return;
+	if (_action == NULL)
 		return;
 	id target = _target;
 	if (target == nil)
@@ -408,6 +410,8 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view)
 @implementation UINavigationBar {
 	NSMutableArray<UINavigationItem *> *_items;
 	NSMutableArray<UIView *> *_itemViews;
+	NSArray<UIView *> *_leftViews;
+	NSArray<UIView *> *_rightViews;
 	BOOL _needsRebuild;
 }
 
@@ -507,10 +511,15 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view)
 	[self popNavigationItemAnimated:YES];
 }
 
+/* Makes the bar's views for its items; -placeItemViews positions them.
+ * Only a change of items makes new views: adding them lays the bar out
+ * again, so making them in -layoutSubviews would never stop. */
 - (void)rebuild
 {
-	for (UIView *view in _itemViews)
-		[view removeFromSuperview];
+	/* Views that stay, a title view or a custom item, are only moved: taking
+	 * one out of the window would end its editing (Cydia searches from a
+	 * text field in the title, and the keyboard lays the bar out again). */
+	NSArray<UIView *> *old = [_itemViews copy];
 	[_itemViews removeAllObjects];
 
 	UINavigationItem *top = [self topItem];
@@ -537,43 +546,55 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view)
 		if (![item uikitIsSpace])
 			[right addObject:UIKitViewForBarButtonItem(item, NO)];
 
+	_leftViews = left;
+	_rightViews = right;
+	[_itemViews addObjectsFromArray:left];
+	[_itemViews addObjectsFromArray:right];
+	UIView *titleView = [top titleView];
+	if (titleView != nil)
+		[_itemViews addObject:titleView];
+	for (UIView *view in old)
+		if ([_itemViews indexOfObjectIdenticalTo:view] == NSNotFound && [view superview] == self)
+			[view removeFromSuperview];
+	[self placeItemViews];
+	for (UIView *view in _itemViews)
+		if ([view superview] != self)
+			[self addSubview:view];
+	[self setNeedsDisplay:YES];
+}
+
+- (void)placeItemViews
+{
 	NSRect bounds = [self bounds];
 	CGFloat x = 4;
-	for (UIView *view in left) {
+	for (UIView *view in _leftViews) {
 		CGFloat width = UIKitPreferredWidthOfBarView(view);
 		CGFloat height = [view isKindOfClass:[UIKitBarButtonView class]] ? bounds.size.height : MIN([view frame].size.height, bounds.size.height);
 		[view setFrame:NSMakeRect(x, floor((bounds.size.height - height) / 2), width, height)];
 		[view setAutoresizingMask:UIViewAutoresizingFlexibleRightMargin];
-		[self addSubview:view];
-		[_itemViews addObject:view];
 		x += width;
 	}
 	x = bounds.size.width - 4;
-	for (UIView *view in right) {
+	for (UIView *view in _rightViews) {
 		CGFloat width = UIKitPreferredWidthOfBarView(view);
 		CGFloat height = [view isKindOfClass:[UIKitBarButtonView class]] ? bounds.size.height : MIN([view frame].size.height, bounds.size.height);
 		x -= width;
 		[view setFrame:NSMakeRect(x, floor((bounds.size.height - height) / 2), width, height)];
 		[view setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-		[self addSubview:view];
-		[_itemViews addObject:view];
 	}
-	UIView *titleView = [top titleView];
+	UIView *titleView = [[self topItem] titleView];
 	if (titleView != nil) {
 		NSRect frame = [titleView frame];
 		frame.origin.x = floor((bounds.size.width - frame.size.width) / 2);
 		frame.origin.y = floor((bounds.size.height - frame.size.height) / 2);
 		[titleView setFrame:frame];
 		[titleView setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin];
-		[self addSubview:titleView];
-		[_itemViews addObject:titleView];
 	}
-	[self setNeedsDisplay:YES];
 }
 
 - (void)layoutSubviews
 {
-	[self rebuild];
+	[self placeItemViews];
 }
 
 - (void)drawRect:(NSRect)rect
@@ -657,6 +678,8 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 	UINavigationBar *_navigationBar;
 	UIToolbar *_toolbar;
 	UIViewController *_shown;
+	/* The shown controller's navigationItem.searchController's bar. */
+	UISearchBar *_searchBar;
 	BOOL _navigationBarHidden;
 	BOOL _toolbarHidden;
 }
@@ -756,6 +779,18 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 	if (!_navigationBarHidden) {
 		[_navigationBar setFrame:NSMakeRect(0, top, bounds.size.width, UIKitNavigationBarHeight)];
 		contentTop += UIKitNavigationBarHeight;
+	}
+	UISearchBar *searchBar = [[[_shown navigationItem] searchController] searchBar];
+	if (searchBar != _searchBar) {
+		if ([_searchBar superview] == [self view])
+			[_searchBar removeFromSuperview];
+		_searchBar = searchBar;
+	}
+	if (searchBar != nil && !_navigationBarHidden) {
+		if ([searchBar superview] != [self view])
+			[[self view] addSubview:searchBar positioned:NSWindowBelow relativeTo:_navigationBar];
+		[searchBar setFrame:NSMakeRect(0, contentTop, bounds.size.width, 56)];
+		contentTop += 56;
 	}
 	CGFloat contentBottom = bounds.size.height;
 	[_toolbar setHidden:_toolbarHidden];

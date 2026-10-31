@@ -18,6 +18,7 @@
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSCache.h>
 #import <AppKit/NSBitmapImageRep.h>
+#import <ImageIO/CGImageSource.h>
 
 @implementation UIImage {
 	NSImage *_image;
@@ -68,6 +69,13 @@ static NSCache *sNamedImages;
 		if (image != nil)
 			return image;
 	}
+	return nil;
+}
+
+/* iOS's: the lock screen's wallpaper. The user has not set one here;
+   SpringBoard draws its own, unless a theme answers this. */
++ (UIImage *)defaultDesktopImage
+{
 	return nil;
 }
 
@@ -127,9 +135,22 @@ static CGFloat UIImageScaleForPath(NSString *path)
 	return self;
 }
 
+/* Read through ImageIO, as iOS's UIKit reads image files, so that what
+   hooks it there (WinterBoard swaps in its themes' files) sees every file
+   an app's images come from. */
 - (instancetype)initWithContentsOfFile:(NSString *)path
 {
-	return [self initWithNSImage:[[NSImage alloc] initWithContentsOfFile:path] scale:UIImageScaleForPath(path)];
+	if (path == nil)
+		return nil;
+	CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:path], NULL);
+	CGImageRef image = source != NULL && CGImageSourceGetCount(source) > 0 ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
+	if (source != NULL)
+		CFRelease(source);
+	if (image == NULL)
+		return [self initWithNSImage:[[NSImage alloc] initWithContentsOfFile:path] scale:UIImageScaleForPath(path)];
+	self = [self initWithCGImage:image scale:UIImageScaleForPath(path) orientation:0];
+	CGImageRelease(image);
+	return self;
 }
 
 - (instancetype)initWithData:(NSData *)data

@@ -225,6 +225,9 @@ static void UIKitDrawPickerText(id text, NSRect cell, CGFloat distance)
 	if (component < 0 || component >= [self numberOfComponents])
 		return;
 	row = MIN(MAX(row, 0), MAX([self numberOfRowsInComponent:component] - 1, 0));
+	// A drag reports every finger move; only a new row needs drawing.
+	if ([[_selected objectAtIndex:component] integerValue] == row)
+		return;
 	[_selected replaceObjectAtIndex:component withObject:@(row)];
 	[self setNeedsLayout];
 	[self setNeedsDisplay:YES];

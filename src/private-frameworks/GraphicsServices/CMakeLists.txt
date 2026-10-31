@@ -23,6 +23,7 @@ add_framework(GraphicsServices
 
     SOURCES
         src/GSEvent.c
+        src/GSFont.c
         src/GSScreen.c
 
     DEPENDENCIES

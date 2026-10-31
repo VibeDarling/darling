@@ -146,15 +146,78 @@ static int stacking(const void *a, const void *b)
 	return x->order - y->order;
 }
 
+#define SWAP_RED_BLUE(p) (((p) & 0xff00ff00) | (((p) & 0xff) << 16) | (((p) >> 16) & 0xff))
+
+// A row of a window over the screen's. One plain loop per case, so the
+// compiler can vectorize them: a frame is megabytes.
+static void compose_row(uint32_t *dst, const uint32_t *src, int count, int opaque, int rgba)
+{
+	if (opaque && !rgba) {
+		memcpy(dst, src, (size_t) count * 4);
+	} else if (opaque) {
+		for (int i = 0; i < count; i++)
+			dst[i] = SWAP_RED_BLUE(src[i]) | 0xff000000;
+	} else {
+		for (int i = 0; i < count; i++) {
+			uint32_t pixel = rgba ? SWAP_RED_BLUE(src[i]) : src[i];
+			uint32_t alpha = pixel >> 24;
+			if (alpha == 255) {
+				dst[i] = pixel;
+			} else if (pixel != 0) {
+				// Premultiplied: dst = src + dst * (1 - alpha), two channels at a time.
+				uint32_t under = dst[i], keep = 255 - alpha;
+				uint32_t rb = (under & 0x00ff00ff) * keep + 0x00800080;
+				rb = ((rb + ((rb >> 8) & 0x00ff00ff)) >> 8) & 0x00ff00ff;
+				uint32_t ag = ((under >> 8) & 0x00ff00ff) * keep + 0x00800080;
+				ag = (ag + ((ag >> 8) & 0x00ff00ff)) & 0xff00ff00;
+				dst[i] = pixel + rb + ag;
+			}
+		}
+	}
+}
+
+static int covers_screen(const struct window *w, uint32_t width, uint32_t height)
+{
+	return (w->state.flags & POCKET_WINDOW_OPAQUE) && w->state.x <= 0 && w->state.y <= 0
+		&& w->state.x + (int64_t) w->width >= width && w->state.y + (int64_t) w->height >= height;
+}
+
+static int overlaps(const struct window *w, const int32_t rect[4])
+{
+	return w->state.x < rect[0] + rect[2] && rect[0] < w->state.x + (int64_t) w->width
+		&& w->state.y < rect[1] + rect[3] && rect[1] < w->state.y + (int64_t) w->height;
+}
+
+int pocket_server_window_part(struct pocket_server *s, uint32_t pid, uint32_t id, int32_t rect[4])
+{
+	lock(s);
+	struct window *found = NULL;
+	for (int i = 0; i < MAX_WINDOWS && found == NULL; i++) {
+		struct window *w = &s->windows[i];
+		if (w->used && w->id == id && s->clients[w->client].fd >= 0 && s->clients[w->client].pid == pid)
+			found = w;
+	}
+	int shows = -1;
+	if (found != NULL) {
+		rect[0] += found->state.x;
+		rect[1] += found->state.y;
+		shows = (found->state.flags & POCKET_WINDOW_VISIBLE) && found->pixels != NULL;
+		for (int i = 0; i < MAX_WINDOWS && shows; i++) {
+			struct window *w = &s->windows[i];
+			const struct window *pair[2] = { found, w };
+			if (w != found && w->used && w->pixels && (w->state.flags & POCKET_WINDOW_VISIBLE)
+				&& stacking(&pair[0], &pair[1]) < 0 && overlaps(w, rect))
+				shows = 0;
+		}
+	}
+	unlock(s);
+	return shows;
+}
+
 void pocket_server_compose(struct pocket_server *s, uint8_t *pixels, size_t stride, int rgba)
 {
 	lock(s);
 	uint32_t width = s->screen.width, height = s->screen.height;
-	for (uint32_t y = 0; y < height; y++) {
-		uint32_t *row = (uint32_t *) (pixels + y * stride);
-		for (uint32_t x = 0; x < width; x++)
-			row[x] = 0xff000000; // opaque black, in either byte order
-	}
 
 	struct window *sorted[MAX_WINDOWS];
 	int count = 0;
@@ -163,9 +226,23 @@ void pocket_server_compose(struct pocket_server *s, uint8_t *pixels, size_t stri
 			sorted[count++] = &s->windows[i];
 	qsort(sorted, count, sizeof(sorted[0]), stacking);
 
-	// Byte offsets of blue, green and red in the target.
-	const int blue = rgba ? 2 : 0, red = rgba ? 0 : 2;
-	for (int n = 0; n < count; n++) {
+	// What is under an opaque window that covers the screen (a game's, an
+	// app's main window) is not seen: neither windows nor the black.
+	int first = 0;
+	for (int n = count - 1; n >= 0 && first == 0; n--)
+		if (covers_screen(sorted[n], width, height))
+			first = n + 1;
+	if (first == 0) {
+		for (uint32_t y = 0; y < height; y++) {
+			uint32_t *row = (uint32_t *) (pixels + y * stride);
+			for (uint32_t x = 0; x < width; x++)
+				row[x] = 0xff000000; // opaque black, in either byte order
+		}
+	} else {
+		first--;
+	}
+
+	for (int n = first; n < count; n++) {
 		struct window *w = sorted[n];
 		int opaque = (w->state.flags & POCKET_WINDOW_OPAQUE) != 0;
 		// The part of the window on the screen.
@@ -175,26 +252,10 @@ void pocket_server_compose(struct pocket_server *s, uint8_t *pixels, size_t stri
 			x1 = (int) width - w->state.x;
 		if (w->state.y + y1 > (int) height)
 			y1 = (int) height - w->state.y;
-		for (int row = y0; row < y1; row++) {
-			const uint8_t *src = w->pixels + ((size_t) row * w->width + x0) * 4;
-			uint8_t *dst = pixels + (size_t) (w->state.y + row) * stride + (size_t) (w->state.x + x0) * 4;
-			if (opaque && !rgba) {
-				memcpy(dst, src, (size_t) (x1 - x0) * 4);
-				continue;
-			}
-			for (int col = x0; col < x1; col++, src += 4, dst += 4) {
-				if (opaque || src[3] == 255) {
-					dst[blue] = src[0];
-					dst[1] = src[1];
-					dst[red] = src[2];
-				} else if (src[3] != 0) {
-					// Premultiplied: dst = src + dst * (1 - alpha).
-					int keep = 255 - src[3];
-					dst[blue] = (uint8_t) (src[0] + dst[blue] * keep / 255);
-					dst[1] = (uint8_t) (src[1] + dst[1] * keep / 255);
-					dst[red] = (uint8_t) (src[2] + dst[red] * keep / 255);
-				}
-			}
+		for (int row = y0; row < y1 && x0 < x1; row++) {
+			const uint32_t *src = (const uint32_t *) (w->pixels + ((size_t) row * w->width + x0) * 4);
+			uint32_t *dst = (uint32_t *) (pixels + (size_t) (w->state.y + row) * stride + (size_t) (w->state.x + x0) * 4);
+			compose_row(dst, src, x1 - x0, opaque, rgba);
 		}
 	}
 	unlock(s);
@@ -266,9 +327,16 @@ static void handle(struct pocket_server *s, int client, uint32_t type, const uin
 		memcpy(&present, bytes, sizeof(present));
 		struct window *w = find_window(s, client, present.window, 0);
 		if (w != NULL && w->mapped && w->pixels) {
-			for (uint32_t row = 0; row < w->height; row++)
-				memcpy(w->pixels + (size_t) row * w->width * 4, w->mapped + (size_t) row * w->stride,
-					   (size_t) w->width * 4);
+			// Only the part that changed: the rest is in the last frame.
+			int64_t x0 = present.x > 0 ? present.x : 0, y0 = present.y > 0 ? present.y : 0;
+			int64_t x1 = (int64_t) present.x + present.width, y1 = (int64_t) present.y + present.height;
+			if (x1 > w->width)
+				x1 = w->width;
+			if (y1 > w->height)
+				y1 = w->height;
+			for (int64_t row = y0; row < y1 && x0 < x1; row++)
+				memcpy(w->pixels + ((size_t) row * w->width + x0) * 4, w->mapped + (size_t) row * w->stride + x0 * 4,
+					   (size_t) (x1 - x0) * 4);
 			w->presents++;
 			say(s, "present %u %u", present.window, w->presents);
 		}
@@ -312,9 +380,10 @@ static void handle(struct pocket_server *s, int client, uint32_t type, const uin
 	case POCKET_KEYBOARD: {
 		struct pocket_keyboard keyboard = {0};
 		memcpy(&keyboard, bytes, length < sizeof(keyboard) ? length : sizeof(keyboard));
-		say(s, "keyboard %u", keyboard.shown);
+		say(s, "keyboard %u type %u return %u caps %u correct %u flags %u", keyboard.shown, keyboard.keyboard_type,
+			keyboard.return_key, keyboard.autocapitalization, keyboard.autocorrection, keyboard.flags);
 		if (s->events.keyboard)
-			s->events.keyboard(s->events.context, keyboard.shown != 0);
+			s->events.keyboard(s->events.context, &keyboard);
 		break;
 	}
 	default:
@@ -524,6 +593,14 @@ void pocket_server_key(struct pocket_server *s, int down, uint32_t keycode, uint
 		memcpy(message + sizeof(k), characters, length);
 	lock(s);
 	broadcast(s, POCKET_KEY, message, sizeof(k) + length);
+	unlock(s);
+}
+
+void pocket_server_keyboard_frame(struct pocket_server *s, uint32_t height)
+{
+	struct pocket_keyboard_frame frame = {height};
+	lock(s);
+	broadcast(s, POCKET_KEYBOARD_FRAME, &frame, sizeof(frame));
 	unlock(s);
 }
 

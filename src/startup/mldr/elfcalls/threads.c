@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#if defined(__ANDROID__)
+#include <android/api-level.h>
+#endif
 #include "threads.h"
 #include <pthread.h>
 #include <sys/mman.h>
@@ -481,6 +484,12 @@ void __darling_thread_rpc_socket_refresh(void) {
 static __thread void* shared_cache_darling_tsd;
 
 uintptr_t __darling_arm64_tsd_slot_offset(void) {
+#if defined(__aarch64__) && defined(__ANDROID__)
+    // The NDK emulates __thread, so the variable above isn't near the thread
+    // pointer. Bionic gives apps TLS_SLOT_APP (slot 2) from API level 29 on.
+    if (android_get_device_api_level() >= 29)
+        return 2 * sizeof(void*);
+#endif
 #if defined(__aarch64__)
     return (uintptr_t)&shared_cache_darling_tsd - (uintptr_t)__builtin_thread_pointer();
 #else

@@ -87,7 +87,9 @@ static UIKitModalOverlay *UIKitShowOverlay(UIView *panel, UIView *inView, CGFloa
 	NSMutableArray<NSString *> *titles;
 	NSInteger cancelIndex;
 	NSInteger destructiveIndex;
+	NSInteger preferredIndex;
 	NSInteger pressed;
+	NSMutableIndexSet *disabled;
 }
 @end
 
@@ -99,7 +101,9 @@ static UIKitModalOverlay *UIKitShowOverlay(UIView *panel, UIView *inView, CGFloa
 		titles = [NSMutableArray array];
 		cancelIndex = -1;
 		destructiveIndex = -1;
+		preferredIndex = -1;
 		pressed = -1;
+		disabled = [NSMutableIndexSet indexSet];
 	}
 	return self;
 }
@@ -114,13 +118,14 @@ static NSDictionary *UIKitChoiceAttributes(BOOL bold, NSColor *color)
 	};
 }
 
-static void UIKitDrawChoice(NSString *title, NSRect rect, BOOL bold, BOOL destructive, BOOL pressed)
+static void UIKitDrawChoice(NSString *title, NSRect rect, BOOL bold, BOOL destructive, BOOL pressed, BOOL enabled)
 {
-	if (pressed) {
+	if (pressed && enabled) {
 		[[NSColor colorWithCalibratedWhite:0.85 alpha:1] setFill];
 		NSRectFill(rect);
 	}
-	NSColor *color = destructive ? [NSColor colorWithCalibratedRed:1 green:0.23 blue:0.19 alpha:1] : UIKitTintColor();
+	NSColor *color = !enabled ? [NSColor colorWithCalibratedWhite:0.6 alpha:1]
+		: destructive ? [NSColor colorWithCalibratedRed:1 green:0.23 blue:0.19 alpha:1] : UIKitTintColor();
 	NSDictionary *attributes = UIKitChoiceAttributes(bold, color);
 	NSSize size = [title sizeWithAttributes:attributes];
 	[title drawAtPoint:NSMakePoint(floor(NSMidX(rect) - size.width / 2), floor(NSMidY(rect) - size.height / 2)) withAttributes:attributes];
@@ -207,6 +212,29 @@ static const CGFloat UIKitChoiceHeight = 44;
 - (void)setRunsModal:(BOOL)modal { }
 - (id)buttons { return [_buttons->titles copy]; }
 - (void)_updateFrameForDisplay { [self relayout]; }
+- (void)uikitSetDestructiveButtonIndex:(NSInteger)index { _buttons->destructiveIndex = index; [self setNeedsDisplay:YES]; }
+- (void)uikitSetPreferredButtonIndex:(NSInteger)index { _buttons->preferredIndex = index; [self setNeedsDisplay:YES]; }
+
+- (void)uikitSetButtonAtIndex:(NSInteger)index enabled:(BOOL)enabled
+{
+	if (enabled)
+		[_buttons->disabled removeIndex:index];
+	else
+		[_buttons->disabled addIndex:index];
+	[self setNeedsDisplay:YES];
+}
+
+/* UIAlertController's text fields, made and configured by the app. */
+- (void)uikitSetTextFields:(NSArray<UITextField *> *)fields
+{
+	for (UITextField *field in _textFields)
+		[field removeFromSuperview];
+	[_textFields setArray:fields];
+	_style = [fields count] == 0 ? UIAlertViewStyleDefault : UIAlertViewStylePlainTextInput;
+	for (UITextField *field in fields)
+		[self addSubview:field];
+	[self relayout];
+}
 
 - (NSInteger)addButtonWithTitle:(NSString *)title
 {
@@ -337,7 +365,9 @@ static const CGFloat UIKitChoiceHeight = 44;
 	[[NSColor colorWithCalibratedWhite:0.8 alpha:1] setFill];
 	for (NSUInteger i = 0; i < [_buttons->titles count]; i++) {
 		NSRect button = [self rectForButton:i];
-		UIKitDrawChoice([_buttons->titles objectAtIndex:i], button, (NSInteger)i == _buttons->cancelIndex, NO, (NSInteger)i == _buttons->pressed);
+		NSInteger bold = _buttons->preferredIndex >= 0 ? _buttons->preferredIndex : _buttons->cancelIndex;
+		UIKitDrawChoice([_buttons->titles objectAtIndex:i], button, (NSInteger)i == bold, (NSInteger)i == _buttons->destructiveIndex,
+			(NSInteger)i == _buttons->pressed, ![_buttons->disabled containsIndex:i]);
 		[[NSColor colorWithCalibratedWhite:0.8 alpha:1] setFill];
 		NSRectFill(NSMakeRect(button.origin.x, button.origin.y, button.size.width, 0.5));
 		if ([self buttonsSideBySide] && i == 1)
@@ -373,7 +403,7 @@ static const CGFloat UIKitChoiceHeight = 44;
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
 	NSInteger index = [self buttonAtTouch:touches];
-	BOOL fire = index >= 0 && index == _buttons->pressed;
+	BOOL fire = index >= 0 && index == _buttons->pressed && ![_buttons->disabled containsIndex:index];
 	_buttons->pressed = -1;
 	[self setNeedsDisplay:YES];
 	if (!fire)
@@ -476,6 +506,15 @@ static const CGFloat UIKitChoiceHeight = 44;
 - (NSString *)context { return _context; }
 - (void)setContext:(NSString *)context { _context = [context copy]; }
 
+- (void)uikitSetButtonAtIndex:(NSInteger)index enabled:(BOOL)enabled
+{
+	if (enabled)
+		[_buttons->disabled removeIndex:index];
+	else
+		[_buttons->disabled addIndex:index];
+	[self setNeedsDisplay:YES];
+}
+
 - (NSInteger)addButtonWithTitle:(NSString *)title
 {
 	[_buttons->titles addObject:[title copy] ?: @""];
@@ -537,7 +576,8 @@ static const CGFloat UIKitChoiceHeight = 44;
 		if ((NSInteger)i == _buttons->cancelIndex)
 			continue;
 		NSRect button = [self rectForButton:i];
-		UIKitDrawChoice([_buttons->titles objectAtIndex:i], button, NO, (NSInteger)i == _buttons->destructiveIndex, (NSInteger)i == _buttons->pressed);
+		UIKitDrawChoice([_buttons->titles objectAtIndex:i], button, NO, (NSInteger)i == _buttons->destructiveIndex, (NSInteger)i == _buttons->pressed,
+			![_buttons->disabled containsIndex:i]);
 		if (button.origin.y > 0) {
 			[[NSColor colorWithCalibratedWhite:0.8 alpha:1] setFill];
 			NSRectFill(NSMakeRect(0, button.origin.y, bounds.size.width, 0.5));
@@ -551,7 +591,8 @@ static const CGFloat UIKitChoiceHeight = 44;
 		[cancelPath fill];
 		[NSGraphicsContext saveGraphicsState];
 		[cancelPath addClip];
-		UIKitDrawChoice([_buttons->titles objectAtIndex:_buttons->cancelIndex], cancel, YES, NO, _buttons->cancelIndex == _buttons->pressed);
+		UIKitDrawChoice([_buttons->titles objectAtIndex:_buttons->cancelIndex], cancel, YES, NO, _buttons->cancelIndex == _buttons->pressed,
+			![_buttons->disabled containsIndex:_buttons->cancelIndex]);
 		[NSGraphicsContext restoreGraphicsState];
 	}
 }
@@ -574,7 +615,7 @@ static const CGFloat UIKitChoiceHeight = 44;
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
 	NSInteger index = [self buttonAtTouch:touches];
-	BOOL fire = index >= 0 && index == _buttons->pressed;
+	BOOL fire = index >= 0 && index == _buttons->pressed && ![_buttons->disabled containsIndex:index];
 	_buttons->pressed = -1;
 	[self setNeedsDisplay:YES];
 	if (!fire)

@@ -1321,7 +1321,11 @@ static BOOL UIKitFieldShouldChange(NSTextField *field, NSRange range, NSString *
 	UITextField *_field;
 	UIButton *_cancel;
 	BOOL _showsCancelButton;
+	__weak UISearchController *_uikitSearchController;
 }
+
+- (UISearchController *)uikitSearchController { return _uikitSearchController; }
+- (void)setUikitSearchController:(UISearchController *)controller { _uikitSearchController = controller; }
 
 @synthesize delegate = _delegate;
 @synthesize prompt = _prompt;
@@ -1418,12 +1422,14 @@ UIKIT_TRAIT(BOOL, enablesReturnKeyAutomatically, setEnablesReturnKeyAutomaticall
 {
 	if ([_delegate respondsToSelector:@selector(searchBar:textDidChange:)])
 		[_delegate searchBar:self textDidChange:[_field text]];
+	[_uikitSearchController uikitSearchBarTextDidChange];
 }
 
 - (void)cancelPressed:(id)sender
 {
 	if ([_delegate respondsToSelector:@selector(searchBarCancelButtonClicked:)])
 		[_delegate searchBarCancelButtonClicked:self];
+	[_uikitSearchController uikitSearchBarCancelled];
 }
 
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField
@@ -1433,6 +1439,7 @@ UIKIT_TRAIT(BOOL, enablesReturnKeyAutomatically, setEnablesReturnKeyAutomaticall
 
 - (void)textFieldDidBeginEditing:(UITextField *)textField
 {
+	[_uikitSearchController uikitSearchBarDidBeginEditing];
 	if ([_delegate respondsToSelector:@selector(searchBarTextDidBeginEditing:)])
 		[_delegate searchBarTextDidBeginEditing:self];
 }

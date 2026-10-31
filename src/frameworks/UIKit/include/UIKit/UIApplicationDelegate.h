@@ -14,8 +14,8 @@
 
 #import <Foundation/NSObject.h>
 
-@class UIApplication;
-@class NSDictionary;
+@class UIApplication, UIWindow, UISceneSession, UISceneConnectionOptions, UISceneConfiguration, UILocalNotification;
+#import <Foundation/Foundation.h>
 
 @protocol UIApplicationDelegate <NSObject>
 
@@ -29,6 +29,10 @@
 - (void)applicationDidEnterBackground:(UIApplication *)application;
 - (void)applicationWillEnterForeground:(UIApplication *)application;
 - (void)applicationWillTerminate:(UIApplication *)application;
+- (UISceneConfiguration *)application:(UIApplication *)application configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession options:(UISceneConnectionOptions *)options;
+- (void)application:(UIApplication *)application didDiscardSceneSessions:(NSSet<UISceneSession *> *)sceneSessions;
+- (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification;
+@property (nonatomic, strong) UIWindow *window;
 
 @end
 

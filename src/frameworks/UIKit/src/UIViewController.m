@@ -355,6 +355,12 @@
 	}
 	_presented = controller;
 	controller->_presenting = self;
+	if ([controller uikitPresentsItself]) {
+		[controller uikitShowPresented];
+		if (completion != nil)
+			dispatch_async(dispatch_get_main_queue(), completion);
+		return;
+	}
 	UIView *container = [self uikitPresentationContainer];
 	UIView *view = [controller view];
 	[view setFrame:[container bounds]];
@@ -384,6 +390,14 @@
 	}
 	if (presented->_presented != nil)
 		[presented dismissViewControllerAnimated:NO completion:nil];
+	if ([presented uikitPresentsItself]) {
+		presented->_presenting = nil;
+		_presented = nil;
+		[presented uikitHidePresented];
+		if (completion != nil)
+			dispatch_async(dispatch_get_main_queue(), completion);
+		return;
+	}
 	[presented uikitDisappear:animated];
 	[[presented view] removeFromSuperview];
 	for (NSView *covered in _coveredViews)
@@ -394,6 +408,10 @@
 	if (completion != nil)
 		dispatch_async(dispatch_get_main_queue(), completion);
 }
+
+- (BOOL)uikitPresentsItself { return NO; }
+- (void)uikitShowPresented { }
+- (void)uikitHidePresented { }
 
 - (void)presentModalViewController:(UIViewController *)controller animated:(BOOL)animated
 {

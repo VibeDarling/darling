@@ -170,11 +170,13 @@ static inline int shutdownOrphans(const char *prefix, uid_t uid, const char *con
 static inline bool shutdownContainer(pid_t server, int serverHandle, pid_t shellspawn, int shellHandle)
 {
  char serverNs[128], containerNs[128] = "";
- if (!shutdownNamespace(server, serverNs, sizeof(serverNs))) return false;
+ /* Android's SELinux policy hides /proc/<pid>/ns from apps: without it, ancestry alone decides,
+  * as it does for every nonroot container. */
+ bool namespaces = shutdownNamespace(server, serverNs, sizeof(serverNs));
  DIR *dir = opendir("/proc");
  if (!dir) return false;
  struct dirent *entry;
- while ((entry = readdir(dir))) {
+ while (namespaces && (entry = readdir(dir))) {
   pid_t pid = atoi(entry->d_name); char ns[128];
   if (pid > 1 && shutdownParent(pid) == server &&
       shutdownNamespace(pid, ns, sizeof(ns)) && strcmp(ns, serverNs)) {

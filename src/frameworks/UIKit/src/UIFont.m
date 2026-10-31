@@ -15,6 +15,16 @@
 
 #import "UIKitPrivate.h"
 
+const UIFontWeight UIFontWeightUltraLight = -0.8;
+const UIFontWeight UIFontWeightThin = -0.6;
+const UIFontWeight UIFontWeightLight = -0.4;
+const UIFontWeight UIFontWeightRegular = 0;
+const UIFontWeight UIFontWeightMedium = 0.23;
+const UIFontWeight UIFontWeightSemibold = 0.3;
+const UIFontWeight UIFontWeightBold = 0.4;
+const UIFontWeight UIFontWeightHeavy = 0.56;
+const UIFontWeight UIFontWeightBlack = 0.62;
+
 @implementation UIFont
 
 + (UIFont *)systemFontOfSize:(CGFloat)size
@@ -69,6 +79,16 @@
 + (CGFloat)smallSystemFontSize { return 12; }
 + (CGFloat)labelFontSize { return 17; }
 + (CGFloat)buttonFontSize { return 18; }
+
++ (UIFont *)systemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight
+{
+	return weight >= UIFontWeightSemibold ? [self boldSystemFontOfSize:size] : [self systemFontOfSize:size];
+}
+
++ (UIFont *)monospacedDigitSystemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight
+{
+	return [self systemFontOfSize:size weight:weight];
+}
 
 + (UIFont *)italicSystemFontOfSize:(CGFloat)size
 {

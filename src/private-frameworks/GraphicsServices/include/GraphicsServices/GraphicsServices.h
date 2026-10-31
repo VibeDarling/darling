@@ -26,6 +26,7 @@
    and a few process-wide screen facts. */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include <CoreGraphics/CGGeometry.h>
@@ -68,6 +69,12 @@ CGFloat GSMainScreenScaleFactor(void);
 int GSMainScreenOrientation(void);
 
 const char *GSSystemRootDirectory(void);
+
+/* Fonts: a GSFont is a Core Text font (CTFontRef). */
+typedef const struct __GSFont *GSFontRef;
+typedef uint32_t GSFontSymbolicTraits;
+GSFontRef GSFontCreateWithName(const char *name, GSFontSymbolicTraits traits, float size);
+bool GSFontGetUseLegacyFontMetrics(void);
 
 CF_EXTERN_C_END
 

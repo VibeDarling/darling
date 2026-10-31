@@ -31,6 +31,7 @@ NSString *const UIKeyboardDidShowNotification = @"UIKeyboardDidShowNotification"
 NSString *const UIKeyboardWillHideNotification = @"UIKeyboardWillHideNotification";
 NSString *const UIKeyboardDidHideNotification = @"UIKeyboardDidHideNotification";
 NSString *const UIKeyboardWillChangeFrameNotification = @"UIKeyboardWillChangeFrameNotification";
+NSString *const UIKeyboardDidChangeFrameNotification = @"UIKeyboardDidChangeFrameNotification";
 NSString *const UIKeyboardFrameBeginUserInfoKey = @"UIKeyboardFrameBeginUserInfoKey";
 NSString *const UIKeyboardFrameEndUserInfoKey = @"UIKeyboardFrameEndUserInfoKey";
 NSString *const UIKeyboardAnimationDurationUserInfoKey = @"UIKeyboardAnimationDurationUserInfoKey";
@@ -38,6 +39,7 @@ NSString *const UIKeyboardAnimationCurveUserInfoKey = @"UIKeyboardAnimationCurve
 NSString *const UIKeyboardBoundsUserInfoKey = @"UIKeyboardBoundsUserInfoKey";
 NSString *const UIKeyboardCenterBeginUserInfoKey = @"UIKeyboardCenterBeginUserInfoKey";
 NSString *const UIKeyboardCenterEndUserInfoKey = @"UIKeyboardCenterEndUserInfoKey";
+NSString *const UIKeyboardIsLocalUserInfoKey = @"UIKeyboardIsLocalUserInfoKey";
 NSString *const UIApplicationDidReceiveMemoryWarningNotification = @"UIApplicationDidReceiveMemoryWarningNotification";
 NSString *const UIApplicationLaunchOptionsURLKey = @"UIApplicationLaunchOptionsURLKey";
 NSString *const UIApplicationLaunchOptionsSourceApplicationKey = @"UIApplicationLaunchOptionsSourceApplicationKey";
@@ -77,9 +79,12 @@ void UISetColor(CGColorRef color)
 	[UIKitDrawColor() set];
 }
 
+/* An image of UIKit's own artwork, which tweaks name (WinterBoard's
+   settings, UIPreferencesBlueCheck.png); then the app's. */
 UIImage *_UIImageWithName(NSString *name)
 {
-	return [UIImage imageNamed:name];
+	return [UIImage imageNamed:name inBundle:[NSBundle bundleForClass:[UIImage class]] compatibleWithTraitCollection:nil]
+		?: [UIImage imageNamed:name];
 }
 
 void UIRectFill(CGRect rect)

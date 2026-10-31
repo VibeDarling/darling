@@ -69,17 +69,26 @@ OSStatus AudioQueueOutput::start(const AudioTimeStamp *inStartTime)
 		return status;
 	}
 
-	status = AudioDeviceStart(m_outputDevice, m_ioProcID);
+	// Started with the mutex released: starting waits for the device (PulseAudio's main loop),
+	// whose thread may be in fillOutput, waiting for the mutex.
+	m_running = true;
+	m_paused = false;
+	AudioDeviceID device = m_outputDevice;
+	AudioDeviceIOProcID ioProc = m_ioProcID;
+	lock.unlock();
+
+	status = AudioDeviceStart(device, ioProc);
 	if (status != noErr)
 	{
 		std::cerr << "[AudioQueue] AudioDeviceStart failed: " << status << "\n";
-		AudioDeviceDestroyIOProcID(m_outputDevice, m_ioProcID);
-		m_ioProcID = nullptr;
+		lock.lock();
+		m_running = false;
+		if (m_ioProcID == ioProc)
+			m_ioProcID = nullptr;
+		lock.unlock();
+		AudioDeviceDestroyIOProcID(device, ioProc);
 		return status;
 	}
-
-	m_running = true;
-	m_paused = false;
 	return noErr;
 }
 
@@ -98,6 +107,8 @@ OSStatus AudioQueueOutput::flush()
 OSStatus AudioQueueOutput::stop(Boolean inImmediate)
 {
 	std::vector<AudioQueueBufferRef> toReturn;
+	AudioDeviceID device = 0;
+	AudioDeviceIOProcID ioProc = nullptr;
 	{
 		std::unique_lock<std::recursive_mutex> lock(m_mutex);
 		if (!m_running)
@@ -106,10 +117,11 @@ OSStatus AudioQueueOutput::stop(Boolean inImmediate)
 		m_running = false;
 		m_paused = false;
 
+		// Stopped once the mutex is released, as start starts.
 		if (m_outputDevice && m_ioProcID)
 		{
-			AudioDeviceStop(m_outputDevice, m_ioProcID);
-			AudioDeviceDestroyIOProcID(m_outputDevice, m_ioProcID);
+			device = m_outputDevice;
+			ioProc = m_ioProcID;
 			m_ioProcID = nullptr;
 		}
 
@@ -121,6 +133,12 @@ OSStatus AudioQueueOutput::stop(Boolean inImmediate)
 				m_buffers.pop_front();
 			}
 		}
+	}
+
+	if (ioProc)
+	{
+		AudioDeviceStop(device, ioProc);
+		AudioDeviceDestroyIOProcID(device, ioProc);
 	}
 
 	for (AudioQueueBufferRef buf : toReturn)

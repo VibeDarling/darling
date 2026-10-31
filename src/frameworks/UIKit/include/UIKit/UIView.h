@@ -50,6 +50,46 @@ typedef NS_ENUM(NSInteger, UIViewTintAdjustmentMode) {
 
 typedef NS_OPTIONS(NSUInteger, UIViewAnimationOptions) {
 	UIViewAnimationOptionNone = 0,
+	UIViewAnimationOptionLayoutSubviews = 1 << 0,
+	UIViewAnimationOptionAllowUserInteraction = 1 << 1,
+	UIViewAnimationOptionBeginFromCurrentState = 1 << 2,
+	UIViewAnimationOptionRepeat = 1 << 3,
+	UIViewAnimationOptionAutoreverse = 1 << 4,
+	UIViewAnimationOptionOverrideInheritedDuration = 1 << 5,
+	UIViewAnimationOptionOverrideInheritedCurve = 1 << 6,
+	UIViewAnimationOptionAllowAnimatedContent = 1 << 7,
+	UIViewAnimationOptionShowHideTransitionViews = 1 << 8,
+	UIViewAnimationOptionOverrideInheritedOptions = 1 << 9,
+	UIViewAnimationOptionCurveEaseInOut = 0 << 16,
+	UIViewAnimationOptionCurveEaseIn = 1 << 16,
+	UIViewAnimationOptionCurveEaseOut = 2 << 16,
+	UIViewAnimationOptionCurveLinear = 3 << 16,
+	UIViewAnimationOptionTransitionNone = 0 << 20,
+	UIViewAnimationOptionTransitionFlipFromLeft = 1 << 20,
+	UIViewAnimationOptionTransitionFlipFromRight = 2 << 20,
+	UIViewAnimationOptionTransitionCurlUp = 3 << 20,
+	UIViewAnimationOptionTransitionCurlDown = 4 << 20,
+	UIViewAnimationOptionTransitionCrossDissolve = 5 << 20,
+	UIViewAnimationOptionTransitionFlipFromTop = 6 << 20,
+	UIViewAnimationOptionTransitionFlipFromBottom = 7 << 20,
+	UIViewAnimationOptionPreferredFramesPerSecondDefault = 0 << 24,
+	UIViewAnimationOptionPreferredFramesPerSecond60 = 3 << 24,
+	UIViewAnimationOptionPreferredFramesPerSecond30 = 7 << 24,
+};
+
+typedef NS_OPTIONS(NSUInteger, UIViewKeyframeAnimationOptions) {
+	UIViewKeyframeAnimationOptionLayoutSubviews = UIViewAnimationOptionLayoutSubviews,
+	UIViewKeyframeAnimationOptionAllowUserInteraction = UIViewAnimationOptionAllowUserInteraction,
+	UIViewKeyframeAnimationOptionBeginFromCurrentState = UIViewAnimationOptionBeginFromCurrentState,
+	UIViewKeyframeAnimationOptionRepeat = UIViewAnimationOptionRepeat,
+	UIViewKeyframeAnimationOptionAutoreverse = UIViewAnimationOptionAutoreverse,
+	UIViewKeyframeAnimationOptionOverrideInheritedDuration = UIViewAnimationOptionOverrideInheritedDuration,
+	UIViewKeyframeAnimationOptionOverrideInheritedOptions = UIViewAnimationOptionOverrideInheritedOptions,
+	UIViewKeyframeAnimationOptionCalculationModeLinear = 0 << 10,
+	UIViewKeyframeAnimationOptionCalculationModeDiscrete = 1 << 10,
+	UIViewKeyframeAnimationOptionCalculationModePaced = 2 << 10,
+	UIViewKeyframeAnimationOptionCalculationModeCubic = 3 << 10,
+	UIViewKeyframeAnimationOptionCalculationModeCubicPaced = 4 << 10,
 };
 
 /*
@@ -197,7 +237,23 @@ typedef NS_ENUM(NSInteger, UISemanticContentAttribute) {
 + (void)animateWithDuration:(NSTimeInterval)duration animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
 + (void)animateWithDuration:(NSTimeInterval)duration delay:(NSTimeInterval)delay options:(UIViewAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
 + (void)performWithoutAnimation:(void (^)(void))actions;
++ (void)animateWithDuration:(NSTimeInterval)duration delay:(NSTimeInterval)delay usingSpringWithDamping:(CGFloat)dampingRatio initialSpringVelocity:(CGFloat)velocity options:(UIViewAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (void)transitionWithView:(UIView *)view duration:(NSTimeInterval)duration options:(UIViewAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (void)transitionFromView:(UIView *)fromView toView:(UIView *)toView duration:(NSTimeInterval)duration options:(UIViewAnimationOptions)options completion:(void (^)(BOOL finished))completion;
++ (void)animateKeyframesWithDuration:(NSTimeInterval)duration delay:(NSTimeInterval)delay options:(UIViewKeyframeAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (void)addKeyframeWithRelativeStartTime:(double)frameStartTime relativeDuration:(double)frameDuration animations:(void (^)(void))animations;
++ (void)modifyAnimationsWithRepeatCount:(CGFloat)count autoreverses:(BOOL)autoreverses animations:(void (^)(void))animations;
++ (NSTimeInterval)inheritedAnimationDuration;
 
+@end
+
+/* iOS's first responder, on top of AppKit's: -becomeFirstResponder and
+ * -resignFirstResponder called by the app make the view the window's first
+ * responder, or give that up, when -canBecomeFirstResponder allows it (NO by
+ * default, as on iOS). See UITextInput.h for views that take typing. */
+@interface UIView (UIKitFirstResponder)
+- (BOOL)canBecomeFirstResponder;
+- (BOOL)isFirstResponder;
 @end
 
 #endif /* UIKIT_UIVIEW_H */

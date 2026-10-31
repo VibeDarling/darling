@@ -31,9 +31,15 @@
 
 #import <UIKit/UIKit.h>
 #import <FrontBoardServices/FrontBoardServices.h>
+#import "SpringBoard.h"
 #include <stdio.h>
 
-static void SBLog(NSString *format, ...)
+/* UIKit's, private on iOS: the lock screen's wallpaper. */
+@interface UIImage (SBPrivate)
++ (UIImage *)defaultDesktopImage;
+@end
+
+void SBLog(NSString *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -51,7 +57,7 @@ static const CGFloat SBLabelHeight = 18;
 
 #pragma mark - Drawing helpers
 
-static void SBAddRoundedRect(CGContextRef context, CGRect rect, CGFloat radius)
+void SBAddRoundedRect(CGContextRef context, CGRect rect, CGFloat radius)
 {
 	CGFloat minX = CGRectGetMinX(rect), maxX = CGRectGetMaxX(rect);
 	CGFloat minY = CGRectGetMinY(rect), maxY = CGRectGetMaxY(rect);
@@ -160,14 +166,9 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 
 #pragma mark - Applications
 
-@interface SBApplication : NSObject
-@property (nonatomic, copy) NSString *bundleIdentifier;
-@property (nonatomic, copy) NSString *displayName;
-@property (nonatomic, strong) UIImage *icon;
-+ (instancetype)applicationWithBundle:(NSBundle *)bundle;
-@end
-
-@implementation SBApplication
+@implementation SBApplication {
+	NSString *_iconPath;
+}
 
 /* The icon file names an iOS bundle may declare, largest last as Xcode
    writes them, and the names asset catalogs compile app icons to. */
@@ -184,21 +185,37 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 	if ([info[@"CFBundleIconFile"] isKindOfClass:[NSString class]])
 		[names addObject:info[@"CFBundleIconFile"]];
 	[names addObjectsFromArray:@[ @"AppIcon60x60", @"Icon", @"icon" ]];
-	return names;
+
+	/* The home screen's is the 60 point icon (the 57 point one before iOS
+	   7, under a plain name); a bundle also lists ones for Spotlight,
+	   Settings and the iPad, which are not it. */
+	NSMutableArray<NSString *> *home = [NSMutableArray array];
+	for (NSString *name in names) {
+		NSString *lower = [name lowercaseString];
+		BOOL other = NO;
+		for (NSString *mark in @[ @"small", @"spotlight", @"settings", @"~ipad", @"-72", @"-76", @"-40", @"-29", @"-20" ])
+			other = other || [lower rangeOfString:mark].location != NSNotFound;
+		if (!other)
+			[home addObject:name];
+	}
+	[home sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+		BOOL a60 = [a rangeOfString:@"60"].location != NSNotFound, b60 = [b rangeOfString:@"60"].location != NSNotFound;
+		return a60 == b60 ? NSOrderedSame : a60 ? NSOrderedAscending : NSOrderedDescending;
+	}];
+	return [home count] > 0 ? home : names;
 }
 
-+ (UIImage *)iconForBundle:(NSBundle *)bundle
+/* The icon is read through UIImage, so through ImageIO: a theme
+   (WinterBoard's) gives its own file for this one there. */
++ (NSString *)iconPathForBundle:(NSBundle *)bundle
 {
 	NSString *root = [bundle bundlePath];
 	for (NSString *name in [self iconNamesForBundle:bundle]) {
 		NSString *base = [name stringByDeletingPathExtension];
 		for (NSString *suffix in @[ @"@3x.png", @"@2x.png", @".png", @"" ]) {
 			NSString *path = [root stringByAppendingPathComponent:[base stringByAppendingString:suffix]];
-			if (![[NSFileManager defaultManager] fileExistsAtPath:path])
-				continue;
-			UIImage *image = [UIImage imageWithContentsOfFile:path];
-			if (image != nil)
-				return image;
+			if ([[NSFileManager defaultManager] fileExistsAtPath:path])
+				return path;
 		}
 	}
 	return nil;
@@ -211,8 +228,71 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 	application.bundleIdentifier = [bundle bundleIdentifier];
 	application.displayName = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"]
 		?: [[[bundle bundlePath] lastPathComponent] stringByDeletingPathExtension];
-	application.icon = [self iconForBundle:bundle];
+	application.path = [bundle bundlePath];
+	NSString *iconPath = [self iconPathForBundle:bundle];
+	application.icon = iconPath != nil ? [UIImage imageWithContentsOfFile:iconPath] : nil;
+	application->_iconPath = iconPath;
 	return application;
+}
+
+- (NSString *)displayIdentifier
+{
+	return _bundleIdentifier;
+}
+
+- (NSString *)pathForIcon
+{
+	return _iconPath;
+}
+
+@end
+
+/* An app's icon on the home screen, as iOS SpringBoard has it: the image
+   comes from -generateIconImage:, which tweaks hook to replace it. */
+@interface SBApplicationIcon : NSObject
+- (instancetype)initWithApplication:(SBApplication *)application;
+- (SBApplication *)application;
+- (NSString *)applicationBundleID;
+- (NSString *)displayName;
+- (UIImage *)generateIconImage:(int)format;
+- (UIImage *)icon;
+@end
+
+@implementation SBApplicationIcon {
+	SBApplication *_application;
+}
+
+- (instancetype)initWithApplication:(SBApplication *)application
+{
+	if ((self = [super init]))
+		_application = application;
+	return self;
+}
+
+- (SBApplication *)application
+{
+	return _application;
+}
+
+- (NSString *)applicationBundleID
+{
+	return [_application bundleIdentifier];
+}
+
+- (NSString *)displayName
+{
+	return [_application displayName];
+}
+
+/* Format 2 is the home screen's size. */
+- (UIImage *)generateIconImage:(int)format
+{
+	return [_application icon];
+}
+
+- (UIImage *)icon
+{
+	return [self generateIconImage:2];
 }
 
 @end
@@ -235,6 +315,8 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 @end
 
 @implementation SBIconView {
+	SBApplicationIcon *_icon;
+	UIImage *_iconImageSource;
 	UILabel *_label;
 	UILabel *_monogram;
 	BOOL _highlighted;
@@ -250,6 +332,8 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 	if ((self = [super initWithFrame:CGRectMake(0, 0, width, iconSize + 8 + SBLabelHeight + 8)])) {
 		_application = application;
 		_iconSize = iconSize;
+		_icon = [[SBApplicationIcon alloc] initWithApplication:application];
+		_iconImageSource = [_icon generateIconImage:2];
 
 		_label = [[UILabel alloc] initWithFrame:CGRectMake(0, iconSize + 6, width, SBLabelHeight)];
 		_label.text = application.displayName;
@@ -258,7 +342,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 		_label.textAlignment = NSTextAlignmentCenter;
 		[self addSubview:_label];
 
-		if (application.icon == nil) {
+		if (_iconImageSource == nil) {
 			_monogram = [[UILabel alloc] initWithFrame:[self iconRect]];
 			_monogram.text = [[application.displayName substringToIndex:MIN((NSUInteger)1, [application.displayName length])] uppercaseString];
 			_monogram.font = [UIFont systemFontOfSize:iconSize * 0.45];
@@ -298,7 +382,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 
 	CGRect icon = CGRectMake(0, 0, _iconSize, _iconSize);
 	CGFloat radius = _iconSize * 0.225;
-	CGImageRef image = _application.icon.CGImage;
+	CGImageRef image = _iconImageSource.CGImage;
 	SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
 	SBRGB light = { MIN(1, color.r + 0.15), MIN(1, color.g + 0.15), MIN(1, color.b + 0.15) };
 	*cached = SBCreateImage(icon.size, ^(CGContextRef context) {
@@ -405,15 +489,42 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 
 @end
 
-/* The frosted shelf the dock icons sit on. */
-@interface SBDockView : UIView
+/* The dock: the shelf the dock icons sit on. Its image is SpringBoard's
+   SBDockBG.png, as on iOS, so a theme can give its own (WinterBoard's at
+   Bundles/com.apple.springboard/SBDockBG.png). The one SpringBoard ships
+   is a pixel placeholder: then the frosted shelf below is drawn. */
+@interface SBDockIconListView : UIView
++ (BOOL)shouldShowNewDock;
 @end
 
-@implementation SBDockView
+@implementation SBDockIconListView
+
++ (BOOL)shouldShowNewDock
+{
+	return YES;
+}
+
++ (UIImage *)dockImage
+{
+	static UIImage *image;
+	static BOOL loaded;
+	if (!loaded) {
+		loaded = YES;
+		image = [UIImage imageNamed:@"SBDockBG.png"];
+		if (image != nil && image.size.width * image.scale <= 1)
+			image = nil;
+	}
+	return image;
+}
 
 - (void)drawRect:(NSRect)rect
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
+	UIImage *image = [[self class] dockImage];
+	if (image != nil) {
+		SBDrawImage(context, image.CGImage, [self bounds]);
+		return;
+	}
 	SBAddRoundedRect(context, CGRectInset([self bounds], 8, 4), 26);
 	CGContextSetRGBFillColor(context, 1, 1, 1, 0.25);
 	CGContextFillPath(context);
@@ -577,15 +688,17 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 	NSMutableArray<SBIconView *> *_iconViews;
 	UIView *_pagesView;
 	SBPageDotsView *_dots;
-	SBDockView *_dock;
+	SBDockIconListView *_dock;
 	UILabel *_clock;
 	SBSwitcherView *_switcher;
 	NSUInteger _numberOfPages;
 	NSUInteger _currentPage;
 	CGPoint _swipeStart;
 	CGFloat _pageWidth;
-	CGImageRef _wallpaper;
-	CGSize _wallpaperSize;
+	UILabel *_carrier;
+	/* What the icons were laid out for. */
+	CGSize _laidOutSize;
+	UIEdgeInsets _laidOutInsets;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -599,11 +712,19 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 		_clock.textAlignment = NSTextAlignmentCenter;
 		[self addSubview:_clock];
 
-		UILabel *carrier = [[UILabel alloc] initWithFrame:CGRectMake(12, 2, 200, SBStatusBarHeight - 4)];
-		carrier.text = @"Darling";
-		carrier.font = [UIFont systemFontOfSize:13];
-		carrier.textColor = [UIColor whiteColor];
-		[self addSubview:carrier];
+		_carrier = [[UILabel alloc] initWithFrame:CGRectMake(12, 2, 200, SBStatusBarHeight - 4)];
+		_carrier.text = @"Darling";
+		_carrier.font = [UIFont systemFontOfSize:13];
+		_carrier.textColor = [UIColor whiteColor];
+		[self addSubview:_carrier];
+
+		/* A host with its own status bar (a phone's) draws it over the top
+		   of the screen, where this one would be. */
+		BOOL hostStatusBar = UIKitHostSafeAreaInsets().top > 0;
+		[_clock setHidden:hostStatusBar];
+		[_carrier setHidden:hostStatusBar];
+		/* Asking for the guide is what makes UIKit report safe area changes. */
+		(void)[self safeAreaLayoutGuide];
 
 		[self updateClock];
 		[NSTimer scheduledTimerWithTimeInterval:10 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
@@ -622,37 +743,28 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 	_clock.text = [formatter stringFromDate:[NSDate date]];
 }
 
-- (void)dealloc
-{
-	CGImageRelease(_wallpaper);
-}
-
-/* The wallpaper covers the whole view, so redraws can start here rather
-   than at the window. */
+/* The wallpaper is under this view (SBUIController's), not part of it. */
 - (BOOL)isOpaque
 {
-	return YES;
-}
-
-- (void)drawRect:(NSRect)rect
-{
-	CGRect bounds = [self bounds];
-	if (_wallpaper == NULL || !CGSizeEqualToSize(_wallpaperSize, bounds.size)) {
-		CGImageRelease(_wallpaper);
-		_wallpaperSize = bounds.size;
-		_wallpaper = SBCreateImage(bounds.size, ^(CGContextRef context) {
-			SBFillVerticalGradientWithin(context, bounds, bounds,
-				(SBRGB){ 0.16, 0.20, 0.42 }, (SBRGB){ 0.55, 0.30, 0.55 }, 1);
-		});
-	}
-	CGContextRef context = UIGraphicsGetCurrentContext();
-	CGContextSaveGState(context);
-	CGContextSetBlendMode(context, kCGBlendModeCopy);
-	SBDrawImage(context, _wallpaper, bounds);
-	CGContextRestoreGState(context);
+	return NO;
 }
 
 #pragma mark Layout
+
+/* The host's screen can change size (a phone turned) or what its edges
+   cover; the icons follow. */
+- (void)layoutSubviews
+{
+	[super layoutSubviews];
+	if (_applications != nil && (!CGSizeEqualToSize(_laidOutSize, [self bounds].size)
+	                             || !UIEdgeInsetsEqualToEdgeInsets(_laidOutInsets, [self safeAreaInsets])))
+		[self layoutIcons];
+}
+
+- (void)safeAreaInsetsDidChange
+{
+	[self setNeedsLayout];
+}
 
 - (NSArray<NSString *> *)dockIdentifiers
 {
@@ -666,6 +778,9 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 	for (NSBundle *bundle in FBSInstalledApplications()) {
 		NSArray *tags = [bundle infoDictionary][@"SBAppTags"];
 		if ([tags isKindOfClass:[NSArray class]] && [tags containsObject:@"hidden"])
+			continue;
+		// Mac applications (Contents/Info.plist) can't run on the phone's screen.
+		if ([[NSFileManager defaultManager] fileExistsAtPath:[[bundle bundlePath] stringByAppendingPathComponent:@"Contents/Info.plist"]])
 			continue;
 		[applications addObject:[SBApplication applicationWithBundle:bundle]];
 	}
@@ -690,14 +805,19 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 	_iconViews = [NSMutableArray array];
 
 	CGSize size = [self bounds].size;
+	UIEdgeInsets insets = [self safeAreaInsets];
+	_laidOutSize = size;
+	_laidOutInsets = insets;
 	NSUInteger columns = size.width > size.height ? 6 : 4;
 	CGFloat cellWidth = size.width / columns;
 	CGFloat iconSize = floor(MIN(72, cellWidth * 0.6));
 	CGFloat cellHeight = iconSize + SBLabelHeight + 30;
 	CGFloat dockHeight = iconSize + SBLabelHeight + 30;
 	CGFloat dotsHeight = 20;
-	CGFloat gridTop = SBStatusBarHeight + 16;
-	CGFloat gridHeight = size.height - gridTop - dotsHeight - dockHeight - 8;
+	CGFloat gridTop = MAX(SBStatusBarHeight, insets.top) + 16;
+	/* The dock sits above what covers the bottom edge (a navigation bar). */
+	CGFloat dockTop = size.height - insets.bottom - dockHeight;
+	CGFloat gridHeight = dockTop - gridTop - dotsHeight - 8;
 	NSUInteger rows = MAX((NSUInteger)1, (NSUInteger)floor(gridHeight / cellHeight));
 	NSUInteger perPage = rows * columns;
 
@@ -730,13 +850,13 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 		[self->_pagesView addSubview:iconView];
 	}];
 
-	_dots = [[SBPageDotsView alloc] initWithFrame:CGRectMake(0, size.height - dockHeight - dotsHeight - 4, size.width, dotsHeight)];
+	_dots = [[SBPageDotsView alloc] initWithFrame:CGRectMake(0, dockTop - dotsHeight - 4, size.width, dotsHeight)];
 	_dots.numberOfPages = _numberOfPages;
 	_dots.currentPage = _currentPage;
 	_dots.userInteractionEnabled = NO;
 	[self addSubview:_dots];
 
-	_dock = [[SBDockView alloc] initWithFrame:CGRectMake(0, size.height - dockHeight, size.width, dockHeight)];
+	_dock = [[SBDockIconListView alloc] initWithFrame:CGRectMake(0, dockTop, size.width, dockHeight)];
 	[self addSubview:_dock];
 	CGFloat dockCell = size.width / MAX((NSUInteger)4, [dockApplications count]);
 	CGFloat dockX = (size.width - dockCell * [dockApplications count]) / 2;
@@ -920,6 +1040,247 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 
 @end
 
+#pragma mark - Wallpaper and lock screen
+
+/* The default wallpaper, made once per size. */
+static CGImageRef SBDefaultWallpaper(CGSize size)
+{
+	static CGImageRef wallpaper;
+	static CGSize wallpaperSize;
+	if (wallpaper == NULL || !CGSizeEqualToSize(size, wallpaperSize)) {
+		CGImageRelease(wallpaper);
+		wallpaperSize = size;
+		CGRect bounds = { CGPointZero, size };
+		wallpaper = SBCreateImage(size, ^(CGContextRef context) {
+			SBFillVerticalGradientWithin(context, bounds, bounds,
+				(SBRGB){ 0.16, 0.20, 0.42 }, (SBRGB){ 0.55, 0.30, 0.55 }, 1);
+		});
+	}
+	return wallpaper;
+}
+
+/* A wallpaper: its image filling the view, or the default one. Opaque, so
+   redraws of what is over it start here rather than at the window. */
+@interface SBWallpaperView : UIView
+@property (nonatomic, strong) UIImage *image;
+@end
+
+@implementation SBWallpaperView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	if ((self = [super initWithFrame:frame]))
+		[self setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+	return self;
+}
+
+- (void)setImage:(UIImage *)image
+{
+	_image = image;
+	[self setNeedsDisplay:YES];
+}
+
+- (BOOL)isOpaque
+{
+	return YES;
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	CGRect bounds = [self bounds];
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGContextSaveGState(context);
+	CGContextSetBlendMode(context, kCGBlendModeCopy);
+	SBDrawImage(context, _image != nil ? _image.CGImage : SBDefaultWallpaper(bounds.size), bounds);
+	CGContextRestoreGState(context);
+}
+
+@end
+
+/* The lock screen, iOS's SBAwayView: the lock wallpaper (UIImage's
+   +defaultDesktopImage, which themes answer), the time and date, and a
+   swipe up to unlock. */
+@interface SBAwayView : UIView
+@property (nonatomic, copy) void (^unlockHandler)(void);
+- (void)updateDesktopImage:(UIImage *)image;
+@end
+
+@implementation SBAwayView {
+	/* iOS's names; WinterBoard finds them by name. */
+	SBWallpaperView *_backgroundView;
+	UIView *_chargingView;
+	UIView *_dimView;
+	UILabel *_timeLabel;
+	UILabel *_dateLabel;
+	UILabel *_hintLabel;
+	NSTimer *_timer;
+	CGPoint _touchStart;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	if ((self = [super initWithFrame:frame])) {
+		[self setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+		_backgroundView = [[SBWallpaperView alloc] initWithFrame:[self bounds]];
+		[self addSubview:_backgroundView];
+		_dimView = [[UIView alloc] initWithFrame:[self bounds]];
+		[_dimView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+		[_dimView setBackgroundColor:[UIColor colorWithWhite:0 alpha:0.25]];
+		[self addSubview:_dimView];
+
+		_timeLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+		_timeLabel.font = [UIFont systemFontOfSize:76];
+		_timeLabel.textColor = [UIColor whiteColor];
+		_timeLabel.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_timeLabel];
+		_dateLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+		_dateLabel.font = [UIFont systemFontOfSize:20];
+		_dateLabel.textColor = [UIColor whiteColor];
+		_dateLabel.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_dateLabel];
+		_hintLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+		_hintLabel.text = @"Swipe up to unlock";
+		_hintLabel.font = [UIFont systemFontOfSize:17];
+		_hintLabel.textColor = [UIColor colorWithWhite:1 alpha:0.85];
+		_hintLabel.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_hintLabel];
+		(void)[self safeAreaLayoutGuide];
+
+		[self updateClock];
+		_timer = [NSTimer scheduledTimerWithTimeInterval:10 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
+	}
+	return self;
+}
+
+- (void)updateDesktopImage:(UIImage *)image
+{
+	[_backgroundView setImage:image];
+}
+
+- (void)updateClock
+{
+	NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+	[formatter setDateFormat:@"HH:mm"];
+	_timeLabel.text = [formatter stringFromDate:[NSDate date]];
+	[formatter setDateFormat:@"EEEE, d MMMM"];
+	_dateLabel.text = [formatter stringFromDate:[NSDate date]];
+}
+
+- (void)layoutSubviews
+{
+	[super layoutSubviews];
+	CGSize size = [self bounds].size;
+	UIEdgeInsets insets = [self safeAreaInsets];
+	CGFloat top = MAX(SBStatusBarHeight, insets.top) + 40;
+	[_timeLabel setFrame:CGRectMake(0, top, size.width, 90)];
+	[_dateLabel setFrame:CGRectMake(0, top + 90, size.width, 28)];
+	[_hintLabel setFrame:CGRectMake(0, size.height - insets.bottom - 60, size.width, 24)];
+}
+
+- (void)safeAreaInsetsDidChange
+{
+	[self setNeedsLayout];
+}
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	_touchStart = [[touches anyObject] locationInView:self];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	CGPoint end = [[touches anyObject] locationInView:self];
+	if (_touchStart.y - end.y < 80)
+		return;
+	[_timer invalidate];
+	_timer = nil;
+	if (_unlockHandler != nil)
+		_unlockHandler();
+}
+
+@end
+
+/* Owns the home screen's window, as iOS's SBUIController does: the
+   wallpaper, the icons over it, and the lock screen over both. Theme
+   engines hook -init and take the wallpaper over through _wallpaperView,
+   _contentView and _window. */
+@interface SBUIController : NSObject
++ (instancetype)sharedInstance;
+- (UIWindow *)window;
+- (void)lock;
+- (void)unlock;
+- (BOOL)isLocked;
+@end
+
+@implementation SBUIController {
+	UIWindow *_window;
+	UIView *_contentView;
+	SBWallpaperView *_wallpaperView;
+	SBAwayView *_awayView;
+}
+
++ (instancetype)sharedInstance
+{
+	static SBUIController *controller;
+	if (controller == nil)
+		controller = [[self alloc] init];
+	return controller;
+}
+
+- (instancetype)init
+{
+	if ((self = [super init]) == nil)
+		return nil;
+	CGRect bounds = [[UIScreen mainScreen] bounds];
+	_window = [[UIWindow alloc] initWithFrame:bounds];
+	[_window setBackgroundColor:[UIColor blackColor]];
+	UIViewController *controller = [[UIViewController alloc] init];
+	_window.rootViewController = controller;
+	_contentView = controller.view;
+	/* Sized once the controller's view fills the window: it starts out
+	   below the status bar, and would stretch the home view by that much. */
+	_wallpaperView = [[SBWallpaperView alloc] initWithFrame:[_contentView bounds]];
+	[_contentView addSubview:_wallpaperView];
+	[_contentView addSubview:[[SBHomeView alloc] initWithFrame:[_contentView bounds]]];
+	NSNumber *lockScreen = [[NSUserDefaults standardUserDefaults] objectForKey:@"SBLockScreenEnabled"];
+	if (lockScreen == nil || [lockScreen boolValue])
+		[self lock];
+	return self;
+}
+
+- (UIWindow *)window
+{
+	return _window;
+}
+
+- (BOOL)isLocked
+{
+	return _awayView != nil;
+}
+
+- (void)lock
+{
+	if (_awayView != nil)
+		return;
+	_awayView = [[SBAwayView alloc] initWithFrame:[_contentView bounds]];
+	[_awayView updateDesktopImage:[UIImage defaultDesktopImage]];
+	__weak SBUIController *weakSelf = self;
+	_awayView.unlockHandler = ^{
+		[weakSelf unlock];
+	};
+	[_contentView addSubview:_awayView];
+	SBLog(@"locked");
+}
+
+- (void)unlock
+{
+	[_awayView removeFromSuperview];
+	_awayView = nil;
+	SBLog(@"unlocked");
+}
+
+@end
+
 #pragma mark - Application
 
 @interface SBAppDelegate : UIResponder <UIApplicationDelegate>
@@ -930,12 +1291,9 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options
 {
-	CGRect bounds = [[UIScreen mainScreen] bounds];
-	self.window = [[UIWindow alloc] initWithFrame:bounds];
-	UIViewController *controller = [[UIViewController alloc] init];
-	[controller.view addSubview:[[SBHomeView alloc] initWithFrame:bounds]];
-	self.window.rootViewController = controller;
+	self.window = [[SBUIController sharedInstance] window];
 	[self.window makeKeyAndVisible];
+	[[SBNotificationPresenter sharedPresenter] start];
 	return YES;
 }
 

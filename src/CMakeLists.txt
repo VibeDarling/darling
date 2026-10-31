@@ -531,7 +531,11 @@ if (COMPONENT_gui)
 	add_subdirectory(external/cups)
 	add_subdirectory(pboard)
 	add_subdirectory(frontboardd)
+	add_subdirectory(usernotificationsd)
 	add_subdirectory(SpringBoard)
+	add_subdirectory(Terminal)
+	add_subdirectory(Settings)
+	add_subdirectory(MobileTimer)
 	add_subdirectory(CydiaSubstrate)
 
 	# not currently used by anything we build
@@ -593,6 +597,12 @@ add_subdirectory(tools)
 # these have their own component checks on a per-framework basis
 add_subdirectory(frameworks)
 add_subdirectory(private-frameworks)
+
+# A SwiftUI app; after frameworks/, since it uses SwiftUI's module directory.
+if (COMPONENT_gui AND TARGET_ARM64)
+	set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "gui")
+	add_subdirectory(HelloSwiftUI)
+endif()
 
 # /Applications
 #add_subdirectory(external/TextEdit)

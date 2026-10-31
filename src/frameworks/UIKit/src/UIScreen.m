@@ -63,6 +63,30 @@ CGFloat UIKitHostStatusBarHeight(void)
 	return sHostSafeArea.top > 0 ? sHostSafeArea.top : 20.0;
 }
 
+@implementation UIScreenMode {
+	CGSize _size;
+}
+
+- (instancetype)initWithSize:(CGSize)size
+{
+	self = [super init];
+	if (self != nil)
+		_size = size;
+	return self;
+}
+
+- (CGSize)size { return _size; }
+- (CGFloat)pixelAspectRatio { return 1; }
+
+- (BOOL)isEqual:(id)other
+{
+	return [other isKindOfClass:[UIScreenMode class]] && CGSizeEqualToSize(_size, [other size]);
+}
+
+- (NSUInteger)hash { return (NSUInteger)_size.width * 31 + (NSUInteger)_size.height; }
+
+@end
+
 @implementation UIScreen
 
 + (UIScreen *)mainScreen
@@ -71,6 +95,41 @@ CGFloat UIKitHostStatusBarHeight(void)
 	if (screen == nil)
 		screen = [[UIScreen alloc] init];
 	return screen;
+}
+
++ (NSArray<UIScreen *> *)screens
+{
+	return @[ [self mainScreen] ];
+}
+
+- (UIScreenMode *)preferredMode
+{
+	return [[UIScreenMode alloc] initWithSize:[self nativeBounds].size];
+}
+
+- (NSArray<UIScreenMode *> *)availableModes
+{
+	return @[ [self preferredMode] ];
+}
+
+- (UIScreenMode *)currentMode
+{
+	return [self preferredMode];
+}
+
+/* A phone's screen has one size. */
+- (void)setCurrentMode:(UIScreenMode *)mode
+{
+}
+
+- (NSInteger)maximumFramesPerSecond
+{
+	return 60;
+}
+
+- (UIScreen *)mirroredScreen
+{
+	return nil;
 }
 
 - (CGRect)bounds

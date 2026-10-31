@@ -62,6 +62,9 @@ static unsigned long long UIKitNativeWindowID(NSWindow *window)
 	id platform = ((id (*)(id, SEL))objc_msgSend)(window, @selector(platformWindow));
 	if (platform == nil)
 		return 0;
+	/* The Pocket display's windows (a phone's) are known to its host by number. */
+	if ([platform isKindOfClass:NSClassFromString(@"PocketWindow")])
+		return ((uint32_t (*)(id, SEL))objc_msgSend)(platform, @selector(number));
 	Ivar ivar = class_getInstanceVariable(object_getClass(platform), "_window");
 	if (ivar == NULL)
 		return 0;
@@ -138,6 +141,42 @@ UIKIT_SWALLOW_SETTERS
 	[self uikitUpdateEmbedding];
 }
 
+/* The page is a native view over the window, so whatever the app draws above
+ * the web view would be hidden under it. Bars across its top or bottom edge
+ * (navigation bars, tab bars, toolbars, which iOS 7 apps lay over their web
+ * views) take their part off the page's rect, as do the superviews' edges. */
+static NSRect UIKitTrimCoveringBars(NSView *view, NSView *content, NSRect rect)
+{
+	for (; view != nil && view != content; view = [view superview]) {
+		// A superview clips what it draws of the web view; the page is clipped the same.
+		NSView *superview = [view superview];
+		if (superview != nil)
+			rect = NSIntersectionRect(rect, [superview convertRect:[superview bounds] toView:content]);
+		NSArray *siblings = [[view superview] subviews];
+		NSUInteger index = [siblings indexOfObjectIdenticalTo:view];
+		if (index == NSNotFound)
+			continue;
+		for (NSUInteger i = index + 1; i < [siblings count]; i++) {
+			NSView *above = [siblings objectAtIndex:i];
+			if ([above isHidden] || [above alphaValue] <= 0.01)
+				continue;
+			NSRect bar = [[above superview] convertRect:[above frame] toView:content];
+			if (NSMinX(bar) > NSMinX(rect) + 1 || NSMaxX(bar) < NSMaxX(rect) - 1)
+				continue;
+			BOOL coversMin = NSMinY(bar) <= NSMinY(rect) && NSMaxY(bar) > NSMinY(rect);
+			BOOL coversMax = NSMaxY(bar) >= NSMaxY(rect) && NSMinY(bar) < NSMaxY(rect);
+			if (coversMin && !coversMax) {
+				CGFloat maxY = NSMaxY(rect);
+				rect.origin.y = NSMaxY(bar);
+				rect.size.height = MAX(0, maxY - rect.origin.y);
+			} else if (coversMax && !coversMin) {
+				rect.size.height = MAX(0, NSMinY(bar) - NSMinY(rect));
+			}
+		}
+	}
+	return rect;
+}
+
 /* Where the page goes: this view's rect in its window, from the top left. */
 - (void)uikitUpdateEmbedding
 {
@@ -153,6 +192,7 @@ UIKIT_SWALLOW_SETTERS
 		return;
 	}
 	NSRect rect = [self convertRect:[self visibleRect] toView:content];
+	rect = UIKitTrimCoveringBars(self, content, rect);
 	if (![content isFlipped])
 		rect.origin.y = [content bounds].size.height - NSMaxY(rect);
 	visible = rect.size.width >= 1 && rect.size.height >= 1;
@@ -167,13 +207,31 @@ UIKIT_SWALLOW_SETTERS
 	if ([self window] != nil) {
 		/* Ancestors move without telling their subviews: look again now and then. */
 		_trackingTimer = [NSTimer timerWithTimeInterval:0.25 target:self selector:@selector(track:) userInfo:nil repeats:YES];
-		[[NSRunLoop mainRunLoop] addTimer:_trackingTimer forMode:NSRunLoopCommonModes];
+		// The common modes do not reach the modes AppKit's event loop runs in.
+		[[NSRunLoop mainRunLoop] addTimer:_trackingTimer forMode:NSDefaultRunLoopMode];
+		[[NSRunLoop mainRunLoop] addTimer:_trackingTimer forMode:NSEventTrackingRunLoopMode];
+		[[NSRunLoop mainRunLoop] addTimer:_trackingTimer forMode:NSModalPanelRunLoopMode];
 	}
 	[self uikitUpdateEmbedding];
 }
 
 - (void)track:(NSTimer *)timer
 {
+	[self uikitUpdateEmbedding];
+}
+
+/* addSubview: gives a view its window before its superview: once the
+ * superview is there too, the page's place is known. */
+- (void)viewDidMoveToSuperview
+{
+	[super viewDidMoveToSuperview];
+	[self uikitUpdateEmbedding];
+}
+
+/* Whatever moves the web view or the bars over it redraws the window. */
+- (void)viewWillDraw
+{
+	[super viewWillDraw];
 	[self uikitUpdateEmbedding];
 }
 

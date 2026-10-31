@@ -118,6 +118,32 @@ void WebThreadCallAPI(NSInvocation *invocation)
 	});
 }
 
+#pragma mark - WAK
+
+/* WebKit on iOS (WAK) draws into the context set here; web content here
+ * is drawn by darling-webhost, but tweaks (WinterBoard's styled strings)
+ * set it before drawing with WebKit's text code. */
+
+static __thread void *sWAKCurrentContext;
+
+void *WKGetCurrentGraphicsContext(void)
+{
+	return sWAKCurrentContext;
+}
+
+void WKSetCurrentGraphicsContext(void *context)
+{
+	sWAKCurrentContext = context;
+}
+
+/* The window a WAK view tree draws in. No page here has one; the class is
+ * for code that looks for it. */
+@interface WAKWindow : NSObject
+@end
+
+@implementation WAKWindow
+@end
+
 #pragma mark - WebScripting defaults
 
 @implementation NSObject (WebScripting)

@@ -97,6 +97,8 @@ extern NSString *const AVAudioSessionPolarPatternSubcardioid;
 - (BOOL)setActive:(BOOL)active withOptions:(NSUInteger)options error:(NSError **)outError;
 
 - (BOOL)setCategory:(NSString *)category error:(NSError **)outError;
+- (BOOL)setCategory:(NSString *)category withOptions:(NSUInteger)options error:(NSError **)outError;
+- (BOOL)setCategory:(NSString *)category mode:(NSString *)mode options:(NSUInteger)options error:(NSError **)outError;
 - (NSString *)category;
 
 - (BOOL)setMode:(NSString *)mode error:(NSError **)outError;

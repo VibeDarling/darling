@@ -24,6 +24,8 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include "pulse/AudioHardwareImplPA.h"
 #include "pulse/AudioHardwareImplPAOutput.h"
 #include "pulse/AudioHardwareImplPAInput.h"
+#include "aaudio/AAudioLibrary.h"
+#include "aaudio/AudioHardwareImplAAudio.h"
 #include <CarbonCore/MacErrors.h>
 #include <dispatch/dispatch.h>
 #include <memory>
@@ -41,6 +43,15 @@ static void initObjects()
 	static dispatch_once_t once;
 	dispatch_once(&once, ^{
 		auto& g_objects = getObjectsMap();
+		// Android has AAudio, and no PulseAudio unless Termux runs one.
+		if (AAudioLibrary::get())
+		{
+			g_objects.insert(std::make_pair(kAudioObjectSystemObject, std::make_unique<AudioHardwareImplAAudio>(kAudioObjectSystemObject)));
+			g_objects.insert(std::make_pair(kAudioObjectSystemObject + 1, std::make_unique<AudioHardwareImplAAudioOutput>(kAudioObjectSystemObject + 1, AAUDIO_USAGE_GAME)));
+			g_objects.insert(std::make_pair(kAudioObjectSystemObject + 2, std::make_unique<AudioHardwareImplAAudio>(kAudioObjectSystemObject + 2)));
+			g_objects.insert(std::make_pair(kAudioObjectSystemObject + 3, std::make_unique<AudioHardwareImplAAudioOutput>(kAudioObjectSystemObject + 3, AAUDIO_USAGE_ASSISTANCE_SONIFICATION)));
+			return;
+		}
 		// TODO: Or ALSA
 		g_objects.insert(std::make_pair(kAudioObjectSystemObject, std::make_unique<AudioHardwareImplPA>(kAudioObjectSystemObject)));
 		g_objects.insert(std::make_pair(kAudioObjectSystemObject + 1, std::make_unique<AudioHardwareImplPAOutput>(kAudioObjectSystemObject + 1)));

@@ -15,6 +15,7 @@
  *   down|move|up FINGER X Y
  *   drag X1 Y1 X2 Y2 STEPS  a finger moved in steps
  *   text STRING             what an input method commits
+ *   ime HEIGHT              the soft keyboard now covers HEIGHT pixels (0: gone)
  *   key CODE [CHARS]        a key down and up (a Mac virtual key code)
  *   screen WIDTHxHEIGHT@SCALE [TOP,LEFT,BOTTOM,RIGHT]
  *   pixel X Y               prints "pixel X Y RRGGBB"
@@ -23,6 +24,8 @@
  *
  * It prints what apps tell it: hello, window, buffer, present (each), order,
  * keyboard and destroy lines, and "closed PID" when an app goes.
+ *
+ * POCKET_HOST_RGBA=1 composes the screen as RGBA, as Android's display does.
  */
 
 #define _GNU_SOURCE
@@ -37,11 +40,15 @@
 
 static struct pocket_server *server;
 static struct pocket_screen screen;
-static uint8_t *framebuffer; // BGRA, like the apps' buffers
+static uint8_t *framebuffer; // BGRA, like the apps' buffers, or RGBA
+static int rgba;
+// Byte offsets of red and blue in the framebuffer.
+#define RED (rgba ? 0 : 2)
+#define BLUE (rgba ? 2 : 0)
 
 static void compose(void)
 {
-	pocket_server_compose(server, framebuffer, (size_t) screen.width * 4, 0);
+	pocket_server_compose(server, framebuffer, (size_t) screen.width * 4, rgba);
 }
 
 static void log_line(void *context, const char *line)
@@ -79,9 +86,9 @@ static int write_png(const char *path)
 		line[0] = 0;
 		for (uint32_t x = 0; x < screen.width; x++) {
 			const uint8_t *p = framebuffer + ((size_t) y * screen.width + x) * 4;
-			line[1 + x * 3] = p[2];
+			line[1 + x * 3] = p[RED];
 			line[2 + x * 3] = p[1];
-			line[3 + x * 3] = p[0];
+			line[3 + x * 3] = p[BLUE];
 		}
 	}
 	uLongf packed_size = compressBound(raw_size);
@@ -172,6 +179,8 @@ static int command(char *line)
 		touch(POCKET_TOUCH_ENDED, 1, x2, y2);
 	} else if (!strcmp(word, "text")) {
 		pocket_server_text(server, rest, strlen(rest));
+	} else if (!strcmp(word, "ime") && sscanf(rest, "%u", &code) == 1) {
+		pocket_server_keyboard_frame(server, code);
 	} else if (!strcmp(word, "key") && sscanf(rest, "%u", &code) == 1) {
 		chars[0] = 0;
 		sscanf(rest, "%*u %255s", chars);
@@ -188,7 +197,7 @@ static int command(char *line)
 		compose();
 		if (x >= 0 && y >= 0 && x < screen.width && y < screen.height) {
 			const uint8_t *p = framebuffer + ((size_t) y * screen.width + (size_t) x) * 4;
-			printf("pixel %d %d %02x%02x%02x\n", (int) x, (int) y, p[2], p[1], p[0]);
+			printf("pixel %d %d %02x%02x%02x\n", (int) x, (int) y, p[RED], p[1], p[BLUE]);
 		}
 	} else if (!strcmp(word, "shot") && sscanf(rest, "%1023s", path) == 1) {
 		printf(write_png(path) == 0 ? "shot %s\n" : "error: cannot write %s\n", path);
@@ -207,6 +216,7 @@ int main(int argc, char **argv)
 		return 2;
 	}
 	setvbuf(stdout, NULL, _IOLBF, 0);
+	rgba = getenv("POCKET_HOST_RGBA") != NULL && atoi(getenv("POCKET_HOST_RGBA")) != 0;
 	framebuffer = calloc((size_t) screen.width * screen.height, 4);
 
 	struct pocket_server_events events = {.log = log_line};

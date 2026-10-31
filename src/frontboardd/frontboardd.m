@@ -38,13 +38,20 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
+#include <spawn.h>
 
 /* How long an app gets to run applicationWillTerminate: and exit. */
 static const int64_t FBDTerminationGrace = 3 * NSEC_PER_SEC;
 /* Two Home button presses this close together are a double press. */
 static const uint64_t FBDDoublePressInterval = 400 * NSEC_PER_MSEC;
-/* How long to wait before relaunching a system app that died. */
+/* How long to wait before relaunching a system app that died. One that
+   keeps dying soon after launching (it cannot reach the display, say) waits
+   twice as long each time, up to a minute. */
 static const int64_t FBDSystemAppRelaunchDelay = 1 * NSEC_PER_SEC;
+static const int64_t FBDSystemAppMaximumRelaunchDelay = 60 * NSEC_PER_SEC;
+static const uint64_t FBDSystemAppStableTime = 30 * NSEC_PER_SEC;
+static int64_t sSystemAppRelaunchDelay = FBDSystemAppRelaunchDelay;
+static uint64_t sSystemAppLaunched;
 
 @interface FBDProcess : NSObject
 @property (nonatomic, copy) NSString *bundleIdentifier;
@@ -171,9 +178,12 @@ static void FBDRemove(FBDProcess *process)
 	BOOL wasForeground = process.state == FBSApplicationStateForeground;
 	[sProcesses removeObject:process];
 	if (FBDIsSystem(process)) {
-		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, FBDSystemAppRelaunchDelay), sQueue, ^{
+		if (clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - sSystemAppLaunched >= FBDSystemAppStableTime)
+			sSystemAppRelaunchDelay = FBDSystemAppRelaunchDelay;
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, sSystemAppRelaunchDelay), sQueue, ^{
 			FBDLaunchSystemApp();
 		});
+		sSystemAppRelaunchDelay = MIN(sSystemAppRelaunchDelay * 2, FBDSystemAppMaximumRelaunchDelay);
 	} else if (wasForeground) {
 		FBDGoHome();
 	}
@@ -284,11 +294,71 @@ static void FBDLaunchSystemApp(void)
 	if ([[FBSSystemService sharedService] bundleForApplication:sSystemBundleIdentifier] == nil)
 		return;
 	NSDictionary *error = nil;
+	sSystemAppLaunched = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
 	FBDProcess *process = FBDLaunch(sSystemBundleIdentifier, nil, &error);
 	if (process == nil)
 		FBDLog(@"cannot launch the system app %@: %@", sSystemBundleIdentifier, error[@"error"]);
 	else if (!FBDHasForegroundApp())
 		FBDSetState(process, FBSApplicationStateForeground);
+}
+
+/* Daemons that belong with the home screen: usernotificationsd, which
+   fires apps' notifications for SpringBoard to show. Each is restarted if
+   it fails; one that exits cleanly (another copy already runs) is left. */
+static void FBDLaunchDaemon(NSString *path)
+{
+	if (![[NSFileManager defaultManager] isExecutableFileAtPath:path])
+		return;
+	char *argv[] = { (char *)[path fileSystemRepresentation], NULL };
+	extern char **environ;
+	pid_t pid;
+	int rc = posix_spawn(&pid, argv[0], NULL, NULL, argv, environ);
+	if (rc != 0) {
+		FBDLog(@"cannot start %@: %s", path, strerror(rc));
+		return;
+	}
+	FBDLog(@"started %@ (%d)", [path lastPathComponent], pid);
+	FBDDetach(^{
+		int status;
+		while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+			;
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+			return;
+		FBDLog(@"%@ (%d) failed; restarting it", [path lastPathComponent], pid);
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), sQueue, ^{
+			FBDLaunchDaemon(path);
+		});
+	});
+}
+
+/* backboardd: when it exits (killed, to restart the home screen), the
+   home screen ends too, as on iOS, and frontboardd's usual relaunch brings
+   it back; then backboardd is started again. */
+static void FBDLaunchBackBoard(void)
+{
+	NSString *path = @"/usr/libexec/backboardd";
+	if (![[NSFileManager defaultManager] isExecutableFileAtPath:path])
+		return;
+	char *argv[] = { (char *)[path fileSystemRepresentation], NULL };
+	extern char **environ;
+	pid_t pid;
+	int rc = posix_spawn(&pid, argv[0], NULL, NULL, argv, environ);
+	if (rc != 0) {
+		FBDLog(@"cannot start backboardd: %s", strerror(rc));
+		return;
+	}
+	FBDDetach(^{
+		int status;
+		while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+			;
+		dispatch_async(sQueue, ^{
+			FBDProcess *system = FBDSystemProcess();
+			FBDLog(@"backboardd (%d) exited; restarting the home screen", pid);
+			if (system != nil)
+				kill(system.pid, SIGTERM);
+			FBDLaunchBackBoard();
+		});
+	});
 }
 
 static void FBDHomeButton(void)
@@ -442,6 +512,10 @@ int main(int argc, char **argv)
 		}
 		FBDLog(@"listening on %@", FBSLiteSocketPath());
 		dispatch_async(sQueue, ^{
+			if (sLaunchSystemApp) {
+				FBDLaunchDaemon(@"/usr/libexec/usernotificationsd");
+				FBDLaunchBackBoard();
+			}
 			FBDLaunchSystemApp();
 		});
 

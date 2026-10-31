@@ -131,6 +131,19 @@ static BOOL g_active = NO;
     return YES;
 }
 
+/* iOS's: the options (mixing with others, ducking, the speaker) change nothing here. */
+- (BOOL)setCategory:(NSString *)category withOptions:(NSUInteger)options error:(NSError **)outError
+{
+    (void)options;
+    return [self setCategory:category error:outError];
+}
+
+- (BOOL)setCategory:(NSString *)category mode:(NSString *)mode options:(NSUInteger)options error:(NSError **)outError
+{
+    (void)options;
+    return [self setCategory:category error:outError] && [self setMode:mode error:outError];
+}
+
 - (NSString *)category
 {
     return g_category ?: AVAudioSessionCategoryPlayback;

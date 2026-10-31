@@ -114,6 +114,19 @@ static void* dlopen_simple(const char* name)
 		rv = dlopen(path, RTLD_LAZY);
 		if (rv)
 			return rv;
+
+		// The APK ships its own copies under plain names: libpng16.so is libpng.so there.
+		size_t len = strlen(unversioned) - 3;
+		size_t end = len;
+		while (end > 0 && unversioned[end - 1] >= '0' && unversioned[end - 1] <= '9')
+			end--;
+		if (end < len && end > 0 && unversioned[end - 1] != '/')
+		{
+			memcpy(unversioned + end, ".so", 4);
+			rv = dlopen(unversioned, RTLD_LAZY);
+			if (rv)
+				return rv;
+		}
 	}
 #endif
 

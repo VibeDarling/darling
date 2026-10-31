@@ -55,11 +55,26 @@ static void expect(BOOL ok, const char *name, NSString *detail)
 @property (nonatomic, strong) Pad *pad;
 @property (nonatomic, strong) UITextField *field;
 @property (nonatomic) int taps, returned;
+@property (nonatomic, strong) NSMutableArray *keyboardNotes;
+@property (nonatomic) CGRect shownBegin, shownEnd, hiddenEnd;
 @end
 
 @implementation AppDelegate
 
 - (void)tapped:(UIButton *)button { _taps++; }
+
+- (void)keyboard:(NSNotification *)note
+{
+	NSString *name = [[note name] stringByReplacingOccurrencesOfString:@"UIKeyboard" withString:@""];
+	[_keyboardNotes addObject:[name stringByReplacingOccurrencesOfString:@"Notification" withString:@""]];
+	NSDictionary *info = [note userInfo];
+	if ([[note name] isEqualToString:UIKeyboardWillShowNotification]) {
+		_shownBegin = [[info objectForKey:UIKeyboardFrameBeginUserInfoKey] CGRectValue];
+		_shownEnd = [[info objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
+	} else if ([[note name] isEqualToString:UIKeyboardWillHideNotification]) {
+		_hiddenEnd = [[info objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
+	}
+}
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField
 {
@@ -117,7 +132,17 @@ static CGPoint centerPixel(UIView *view)
 	_field = [[UITextField alloc] initWithFrame:CGRectMake(20, 370, 320, 40)];
 	[_field setBorderStyle:UITextBorderStyleRoundedRect];
 	[_field setDelegate:self];
+	/* Asks the host for an e-mail keyboard with a Go key, capitalizing words, no autocorrection. */
+	[_field setKeyboardType:UIKeyboardTypeEmailAddress];
+	[_field setReturnKeyType:UIReturnKeyGo];
+	[_field setAutocapitalizationType:UITextAutocapitalizationTypeWords];
+	[_field setAutocorrectionType:UITextAutocorrectionTypeNo];
 	[root addSubview:_field];
+
+	_keyboardNotes = [NSMutableArray array];
+	for (NSString *name in @[UIKeyboardWillShowNotification, UIKeyboardDidShowNotification, UIKeyboardWillHideNotification,
+	                         UIKeyboardDidHideNotification, UIKeyboardWillChangeFrameNotification, UIKeyboardDidChangeFrameNotification])
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboard:) name:name object:nil];
 
 	[_window makeKeyAndVisible];
 
@@ -143,7 +168,7 @@ static CGPoint centerPixel(UIView *view)
 
 - (BOOL)done
 {
-	return _taps >= 1 && _pad.ends >= 3 && _returned >= 1;
+	return _taps >= 1 && _pad.ends >= 3 && _returned >= 1 && [_keyboardNotes containsObject:@"DidHide"];
 }
 
 - (void)poll:(NSNumber *)waited
@@ -160,6 +185,14 @@ static CGPoint centerPixel(UIView *view)
 	expect(_pad.ends >= 3, "every finger ends", [NSString stringWithFormat:@"%d", _pad.ends]);
 	expect([[_field text] isEqualToString:@"hell"], "input method text and a delete key reach a text field", [_field text]);
 	expect(_returned == 1, "Return asks textFieldShouldReturn:", [NSString stringWithFormat:@"%d", _returned]);
+	/* The host's keyboard covered 600 pixels: 300 points of the 640. */
+	NSString *notes = [_keyboardNotes componentsJoinedByString:@","];
+	expect([notes isEqualToString:@"WillChangeFrame,WillShow,DidShow,DidChangeFrame,WillChangeFrame,WillHide,DidHide,DidChangeFrame"],
+	       "the host's keyboard coming and going posts the UIKeyboard notifications", notes);
+	expect(CGRectEqualToRect(_shownEnd, CGRectMake(0, 340, 360, 300)) && CGRectEqualToRect(_shownBegin, CGRectMake(0, 640, 360, 300)),
+	       "showing, from below the screen to its height over the bottom",
+	       [NSString stringWithFormat:@"%@ -> %@", NSStringFromCGRect(_shownBegin), NSStringFromCGRect(_shownEnd)]);
+	expect(CGRectEqualToRect(_hiddenEnd, CGRectMake(0, 640, 360, 300)), "hiding, back below the screen", NSStringFromCGRect(_hiddenEnd));
 	printf("%d failures\n", failures);
 	fflush(stdout);
 	exit(failures != 0);

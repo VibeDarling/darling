@@ -82,6 +82,11 @@ if (COMPONENT_gui)
 	add_subdirectory(ImageIO)
 	add_subdirectory(UIKit)
 	add_subdirectory(MobileCoreServices)
+	if (TARGET_ARM64)
+		add_subdirectory(OpenGLES)
+		# Needs a host Swift compiler (cmake/swift_ios.cmake); skips itself otherwise.
+		add_subdirectory(SwiftUI)
+	endif()
 endif()
 
 # this is for all the other stubbed frameworks

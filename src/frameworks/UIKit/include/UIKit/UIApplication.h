@@ -52,6 +52,37 @@ extern NSString *const UIApplicationWillTerminateNotification;
 /* Drain the main run loop, as -[NSApplication run] does. */
 - (void)run;
 
+- (BOOL)canOpenURL:(NSURL *)url;
+- (BOOL)openURL:(NSURL *)url;
+- (void)openURL:(NSURL *)url options:(NSDictionary *)options completionHandler:(void (^)(BOOL success))completion;
+@property (nonatomic, readonly) UIWindow *keyWindow;
+@property (nonatomic, readonly) NSArray *windows;
+- (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender forEvent:(UIEvent *)event;
+@property (nonatomic, readonly) NSInteger statusBarStyle;
+
+@end
+
+#import <Foundation/Foundation.h>
+
+@class UIScene, UISceneSession, UILocalNotification;
+
+/* One scene, for the whole screen (see UIScene.h). */
+@interface UIApplication (UIScene)
+@property (nonatomic, readonly) NSSet<UIScene *> *connectedScenes;
+@property (nonatomic, readonly) NSSet<UISceneSession *> *openSessions;
+@property (nonatomic, readonly) BOOL supportsMultipleScenes;
+- (void)requestSceneSessionActivation:(UISceneSession *)sceneSession userActivity:(NSUserActivity *)userActivity options:(id)options errorHandler:(void (^)(NSError *error))errorHandler;
+- (void)requestSceneSessionDestruction:(UISceneSession *)sceneSession options:(id)options errorHandler:(void (^)(NSError *error))errorHandler;
+- (void)requestSceneSessionRefresh:(UISceneSession *)sceneSession;
+@end
+
+/* iOS 4's local notifications, kept with UserNotifications'. */
+@interface UIApplication (UILocalNotifications)
+- (void)scheduleLocalNotification:(UILocalNotification *)notification;
+- (void)presentLocalNotificationNow:(UILocalNotification *)notification;
+- (void)cancelLocalNotification:(UILocalNotification *)notification;
+- (void)cancelAllLocalNotifications;
+@property (nonatomic, copy) NSArray<UILocalNotification *> *scheduledLocalNotifications;
 @end
 
 /*

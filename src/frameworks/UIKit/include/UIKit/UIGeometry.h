@@ -17,6 +17,7 @@
 #import <CoreGraphics/CGAffineTransform.h>
 #ifdef __OBJC__
 #import <Foundation/NSCoder.h>
+#import <Foundation/NSValue.h>
 #endif
 
 @class NSString;
@@ -82,6 +83,24 @@ UIEdgeInsets UIEdgeInsetsFromString(NSString *string);
 }
 #endif
 
+/* Core Graphics' vector, which this Core Graphics may lack. */
+#ifndef CGVECTOR_DEFINED
+struct CGVector {
+	CGFloat dx;
+	CGFloat dy;
+};
+typedef struct CGVector CGVector;
+#define CGVECTOR_DEFINED 1
+#endif
+#ifndef CGVectorMake
+static inline CGVector UIKitCGVectorMake(CGFloat dx, CGFloat dy)
+{
+	CGVector vector = { dx, dy };
+	return vector;
+}
+#define CGVectorMake UIKitCGVectorMake
+#endif
+
 typedef NS_ENUM(NSInteger, UIInterfaceOrientation) {
 	UIInterfaceOrientationUnknown = 0,
 	UIInterfaceOrientationPortrait = 1,
@@ -109,6 +128,18 @@ typedef NS_ENUM(NSInteger, UIInterfaceOrientation) {
 - (CGAffineTransform)decodeCGAffineTransformForKey:(NSString *)key;
 - (UIEdgeInsets)decodeUIEdgeInsetsForKey:(NSString *)key;
 - (UIOffset)decodeUIOffsetForKey:(NSString *)key;
+@end
+
+/* Foundation implements these. */
+@interface NSValue (UIGeometryKitAdditions)
++ (NSValue *)valueWithCGPoint:(CGPoint)point;
++ (NSValue *)valueWithCGSize:(CGSize)size;
++ (NSValue *)valueWithCGRect:(CGRect)rect;
++ (NSValue *)valueWithCGAffineTransform:(CGAffineTransform)transform;
+- (CGPoint)CGPointValue;
+- (CGSize)CGSizeValue;
+- (CGRect)CGRectValue;
+- (CGAffineTransform)CGAffineTransformValue;
 @end
 #endif
 

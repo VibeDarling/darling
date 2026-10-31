@@ -14,9 +14,12 @@
 #import <UIKit/UIWindow.h>
 #import <UIKit/UITouch.h>
 #import <UIKit/UIEvent.h>
+#import <UIKit/UIScreen.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSEvent.h>
+#import <AppKit/NSGraphicsContext.h>
 #import <AppKit/NSTouch.h>
+#import <QuartzCore/CALayer.h>
 
 #import "UIKitPrivate.h"
 #import <objc/message.h>
@@ -42,6 +45,8 @@ static BOOL sUIKitUsesConstraints;
 	UISemanticContentAttribute _uiSemanticContentAttribute;
 	UIColor *_uiTintColor;
 	UIViewTintAdjustmentMode _uiTintAdjustmentMode;
+	CALayer *_uiLayer;
+	CGFloat _uiContentScaleFactor;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -207,6 +212,7 @@ CGRect UIKitArchivedFrame(NSCoder *coder)
 {
 	NSRect old = [self frame];
 	[super setFrame:frame];
+	[_uiLayer setBounds:NSRectToCGRect([self bounds])];
 	if (NSEqualRects(old, frame))
 		return;
 	/* A new size lays the view out again, as -setFrameSize: does; later,
@@ -224,6 +230,7 @@ CGRect UIKitArchivedFrame(NSCoder *coder)
 {
 	NSSize old = [self frame].size;
 	[super setFrameSize:size];
+	[_uiLayer setBounds:NSRectToCGRect([self bounds])];
 	if (old.width != size.width || old.height != size.height) {
 		if (_uiNeedsDisplayOnBoundsChange)
 			[self setNeedsDisplay:YES];
@@ -442,7 +449,17 @@ static NSUInteger sTapCount;
 }
 - (BOOL)clipsSubviews { return _uiClipsToBounds; }
 - (void)setClipsSubviews:(BOOL)clips { _uiClipsToBounds = clips; }
-- (BOOL)isOpaque { return _uiOpaque && _uiBackgroundColor != nil && [_uiBackgroundColor alphaComponent] >= 1; }
+- (BOOL)isOpaque
+{
+	if (!_uiOpaque)
+		return NO;
+	if (_uiBackgroundColor != nil && [_uiBackgroundColor alphaComponent] >= 1)
+		return YES;
+	/* A GL view's frame covers it: then presenting one draws only the view
+	 * (and what is in front of it), not everything behind it. */
+	return [_uiLayer isOpaque] && [_uiLayer contents] != nil
+		&& [_uiLayer isKindOfClass:NSClassFromString(@"CAEAGLLayer")];
+}
 - (void)setOpaque:(BOOL)opaque { _uiOpaque = opaque; }
 - (UIViewContentMode)contentMode { return _uiContentMode; }
 - (void)setContentMode:(UIViewContentMode)mode { _uiContentMode = mode; }
@@ -454,8 +471,102 @@ static NSUInteger sTapCount;
 - (void)setMultipleTouchEnabled:(BOOL)enabled { _uiMultipleTouchEnabled = enabled; }
 - (BOOL)needsDisplayOnBoundsChange { return _uiNeedsDisplayOnBoundsChange; }
 - (void)setNeedsDisplayOnBoundsChange:(BOOL)needs { _uiNeedsDisplayOnBoundsChange = needs; }
-- (CGFloat)contentScaleFactor { return 1; }
-- (void)setContentScaleFactor:(CGFloat)factor { }
+
+/* The screen's, until the app sets its own (as GL views do, to draw at it). */
+- (CGFloat)contentScaleFactor
+{
+	if (_uiContentScaleFactor > 0)
+		return _uiContentScaleFactor;
+	return [[UIScreen mainScreen] scale];
+}
+
+- (void)setContentScaleFactor:(CGFloat)factor
+{
+	_uiContentScaleFactor = factor;
+	[_uiLayer setContentsScale:[self contentScaleFactor]];
+}
+
+/*
+ * Every iOS view has a layer, of its class's +layerClass. Here views draw
+ * themselves as AppKit's do, so a layer holds only what the app puts in it;
+ * UIKit draws its contents (an image: a CAEAGLLayer's presented frame, or
+ * the app's own) under the view's drawing.
+ */
++ (Class)layerClass
+{
+	return [CALayer class];
+}
+
+- (CALayer *)layer
+{
+	if (_uiLayer == nil) {
+		_uiLayer = [[[self class] layerClass] new];
+		[_uiLayer setDelegate:(id)self];
+		[_uiLayer setBounds:NSRectToCGRect([self bounds])];
+		[_uiLayer setContentsScale:[self contentScaleFactor]];
+	}
+	return _uiLayer;
+}
+
+- (void)uikitDrawLayerContents
+{
+	id contents = [_uiLayer contents];
+	/* Cocotron's CGImages are O2Images. */
+	if (contents == nil || ![contents isKindOfClass:NSClassFromString(@"O2Image")])
+		return;
+	CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
+	/* Drawn in the flipped view, an image comes out upside down: as GL's
+	 * bottom-up rows want it, the rest get turned back. */
+	BOOL bottomUp = [_uiLayer isKindOfClass:NSClassFromString(@"CAEAGLLayer")];
+	CGRect bounds = NSRectToCGRect([self bounds]);
+	CGContextSaveGState(context);
+	if (!bottomUp) {
+		CGContextTranslateCTM(context, 0, bounds.origin.y * 2 + bounds.size.height);
+		CGContextScaleCTM(context, 1, -1);
+	}
+	CGContextDrawImage(context, bounds, (__bridge CGImageRef)contents);
+	CGContextRestoreGState(context);
+}
+
+/* The views in front of view that overlap rect (in view's coordinates)
+ * draw it again, over what view drew. */
+static void displayViewsInFront(NSView *view, NSRect rect)
+{
+	for (NSView *superview = [view superview]; superview != nil; view = superview, superview = [view superview]) {
+		NSArray *siblings = [superview subviews];
+		NSUInteger index = [siblings indexOfObjectIdenticalTo:view];
+		for (NSUInteger i = index + 1; index != NSNotFound && i < [siblings count]; i++) {
+			NSView *sibling = [siblings objectAtIndex:i];
+			if ([sibling isHidden])
+				continue;
+			NSRect overlap = NSIntersectionRect([view convertRect:rect toView:sibling], [sibling bounds]);
+			if (!NSIsEmptyRect(overlap))
+				[sibling displayRectIgnoringOpacity:overlap];
+		}
+		rect = [view convertRect:rect toView:superview];
+	}
+}
+
+/*
+ * AppKit draws a view from its opaque ancestor on, but not the views in
+ * front of that: on iOS siblings overlap (a score over a game's GL view), so
+ * those that overlap what was drawn are drawn again.
+ */
+- (void)displayRect:(NSRect)rect
+{
+	NSWindow *window = [self window];
+	[window disableFlushWindow];
+	@try {
+		[super displayRect:rect];
+		NSView *opaque = [self opaqueAncestor];
+		NSRect drawn = NSIntersectionRect([self convertRect:rect toView:opaque], [opaque visibleRect]);
+		if (!NSIsEmptyRect(drawn))
+			displayViewsInFront(opaque, drawn);
+	} @finally {
+		[window enableFlushWindow];
+		[window flushWindow];
+	}
+}
 
 - (void)setNeedsDisplay
 {
@@ -764,12 +875,64 @@ static BOOL sAnimationsDisabled;
 		actions();
 }
 
++ (void)animateWithDuration:(NSTimeInterval)duration delay:(NSTimeInterval)delay usingSpringWithDamping:(CGFloat)dampingRatio initialSpringVelocity:(CGFloat)velocity options:(UIViewAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion
+{
+	[self animateWithDuration:duration delay:delay options:options animations:animations completion:completion];
+}
+
++ (void)transitionWithView:(UIView *)view duration:(NSTimeInterval)duration options:(UIViewAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion
+{
+	[self animateWithDuration:duration delay:0 options:options animations:animations completion:completion];
+}
+
+/* fromView's place in its superview goes to toView, or fromView is hidden
+   and toView shown when the views stay. */
++ (void)transitionFromView:(UIView *)fromView toView:(UIView *)toView duration:(NSTimeInterval)duration options:(UIViewAnimationOptions)options completion:(void (^)(BOOL finished))completion
+{
+	[self animateWithDuration:duration delay:0 options:options animations:^{
+		if (options & UIViewAnimationOptionShowHideTransitionViews) {
+			[fromView setHidden:YES];
+			[toView setHidden:NO];
+		} else {
+			NSView *superview = [fromView superview];
+			if (superview != nil && toView != nil && [toView superview] != superview)
+				[superview addSubview:toView positioned:NSWindowAbove relativeTo:fromView];
+			[fromView removeFromSuperview];
+		}
+	} completion:completion];
+}
+
+/* Keyframes run as they are added, in the order they were. */
++ (void)animateKeyframesWithDuration:(NSTimeInterval)duration delay:(NSTimeInterval)delay options:(UIViewKeyframeAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion
+{
+	[self animateWithDuration:duration delay:delay options:0 animations:animations completion:completion];
+}
+
++ (void)addKeyframeWithRelativeStartTime:(double)frameStartTime relativeDuration:(double)frameDuration animations:(void (^)(void))animations
+{
+	if (animations != nil)
+		animations();
+}
+
++ (void)modifyAnimationsWithRepeatCount:(CGFloat)count autoreverses:(BOOL)autoreverses animations:(void (^)(void))animations
+{
+	if (animations != nil)
+		animations();
+}
+
++ (NSTimeInterval)inheritedAnimationDuration
+{
+	return 0;
+}
+
 - (void)drawRect:(NSRect)rect
 {
 	if (_uiBackgroundColor != nil) {
 		[_uiBackgroundColor setFill];
 		NSRectFill(rect);
 	}
+	if (_uiLayer != nil)
+		[self uikitDrawLayerContents];
 }
 
 @end

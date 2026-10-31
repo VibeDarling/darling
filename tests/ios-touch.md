@@ -81,3 +81,10 @@ Fixes this needed that are not obvious:
   mask, so no run loop would have dequeued them.
 - `UIPanGestureRecognizer` uses the fingers' centroid, which jumps when a
   finger joins or leaves. The pan moves its start point by the jump.
+- **Apps that run the main run loop themselves get events too.** SDL's
+  main loop pumps the run loop with `CFRunLoopRunInMode`, never through
+  `-[NSApplication run]`, and iOS delivers events from the run loop. AppKit
+  only queues them until its event loop asks. So UIKit sends what is queued
+  when a run of the main run loop that is not AppKit's event loop is about
+  to wait or ends (`UIKitDeliverEvents`). Without that, iSSB's title screen
+  ignored every tap.

@@ -11,12 +11,15 @@
 
 #import <UIKit/UIApplication.h>
 #import <UIKit/UIApplicationDelegate.h>
+#import <UIKit/UIWindow.h>
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSWindow.h>
 #import <AppKit/NSEvent.h>
 #import <FrontBoardServices/FrontBoardServices.h>
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSProcessInfo.h>
+#import <Foundation/NSThread.h>
+#import <Foundation/NSDate.h>
 #import <objc/message.h>
 #import <Foundation/NSNotification.h>
 #import <Foundation/NSObjCRuntime.h>
@@ -89,7 +92,24 @@ static const unsigned short UIKitHomeKeyCode = 0x73; /* kVK_Home */
 @interface UIKitHostApplication : NSApplication
 @end
 
+/* How many runs of the main run loop are in progress, and the runs AppKit's
+ * event loop is waiting for events in (see UIKitDeliverEvents). */
+static NSUInteger sRunDepth;
+static NSUInteger sEventLoopRuns[16];
+static NSUInteger sEventLoops;
+
 @implementation UIKitHostApplication
+
+- (NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(NSDate *)date inMode:(NSRunLoopMode)mode dequeue:(BOOL)dequeue
+{
+	BOOL main = [NSThread isMainThread] && sEventLoops < sizeof(sEventLoopRuns) / sizeof(*sEventLoopRuns);
+	if (main)
+		sEventLoopRuns[sEventLoops++] = sRunDepth + 1;
+	NSEvent *event = [super nextEventMatchingMask:mask untilDate:date inMode:mode dequeue:dequeue];
+	if (main)
+		sEventLoops--;
+	return event;
+}
 
 - (void)sendEvent:(NSEvent *)event
 {
@@ -107,6 +127,8 @@ static const unsigned short UIKitHomeKeyCode = 0x73; /* kVK_Home */
 			});
 		return;
 	}
+	if ([event type] == NSKeyDown && UIKitPerformKeyCommand(event))
+		return;
 	[super sendEvent:event];
 }
 
@@ -160,7 +182,9 @@ static id<UIApplicationDelegate> sDelegateStorage;
 - (void)ui_notify:(SEL)selector name:(NSString *)name
 {
 	id<UIApplicationDelegate> delegate = [self delegate];
-	if ([delegate respondsToSelector:selector])
+	/* With scenes, the scene's delegate hears of these instead; the
+	 * notifications are still posted. */
+	if (!UIKitUsesScenes() && [delegate respondsToSelector:selector])
 		((void (*)(id, SEL, UIApplication *))objc_msgSend)(delegate, selector, self);
 	[[NSNotificationCenter defaultCenter] postNotificationName:name object:self];
 }
@@ -170,12 +194,16 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	if (_state == UIApplicationStateActive)
 		return;
 	if (_state == UIApplicationStateBackground) {
+		UIKitScenesEnterForeground();
 		[self ui_notify:@selector(applicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification];
+		/* Not those the app hid itself while in the background. */
 		for (NSWindow *window in _hiddenWindows)
-			[window orderFront:nil];
+			if (![[window contentView] isKindOfClass:[UIWindow class]] || ![(UIWindow *)[window contentView] isHidden])
+				[window orderFront:nil];
 		_hiddenWindows = nil;
 	}
 	_state = UIApplicationStateActive;
+	UIKitScenesBecomeActive();
 	[self ui_notify:@selector(applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification];
 }
 
@@ -185,9 +213,11 @@ static id<UIApplicationDelegate> sDelegateStorage;
 		return;
 	if (_state == UIApplicationStateActive) {
 		_state = UIApplicationStateInactive;
+		UIKitScenesResignActive();
 		[self ui_notify:@selector(applicationWillResignActive:) name:UIApplicationWillResignActiveNotification];
 	}
 	_state = UIApplicationStateBackground;
+	UIKitScenesEnterBackground();
 	[self ui_notify:@selector(applicationDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification];
 
 	/* Off screen while in the background, as iOS does; back on return. */
@@ -231,7 +261,10 @@ static id<UIApplicationDelegate> sDelegateStorage;
 
 - (void)uikitDidFinishLaunching
 {
-	UIKitLoadMainInterface(self);
+	/* With scenes, the scene's storyboard replaces the main one. */
+	BOOL scenes = UIKitUsesScenes();
+	if (!scenes)
+		UIKitLoadMainInterface(self);
 	id<UIApplicationDelegate> delegate = [self delegate];
 	if ([delegate respondsToSelector:@selector(application:willFinishLaunchingWithOptions:)])
 		[(id)delegate application:self willFinishLaunchingWithOptions:nil];
@@ -240,8 +273,12 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	else if ([delegate respondsToSelector:@selector(applicationDidFinishLaunching:)])
 		/* iPhone OS 2's callback, which takes the application. */
 		((void (*)(id, SEL, id))objc_msgSend)(delegate, @selector(applicationDidFinishLaunching:), self);
-	UIKitShowMainInterface(self);
+	if (scenes)
+		UIKitConnectMainScene(self);
+	else
+		UIKitShowMainInterface(self);
 	[[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidFinishLaunchingNotification object:self];
+	UIKitForwardLocalNotifications(self);
 
 	/* With frontboardd, wait for it to say whether we are in front. */
 	NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier] ?: [[NSProcessInfo processInfo] processName];
@@ -254,8 +291,10 @@ static id<UIApplicationDelegate> sDelegateStorage;
 {
 	if (_state == UIApplicationStateActive) {
 		_state = UIApplicationStateInactive;
+		UIKitScenesResignActive();
 		[self ui_notify:@selector(applicationWillResignActive:) name:UIApplicationWillResignActiveNotification];
 	}
+	UIKitScenesDisconnect();
 	[self ui_notify:@selector(applicationWillTerminate:) name:UIApplicationWillTerminateNotification];
 }
 
@@ -300,8 +339,6 @@ static id<UIApplicationDelegate> sDelegateStorage;
 - (void)registerForRemoteNotificationTypes:(NSUInteger)types { }
 - (void)registerForRemoteNotifications { }
 - (void)registerUserNotificationSettings:(id)settings { }
-- (void)scheduleLocalNotification:(id)notification { }
-- (void)cancelAllLocalNotifications { }
 
 - (UIWindow *)keyWindow
 {
@@ -389,8 +426,47 @@ static void UIKitDisplayBeforeWaiting(CFRunLoopObserverRef observer, CFRunLoopAc
 	}
 }
 
+/*
+ * iOS delivers events from the main run loop, so an app that runs it itself
+ * (SDL's loop, with CFRunLoopRunInMode) gets them. AppKit queues them until
+ * its event loop asks for one. So when a run of the loop that is not AppKit's
+ * event loop is about to wait or ends, the events queued are sent.
+ */
+static void UIKitDeliverEvents(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info)
+{
+	static BOOL delivering;
+	if (activity == kCFRunLoopEntry) {
+		sRunDepth++;
+		return;
+	}
+	BOOL own = sEventLoops > 0 && sEventLoopRuns[sEventLoops - 1] == sRunDepth;
+	if (!own && !delivering && NSApp != nil) {
+		delivering = YES;
+		@autoreleasepool {
+			NSEvent *event;
+			while ((event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast]
+			                                      inMode:NSDefaultRunLoopMode dequeue:YES]) != nil)
+				[NSApp sendEvent:event];
+		}
+		delivering = NO;
+	}
+	if (activity == kCFRunLoopExit)
+		sRunDepth--;
+}
+
 static void UIKitInstallDisplayObserver(void)
 {
+	/* Entering first and leaving last, around everything else: the run loop's depth. */
+	CFRunLoopObserverRef events = CFRunLoopObserverCreate(kCFAllocatorDefault, kCFRunLoopEntry, true, -2000000,
+		UIKitDeliverEvents, NULL);
+	CFRunLoopAddObserver(CFRunLoopGetMain(), events, kCFRunLoopCommonModes);
+	CFRelease(events);
+	/* Before drawing, so what the events changed is drawn. */
+	events = CFRunLoopObserverCreate(kCFAllocatorDefault, kCFRunLoopBeforeWaiting | kCFRunLoopExit, true, 1000000,
+		UIKitDeliverEvents, NULL);
+	CFRunLoopAddObserver(CFRunLoopGetMain(), events, kCFRunLoopCommonModes);
+	CFRelease(events);
+
 	/* After everything else that runs before waiting, as Core Animation's commit. */
 	CFRunLoopObserverRef observer = CFRunLoopObserverCreate(kCFAllocatorDefault, kCFRunLoopBeforeWaiting | kCFRunLoopExit, true, 2000000,
 		UIKitDisplayBeforeWaiting, NULL);
