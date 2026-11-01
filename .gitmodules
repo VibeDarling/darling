@@ -9,7 +9,8 @@
 	url = https://github.com/VibeDarling/darling-libcxxabi.git
 [submodule "src/external/libkqueue"]
 	path = src/external/libkqueue
-	url = https://github.com/VibeDarling/darling-libkqueue.git
+	url = https://github.com/Kreijstal/darling-libkqueue.git
+	branch = master
 [submodule "src/external/zlib"]
 	path = src/external/zlib
 	url = https://github.com/VibeDarling/darling-zlib.git
@@ -25,11 +26,11 @@
 [submodule "src/external/foundation"]
 	path = src/external/foundation
 	url = https://github.com/Kreijstal/darling-foundation.git
-	branch = ios
+	branch = master
 [submodule "src/external/corefoundation"]
 	path = src/external/corefoundation
 	url = https://github.com/Kreijstal/darling-corefoundation.git
-	branch = ios
+	branch = master
 [submodule "src/external/icu"]
 	path = src/external/icu
 	url = https://github.com/VibeDarling/darling-icu.git
@@ -67,6 +68,7 @@
 [submodule "src/external/cfnetwork"]
 	path = src/external/cfnetwork
 	url = https://github.com/Kreijstal/darling-cfnetwork.git
+	branch = master
 [submodule "src/external/text_cmds"]
 	path = src/external/text_cmds
 	url = https://github.com/VibeDarling/darling-text_cmds.git
@@ -181,7 +183,7 @@
 [submodule "src/external/libplatform"]
 	path = src/external/libplatform
 	url = https://github.com/Kreijstal/darling-libplatform.git
-	branch = ios
+	branch = master
 [submodule "src/external/libpthread"]
 	path = src/external/libpthread
 	url = https://github.com/VibeDarling/darling-libpthread.git
@@ -194,7 +196,7 @@
 [submodule "src/external/configd"]
 	path = src/external/configd
 	url = https://github.com/Kreijstal/darling-configd.git
-	branch = ios
+	branch = master
 [submodule "src/external/IONetworkingFamily"]
 	path = src/external/IONetworkingFamily
 	url = https://github.com/VibeDarling/darling-IONetworkingFamily.git
@@ -243,7 +245,7 @@
 [submodule "src/external/cocotron"]
 	path = src/external/cocotron
 	url = https://github.com/Kreijstal/darling-cocotron.git
-	branch = ios
+	branch = master
 [submodule "src/external/libtelnet"]
 	path = src/external/libtelnet
 	url = https://github.com/VibeDarling/darling-libtelnet.git
@@ -279,7 +281,7 @@
 [submodule "src/external/JavaScriptCore"]
 	path = src/external/JavaScriptCore
 	url = https://github.com/Kreijstal/darling-JavaScriptCore.git
-	branch = ios
+	branch = master
 [submodule "src/external/bmalloc"]
 	path = src/external/bmalloc
 	url = https://github.com/VibeDarling/darling-bmalloc.git
@@ -336,6 +338,7 @@
 [submodule "src/external/swift"]
 	path = src/external/swift
 	url = https://github.com/Kreijstal/darling-swift.git
+	branch = master
 [submodule "src/external/glut"]
 	path = src/external/glut
 	url = https://github.com/VibeDarling/darling-glut.git
@@ -387,20 +390,22 @@
 	url = https://github.com/VibeDarling/darling-pyobjc.git
 [submodule "src/external/darlingserver"]
 	path = src/external/darlingserver
-	url = https://github.com/VibeDarling/darlingserver.git
+	url = https://github.com/Kreijstal/darlingserver.git
+	branch = main
 [submodule "src/external/libmalloc"]
 	path = src/external/libmalloc
 	url = https://github.com/VibeDarling/darling-libmalloc.git
 [submodule "src/external/libc"]
 	path = src/external/libc
-	url = https://github.com/VibeDarling/darling-Libc.git
+	url = https://github.com/Kreijstal/darling-Libc.git
+	branch = main
 [submodule "src/external/libsystem"]
 	path = src/external/libsystem
 	url = https://github.com/VibeDarling/darling-Libsystem.git
 [submodule "src/external/dyld"]
 	path = src/external/dyld
 	url = https://github.com/Kreijstal/darling-dyld.git
-	branch = ios
+	branch = main
 [submodule "src/external/AvailabilityVersions"]
 	path = src/external/AvailabilityVersions
 	url = https://github.com/VibeDarling/darling-AvailabilityVersions
@@ -412,7 +417,8 @@
 	url = https://github.com/VibeDarling/darling-Csu.git
 [submodule "src/external/Libinfo"]
 	path = src/external/Libinfo
-	url = https://github.com/VibeDarling/darling-Libinfo.git
+	url = https://github.com/Kreijstal/darling-Libinfo.git
+	branch = main
 [submodule "src/external/librpcsvc"]
 	path = src/external/librpcsvc
 	url = https://github.com/VibeDarling/darling-librpcsvc.git
@@ -464,4 +470,4 @@
 [submodule "src/external/xnu"]
 	path = src/external/xnu
 	url = https://github.com/Kreijstal/darling-xnu.git
-	branch = ios
+	branch = main
