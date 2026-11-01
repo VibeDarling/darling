@@ -19,6 +19,16 @@
 
 #include <Foundation/Foundation.h>
 
-@interface SKRequest : NSObject
+@class SKRequest;
 
+@protocol SKRequestDelegate <NSObject>
+@optional
+- (void)requestDidFinish:(SKRequest *)request;
+- (void)request:(SKRequest *)request didFailWithError:(NSError *)error;
+@end
+
+@interface SKRequest : NSObject
+@property (nonatomic, assign) id <SKRequestDelegate> delegate;
+- (void)start;
+- (void)cancel;
 @end

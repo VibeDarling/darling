@@ -57,6 +57,7 @@ add_framework(AVFAudio
         src/AVAudioSettings.m
         src/AVVCAudioDeviceManager.m
         src/AVAudioSession.m
+        src/AVSpeechSynthesis.m
         src/AVVCAudioBuffer.m
         src/AVAudioEnvironmentDistanceAttenuationParameters.m
         src/AVAudioEnvironmentReverbParameters.m

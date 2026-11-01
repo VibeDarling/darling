@@ -58,3 +58,19 @@ add_framework(StoreKit
         objc
         Foundation
 )
+
+# Apple's StoreKit carries its Swift API (StoreKit 2) in the same image. Darling builds it apart,
+# as an arm64 iOS Swift library (swift/build.sh); given its path, StoreKit installs it and
+# re-exports it, so apps find Product, Transaction and the rest in StoreKit.
+set(DARLING_STOREKIT_SWIFT_DYLIB "" CACHE FILEPATH "StoreKit's Swift API, built by src/frameworks/StoreKit/swift/build.sh")
+if (DARLING_STOREKIT_SWIFT_DYLIB)
+	if (NOT EXISTS "${DARLING_STOREKIT_SWIFT_DYLIB}")
+		message(FATAL_ERROR "StoreKit Swift library does not exist: ${DARLING_STOREKIT_SWIFT_DYLIB}")
+	endif()
+	set_property(TARGET StoreKit APPEND_STRING PROPERTY
+		LINK_FLAGS " -Wl,-reexport_library,${DARLING_STOREKIT_SWIFT_DYLIB}")
+	set_property(TARGET StoreKit APPEND PROPERTY LINK_DEPENDS "${DARLING_STOREKIT_SWIFT_DYLIB}")
+	install(PROGRAMS "${DARLING_STOREKIT_SWIFT_DYLIB}"
+		DESTINATION libexec/darling/System/Library/Frameworks/StoreKit.framework/Versions/A
+		RENAME StoreKitSwift)
+endif()

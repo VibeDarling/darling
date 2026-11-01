@@ -66,7 +66,7 @@
 	url = https://github.com/VibeDarling/darling-liblzma.git
 [submodule "src/external/cfnetwork"]
 	path = src/external/cfnetwork
-	url = https://github.com/VibeDarling/darling-cfnetwork.git
+	url = https://github.com/Kreijstal/darling-cfnetwork.git
 [submodule "src/external/text_cmds"]
 	path = src/external/text_cmds
 	url = https://github.com/VibeDarling/darling-text_cmds.git
@@ -335,7 +335,7 @@
 	url = https://github.com/VibeDarling/fmdb.git
 [submodule "src/external/swift"]
 	path = src/external/swift
-	url = https://github.com/VibeDarling/darling-swift.git
+	url = https://github.com/Kreijstal/darling-swift.git
 [submodule "src/external/glut"]
 	path = src/external/glut
 	url = https://github.com/VibeDarling/darling-glut.git

@@ -53,6 +53,8 @@ static NSCache *sNamedImages;
 		if (path != nil && (image = [self imageWithContentsOfFile:path]) != nil)
 			break;
 	}
+	if (image == nil)
+		image = UIKitAssetImage(name, bundle);
 	if (image != nil)
 		[sNamedImages setObject:image forKey:name];
 	return image;
@@ -69,7 +71,7 @@ static NSCache *sNamedImages;
 		if (image != nil)
 			return image;
 	}
-	return nil;
+	return UIKitAssetImage(name, bundle);
 }
 
 /* iOS's: the lock screen's wallpaper. The user has not set one here;
@@ -227,6 +229,11 @@ static CGFloat UIImageScaleForPath(NSString *path)
 }
 
 - (UIImage *)resizableImageWithCapInsets:(UIEdgeInsets)capInsets
+{
+	return self;
+}
+
+- (UIImage *)resizableImageWithCapInsets:(UIEdgeInsets)capInsets resizingMode:(UIImageResizingMode)resizingMode
 {
 	return self;
 }

@@ -63,6 +63,8 @@ add_framework(UIKit
         src/UISearchController.m
         src/UILocalNotification.m
         src/UIDiffableDataSource.m
+        src/UIAssetCatalog.c
+        src/UIAssetCatalogs.m
     RESOURCES
         Info.plist Info.plist
         UIPreferencesBlueCheck.png Artwork/UIPreferencesBlueCheck.png
@@ -80,6 +82,9 @@ add_framework(UIKit
         objc
         system
 )
+# Asset catalogs' bitmaps are LZFSE and LZVN compressed.
+target_link_libraries(UIKit PRIVATE lzfse)
+target_include_directories(UIKit PRIVATE ../../external/lzfse/include)
 target_include_directories(UIKit PRIVATE include src ../../private-frameworks/WebKitLegacy/include)
 target_compile_options(UIKit PRIVATE -fobjc-arc)
 # Layout, table tiling and event delivery run on every frame; like Cocotron's

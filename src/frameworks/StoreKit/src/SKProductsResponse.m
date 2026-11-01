@@ -21,14 +21,24 @@
 
 @implementation SKProductsResponse
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize products = _products;
+@synthesize invalidProductIdentifiers = _invalidProductIdentifiers;
+
+- (instancetype)_initWithProducts:(NSArray *)products invalidProductIdentifiers:(NSArray *)invalid
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if ((self = [super init]) != nil)
+    {
+        _products = [products copy];
+        _invalidProductIdentifiers = [invalid copy];
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)dealloc
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [_products release];
+    [_invalidProductIdentifiers release];
+    [super dealloc];
 }
 
 @end

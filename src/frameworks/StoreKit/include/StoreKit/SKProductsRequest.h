@@ -18,7 +18,16 @@
 */
 
 #include <Foundation/Foundation.h>
+#import <StoreKit/SKRequest.h>
 
-@interface SKProductsRequest : NSObject
+@class SKProductsRequest, SKProductsResponse;
 
+@protocol SKProductsRequestDelegate <SKRequestDelegate>
+@required
+- (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response;
+@end
+
+@interface SKProductsRequest : SKRequest
+- (instancetype)initWithProductIdentifiers:(NSSet<NSString *> *)productIdentifiers;
+@property (nonatomic, assign) id <SKProductsRequestDelegate> delegate;
 @end

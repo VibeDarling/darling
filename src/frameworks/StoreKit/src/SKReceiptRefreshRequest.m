@@ -19,16 +19,31 @@
 
 #import <StoreKit/SKReceiptRefreshRequest.h>
 
+@interface SKRequest (Private)
+- (void)_failWithCode:(NSInteger)code description:(NSString *)description;
+@end
+
+// No App Store to fetch a receipt from: the request fails as it does offline (SKErrorUnknown).
 @implementation SKReceiptRefreshRequest
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize receiptProperties = _receiptProperties;
+
+- (instancetype)initWithReceiptProperties:(NSDictionary *)properties
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if ((self = [super init]) != nil)
+        _receiptProperties = [properties copy];
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)dealloc
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [_receiptProperties release];
+    [super dealloc];
+}
+
+- (void)_respond
+{
+    [self _failWithCode:0 description:@"Cannot connect to the App Store."];
 }
 
 @end

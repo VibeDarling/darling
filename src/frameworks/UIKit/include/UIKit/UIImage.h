@@ -31,6 +31,11 @@ typedef NS_ENUM(NSInteger, UIImageRenderingMode) {
 };
 
 /* Backed by an AppKit image, which reads the formats Darling's AppKit can. */
+typedef NS_ENUM(NSInteger, UIImageResizingMode) {
+	UIImageResizingModeTile,
+	UIImageResizingModeStretch,
+};
+
 @interface UIImage : NSObject
 
 + (UIImage *)imageNamed:(NSString *)name;
@@ -61,6 +66,7 @@ typedef NS_ENUM(NSInteger, UIImageRenderingMode) {
 /* Cap insets are not honored: the image stretches as a whole. */
 - (UIImage *)stretchableImageWithLeftCapWidth:(NSInteger)leftCapWidth topCapHeight:(NSInteger)topCapHeight;
 - (UIImage *)resizableImageWithCapInsets:(UIEdgeInsets)capInsets;
+- (UIImage *)resizableImageWithCapInsets:(UIEdgeInsets)capInsets resizingMode:(UIImageResizingMode)resizingMode;
 
 - (void)drawInRect:(CGRect)rect;
 - (void)drawInRect:(CGRect)rect blendMode:(CGBlendMode)blendMode alpha:(CGFloat)alpha;

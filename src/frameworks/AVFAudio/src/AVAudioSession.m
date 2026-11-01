@@ -71,6 +71,7 @@ NSString *const AVAudioSessionPortLineIn = @"AVAudioSessionPortLineIn";
 NSString *const AVAudioSessionPortLineOut = @"AVAudioSessionPortLineOut";
 NSString *const AVAudioSessionPortHDMI = @"AVAudioSessionPortHDMI";
 NSString *const AVAudioSessionPortDisplayPort = @"AVAudioSessionPortDisplayPort";
+NSString *const AVAudioSessionPortUSBAudio = @"AVAudioSessionPortUSBAudio";
 
 /* Orientations */
 NSString *const AVAudioSessionOrientationBack = @"AVAudioSessionOrientationBack";
@@ -92,6 +93,86 @@ NSString *const AVAudioSessionPolarPatternSubcardioid = @"AVAudioSessionPolarPat
 static NSString *g_category = nil;
 static NSString *g_mode = nil;
 static BOOL g_active = NO;
+
+@implementation AVAudioSessionPortDescription {
+    NSString *_portType;
+    NSString *_portName;
+    NSString *_UID;
+}
+
+- (instancetype)_initWithType:(NSString *)type name:(NSString *)name UID:(NSString *)uid
+{
+    if ((self = [super init]) != nil) {
+        _portType = [type copy];
+        _portName = [name copy];
+        _UID = [uid copy];
+    }
+    return self;
+}
+
+- (void)dealloc
+{
+    [_portType release];
+    [_portName release];
+    [_UID release];
+    [super dealloc];
+}
+
+- (NSString *)portType { return _portType; }
+- (NSString *)portName { return _portName; }
+- (NSString *)UID { return _UID; }
+- (BOOL)hasHardwareVoiceCallProcessing { return NO; }
+- (BOOL)isSpatialAudioEnabled { return NO; }
+- (NSArray *)channels { return nil; }
+- (NSArray *)dataSources { return nil; }
+- (id)selectedDataSource { return nil; }
+- (id)preferredDataSource { return nil; }
+
+- (BOOL)setPreferredDataSource:(id)dataSource error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<%@: %p, type = %@; name = %@; UID = %@; selectedDataSource = (null)>",
+            [self class], self, _portType, _portName, _UID];
+}
+
+@end
+
+static AVAudioSessionPortDescription *builtInMicrophone(void)
+{
+    static AVAudioSessionPortDescription *port;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        port = [[AVAudioSessionPortDescription alloc] _initWithType:AVAudioSessionPortBuiltInMic name:@"iPhone Microphone" UID:@"Built-In Microphone"];
+    });
+    return port;
+}
+
+static AVAudioSessionPortDescription *builtInSpeaker(void)
+{
+    static AVAudioSessionPortDescription *port;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        port = [[AVAudioSessionPortDescription alloc] _initWithType:AVAudioSessionPortBuiltInSpeaker name:@"Speaker" UID:@"Speaker"];
+    });
+    return port;
+}
+
+@implementation AVAudioSessionRouteDescription
+
+- (NSArray *)inputs { return @[ builtInMicrophone() ]; }
+- (NSArray *)outputs { return @[ builtInSpeaker() ]; }
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<%@: %p, \ninputs = %@; \noutputs = %@>", [self class], self, [self inputs], [self outputs]];
+}
+
+@end
 
 @implementation AVAudioSession
 
@@ -177,6 +258,67 @@ static BOOL g_active = NO;
 - (NSInteger)outputNumberOfChannels
 {
     return 2;
+}
+
+- (AVAudioSessionRouteDescription *)currentRoute
+{
+    return [[[AVAudioSessionRouteDescription alloc] init] autorelease];
+}
+
+- (NSArray *)availableInputs
+{
+    return @[ builtInMicrophone() ];
+}
+
+- (float)outputVolume { return 0.5f; }
+- (NSTimeInterval)IOBufferDuration { return 1024 / 44100.0; }
+- (NSTimeInterval)outputLatency { return 0.01; }
+- (NSTimeInterval)inputLatency { return 0.01; }
+- (double)preferredSampleRate { return 0; }
+- (NSTimeInterval)preferredIOBufferDuration { return 0; }
+- (BOOL)isOtherAudioPlaying { return NO; }
+- (BOOL)secondaryAudioShouldBeSilencedHint { return NO; }
+- (BOOL)isInputAvailable { return YES; }
+
+/* Recording is not wired to a microphone: permission is never granted. */
+- (AVAudioSessionRecordPermission)recordPermission
+{
+    return AVAudioSessionRecordPermissionDenied;
+}
+
+- (void)requestRecordPermission:(void (^)(BOOL granted))response
+{
+    if (response == nil)
+        return;
+    void (^copy)(BOOL) = [response copy];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        copy(NO);
+        [copy release];
+    });
+}
+
+- (BOOL)setPreferredSampleRate:(double)sampleRate error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (BOOL)setPreferredIOBufferDuration:(NSTimeInterval)duration error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (BOOL)overrideOutputAudioPort:(NSUInteger)portOverride error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
 }
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector

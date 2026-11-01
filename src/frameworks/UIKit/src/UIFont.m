@@ -85,6 +85,12 @@ const UIFontWeight UIFontWeightBlack = 0.62;
 	return weight >= UIFontWeightSemibold ? [self boldSystemFontOfSize:size] : [self systemFontOfSize:size];
 }
 
+/* iOS 16's widths (UIFontWidthCondensed, …): the system font comes in one width here. */
++ (UIFont *)systemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight width:(UIFontWidth)width
+{
+	return [self systemFontOfSize:size weight:weight];
+}
+
 + (UIFont *)monospacedDigitSystemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight
 {
 	return [self systemFontOfSize:size weight:weight];

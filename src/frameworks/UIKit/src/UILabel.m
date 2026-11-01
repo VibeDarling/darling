@@ -151,6 +151,16 @@
 				[converted setObject:[defaults objectForKey:key] forKey:key];
 		if (forcedColor != nil)
 			[converted setObject:forcedColor forKey:NSForegroundColorAttributeName];
+		/* A label of several lines wraps words whatever its paragraphs' line break mode says (iOS
+		   truncates only the last line); AppKit's typesetter would keep a truncating paragraph on
+		   one line. */
+		NSParagraphStyle *paragraph = [converted objectForKey:NSParagraphStyleAttributeName];
+		if (_numberOfLines != 1 && paragraph != nil && [paragraph lineBreakMode] != NSLineBreakByWordWrapping
+		    && [paragraph lineBreakMode] != NSLineBreakByCharWrapping) {
+			NSMutableParagraphStyle *wrapping = [paragraph mutableCopy];
+			[wrapping setLineBreakMode:NSLineBreakByWordWrapping];
+			[converted setObject:wrapping forKey:NSParagraphStyleAttributeName];
+		}
 		[text setAttributes:converted range:range];
 	}];
 	return text;
@@ -256,7 +266,7 @@ static NSRect UILabelTextRect(NSRect bounds, CGFloat textHeight)
 	if (_attributedText != nil) {
 		NSAttributedString *text = [self uikitDrawnText:nil];
 		NSSize size = [text size];
-		NSRect bounds = UILabelTextRect([self bounds], size.height);
+		NSRect bounds = UILabelTextRect([self bounds], _numberOfLines == 1 ? size.height : [self uikitTextSizeForWidth:[self bounds].size.width].height);
 		if (_numberOfLines == 1) {
 			NSPoint at = [self uikitLineOrigin:bounds width:size.width];
 			if (shadow != nil)
@@ -271,7 +281,7 @@ static NSRect UILabelTextRect(NSRect bounds, CGFloat textHeight)
 	}
 
 	NSDictionary *attributes = [self textAttributes];
-	NSRect bounds = UILabelTextRect([self bounds], [_text sizeWithAttributes:attributes].height);
+	NSRect bounds = UILabelTextRect([self bounds], _numberOfLines == 1 ? [_text sizeWithAttributes:attributes].height : [self uikitTextSizeForWidth:[self bounds].size.width].height);
 	NSString *text = _text;
 	/* One line: cut it to the width with an ellipsis. */
 	if (_numberOfLines == 1 && [text sizeWithAttributes:attributes].width > bounds.size.width && _lineBreakMode != NSLineBreakByClipping) {
@@ -314,12 +324,42 @@ static NSRect UILabelTextRect(NSRect bounds, CGFloat textHeight)
 	return NSMakePoint(x, bounds.origin.y);
 }
 
-- (CGSize)sizeThatFits:(CGSize)size
+/*
+ * The size the text takes: one line, or wrapped at WIDTH (an unbounded width
+ * gives each paragraph one line) and cut to numberOfLines lines.
+ */
+- (CGSize)uikitTextSizeForWidth:(CGFloat)width
 {
 	if ([_text length] == 0)
 		return CGSizeMake(0, 0);
-	NSSize measured = _attributedText != nil ? [[self uikitDrawnText:nil] size] : [_text sizeWithAttributes:[self textAttributes]];
-	return CGSizeMake(measured.width, measured.height);
+	NSAttributedString *attributed = _attributedText != nil ? [self uikitDrawnText:nil] : nil;
+	NSDictionary *attributes = attributed == nil ? [self textAttributes] : nil;
+	NSSize line = attributed != nil ? [attributed size] : [_text sizeWithAttributes:attributes];
+	if (_numberOfLines == 1 || width <= 0 || width >= 1e6 || line.width <= width)
+		return CGSizeMake(line.width, line.height);
+	NSSize bound = NSMakeSize(width, 1e7);
+	NSSize wrapped = attributed != nil ? [attributed boundingRectWithSize:bound options:NSStringDrawingUsesLineFragmentOrigin].size
+	                                   : [_text boundingRectWithSize:bound options:NSStringDrawingUsesLineFragmentOrigin attributes:attributes].size;
+	CGFloat lineHeight = [[_font nsFont] defaultLineHeightForFont];
+	if (lineHeight <= 0)
+		lineHeight = line.height;
+	if (_numberOfLines > 1 && wrapped.height > lineHeight * _numberOfLines)
+		wrapped.height = lineHeight * _numberOfLines;
+	return CGSizeMake(MIN(wrapped.width, width), wrapped.height);
+}
+
+- (CGSize)sizeThatFits:(CGSize)size
+{
+	return [self uikitTextSizeForWidth:size.width];
+}
+
+/* A wrapping label's height depends on its width. */
+- (void)setFrameSize:(NSSize)size
+{
+	BOOL changed = _numberOfLines != 1 && size.width != [self frame].size.width;
+	[super setFrameSize:size];
+	if (changed && [self respondsToSelector:@selector(invalidateIntrinsicContentSize)])
+		[self invalidateIntrinsicContentSize];
 }
 
 @end

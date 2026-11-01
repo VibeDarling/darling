@@ -108,3 +108,59 @@ NSString *const UITransitionContextFromViewControllerKey = @"UITransitionContext
 NSString *const UITransitionContextToViewControllerKey = @"UITransitionContextToViewControllerKey";
 NSString *const UITransitionContextFromViewKey = @"UITransitionContextFromViewKey";
 NSString *const UITransitionContextToViewKey = @"UITransitionContextToViewKey";
+
+/* Notifications and keys newer iOS apps observe or read; nothing here posts most of them. */
+NSString *const UIApplicationProtectedDataDidBecomeAvailable = @"UIApplicationProtectedDataDidBecomeAvailable";
+NSString *const UIApplicationProtectedDataWillBecomeUnavailable = @"UIApplicationProtectedDataWillBecomeUnavailable";
+NSString *const UIApplicationSignificantTimeChangeNotification = @"UIApplicationSignificantTimeChangeNotification";
+NSString *const UIApplicationBackgroundRefreshStatusDidChangeNotification = @"UIApplicationBackgroundRefreshStatusDidChangeNotification";
+NSString *const UIWindowDidResignKeyNotification = @"UIWindowDidResignKeyNotification";
+NSString *const UIApplicationLaunchOptionsAnnotationKey = @"UIApplicationLaunchOptionsAnnotationKey";
+NSString *const UIApplicationLaunchOptionsRemoteNotificationKey = @"UIApplicationLaunchOptionsRemoteNotificationKey";
+NSString *const UIApplicationOpenURLOptionsAnnotationKey = @"UIApplicationOpenURLOptionsAnnotationKey";
+NSString *const UIApplicationOpenURLOptionsSourceApplicationKey = @"UIApplicationOpenURLOptionsSourceApplicationKey";
+NSString *const UIApplicationOpenSettingsURLString = @"app-settings:";
+
+NSString *const UITextContentTypeName = @"name";
+NSString *const UITextContentTypeUsername = @"username";
+NSString *const UITextContentTypePassword = @"password";
+NSString *const UITextContentTypeNewPassword = @"new-password";
+
+/* UIFontWidth is a CGFloat; these are iOS's values. */
+const CGFloat UIFontWidthStandard = 0;
+const CGFloat UIFontWidthCondensed = -0.2;
+const CGFloat UIFontWidthExpanded = 0.2;
+const CGFloat UIFontWidthCompressed = -0.3;
+
+UIAccessibilityTraits UIAccessibilityTraitAllowsDirectInteraction = 1 << 13;
+
+NSString *const UIAccessibilityVoiceOverStatusDidChangeNotification = @"UIAccessibilityVoiceOverStatusDidChangeNotification";
+NSString *const UIAccessibilitySwitchControlStatusDidChangeNotification = @"UIAccessibilitySwitchControlStatusDidChangeNotification";
+NSString *const UIAccessibilityAssistiveTouchStatusDidChangeNotification = @"UIAccessibilityAssistiveTouchStatusDidChangeNotification";
+NSString *const UIAccessibilityBoldTextStatusDidChangeNotification = @"UIAccessibilityBoldTextStatusDidChangeNotification";
+NSString *const UIAccessibilityButtonShapesEnabledStatusDidChangeNotification = @"UIAccessibilityButtonShapesEnabledStatusDidChangeNotification";
+NSString *const UIAccessibilityClosedCaptioningStatusDidChangeNotification = @"UIAccessibilityClosedCaptioningStatusDidChangeNotification";
+NSString *const UIAccessibilityDarkerSystemColorsStatusDidChangeNotification = @"UIAccessibilityDarkerSystemColorsStatusDidChangeNotification";
+NSString *const UIAccessibilityGrayscaleStatusDidChangeNotification = @"UIAccessibilityGrayscaleStatusDidChangeNotification";
+NSString *const UIAccessibilityHearingDevicePairedEarDidChangeNotification = @"UIAccessibilityHearingDevicePairedEarDidChangeNotification";
+NSString *const UIAccessibilityInvertColorsStatusDidChangeNotification = @"UIAccessibilityInvertColorsStatusDidChangeNotification";
+NSString *const UIAccessibilityMonoAudioStatusDidChangeNotification = @"UIAccessibilityMonoAudioStatusDidChangeNotification";
+NSString *const UIAccessibilityOnOffSwitchLabelsDidChangeNotification = @"UIAccessibilityOnOffSwitchLabelsDidChangeNotification";
+NSString *const UIAccessibilityReduceMotionStatusDidChangeNotification = @"UIAccessibilityReduceMotionStatusDidChangeNotification";
+NSString *const UIAccessibilityReduceTransparencyStatusDidChangeNotification = @"UIAccessibilityReduceTransparencyStatusDidChangeNotification";
+NSString *const UIAccessibilityShouldDifferentiateWithoutColorDidChangeNotification = @"UIAccessibilityShouldDifferentiateWithoutColorDidChangeNotification";
+
+BOOL UIAccessibilityButtonShapesEnabled(void) { return NO; }
+BOOL UIAccessibilityIsAssistiveTouchRunning(void) { return NO; }
+BOOL UIAccessibilityIsClosedCaptioningEnabled(void) { return NO; }
+BOOL UIAccessibilityIsGrayscaleEnabled(void) { return NO; }
+BOOL UIAccessibilityIsGuidedAccessEnabled(void) { return NO; }
+BOOL UIAccessibilityIsInvertColorsEnabled(void) { return NO; }
+BOOL UIAccessibilityIsMonoAudioEnabled(void) { return NO; }
+BOOL UIAccessibilityIsOnOffSwitchLabelsEnabled(void) { return NO; }
+BOOL UIAccessibilityIsShakeToUndoEnabled(void) { return YES; }
+BOOL UIAccessibilityIsSwitchControlRunning(void) { return NO; }
+BOOL UIAccessibilityPrefersCrossFadeTransitions(void) { return NO; }
+BOOL UIAccessibilityShouldDifferentiateWithoutColor(void) { return NO; }
+/* UIAccessibilityHearingDeviceEar: no hearing device is paired. */
+NSUInteger UIAccessibilityHearingDevicePairedEar(void) { return 0; }

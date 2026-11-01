@@ -47,6 +47,14 @@ void UIKitUpdateSafeAreas(void);
 
 /* The color UIKit's string drawing uses (see UIKitAdditions.m). */
 void UIKitSetDrawColor(CGFloat red, CGFloat green, CGFloat blue, CGFloat alpha);
+/* The image or color NAME of BUNDLE's asset catalog (Assets.car), or nil. */
+@class UIImage, UIColor, NSBundle;
+UIImage *UIKitAssetImage(NSString *name, NSBundle *bundle);
+UIColor *UIKitAssetColor(NSString *name, NSBundle *bundle);
+/* The view controller whose root view VIEW is, as the responder chain needs it. */
+@class UIViewController, UIView;
+void UIKitSetViewController(UIView *view, UIViewController *controller);
+UIViewController *UIKitViewControllerForView(UIView *view);
 
 @interface UIViewController (DarlingPrivate)
 - (void)uikitSetParent:(UIViewController *)parent;

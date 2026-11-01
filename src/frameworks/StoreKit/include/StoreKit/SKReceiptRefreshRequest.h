@@ -18,7 +18,9 @@
 */
 
 #include <Foundation/Foundation.h>
+#import <StoreKit/SKRequest.h>
 
-@interface SKReceiptRefreshRequest : NSObject
-
+@interface SKReceiptRefreshRequest : SKRequest
+- (instancetype)initWithReceiptProperties:(NSDictionary<NSString *, id> *)properties;
+@property (nonatomic, readonly) NSDictionary<NSString *, id> *receiptProperties;
 @end

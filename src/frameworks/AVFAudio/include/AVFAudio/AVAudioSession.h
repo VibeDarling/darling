@@ -76,6 +76,7 @@ extern NSString *const AVAudioSessionPortLineIn;
 extern NSString *const AVAudioSessionPortLineOut;
 extern NSString *const AVAudioSessionPortHDMI;
 extern NSString *const AVAudioSessionPortDisplayPort;
+extern NSString *const AVAudioSessionPortUSBAudio;
 
 /* Orientations */
 extern NSString *const AVAudioSessionOrientationBack;
@@ -88,6 +89,32 @@ extern NSString *const AVAudioSessionPolarPatternStereo;
 extern NSString *const AVAudioSessionPolarPatternCardioid;
 extern NSString *const AVAudioSessionPolarPatternOmnidirectional;
 extern NSString *const AVAudioSessionPolarPatternSubcardioid;
+
+// A port of the audio route. Darling reports the route of an iPhone without accessories: the
+// built-in microphone in, the built-in speaker out.
+@interface AVAudioSessionPortDescription : NSObject
+@property (readonly) NSString *portType;
+@property (readonly) NSString *portName;
+@property (readonly) NSString *UID;
+@property (readonly) BOOL hasHardwareVoiceCallProcessing;
+@property (readonly, getter=isSpatialAudioEnabled) BOOL spatialAudioEnabled;
+@property (readonly) NSArray *channels;
+@property (readonly) NSArray *dataSources;
+@property (readonly) id selectedDataSource;
+@property (readonly) id preferredDataSource;
+- (BOOL)setPreferredDataSource:(id)dataSource error:(NSError **)outError;
+@end
+
+@interface AVAudioSessionRouteDescription : NSObject
+@property (readonly) NSArray<AVAudioSessionPortDescription *> *inputs;
+@property (readonly) NSArray<AVAudioSessionPortDescription *> *outputs;
+@end
+
+typedef NS_ENUM(NSUInteger, AVAudioSessionRecordPermission) {
+    AVAudioSessionRecordPermissionUndetermined = 'undt',
+    AVAudioSessionRecordPermissionDenied = 'deny',
+    AVAudioSessionRecordPermissionGranted = 'grnt',
+};
 
 @interface AVAudioSession : NSObject
 
@@ -107,5 +134,23 @@ extern NSString *const AVAudioSessionPolarPatternSubcardioid;
 - (double)sampleRate;
 - (NSInteger)inputNumberOfChannels;
 - (NSInteger)outputNumberOfChannels;
+
+@property (readonly) AVAudioSessionRouteDescription *currentRoute;
+@property (readonly) NSArray<AVAudioSessionPortDescription *> *availableInputs;
+@property (readonly) float outputVolume;
+@property (readonly) NSTimeInterval IOBufferDuration;
+@property (readonly) NSTimeInterval outputLatency;
+@property (readonly) NSTimeInterval inputLatency;
+@property (readonly) double preferredSampleRate;
+@property (readonly) NSTimeInterval preferredIOBufferDuration;
+@property (readonly, getter=isOtherAudioPlaying) BOOL otherAudioPlaying;
+@property (readonly) BOOL secondaryAudioShouldBeSilencedHint;
+@property (readonly, getter=isInputAvailable) BOOL inputAvailable;
+@property (readonly) AVAudioSessionRecordPermission recordPermission;
+- (void)requestRecordPermission:(void (^)(BOOL granted))response;
+- (BOOL)setPreferredSampleRate:(double)sampleRate error:(NSError **)outError;
+- (BOOL)setPreferredIOBufferDuration:(NSTimeInterval)duration error:(NSError **)outError;
+- (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError;
+- (BOOL)overrideOutputAudioPort:(NSUInteger)portOverride error:(NSError **)outError;
 
 @end

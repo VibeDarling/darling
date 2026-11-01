@@ -186,6 +186,17 @@
 + (UIColor *)systemGray5Color { return [self colorWithRed:0.898 green:0.898 blue:0.918 alpha:1]; }
 + (UIColor *)systemGray6Color { return [self colorWithRed:0.949 green:0.949 blue:0.969 alpha:1]; }
 
+/* A color of an asset catalog. */
++ (UIColor *)colorNamed:(NSString *)name
+{
+	return UIKitAssetColor(name, nil);
+}
+
++ (UIColor *)colorNamed:(NSString *)name inBundle:(NSBundle *)bundle compatibleWithTraitCollection:(id)traitCollection
+{
+	return UIKitAssetColor(name, bundle);
+}
+
 /* A dynamic color is its light appearance: there is no dark mode here. */
 + (UIColor *)colorWithDynamicProvider:(UIColor *(^)(id traitCollection))provider
 {

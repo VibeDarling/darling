@@ -785,6 +785,14 @@ static void displayViewsInFront(NSView *view, NSRect rect)
 	}
 }
 
+/* As on iOS: a view controller's root view answers its controller, which
+   answers the view's superview. */
+- (NSResponder *)nextResponder
+{
+	UIViewController *controller = UIKitViewControllerForView(self);
+	return controller != nil ? (NSResponder *) controller : [super nextResponder];
+}
+
 - (void)viewDidMoveToWindow
 {
 	[super viewDidMoveToWindow];

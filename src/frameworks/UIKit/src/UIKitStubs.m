@@ -142,3 +142,132 @@ UIKIT_STUB_FORWARDING
 @implementation UIFontDescriptor (UIKitStubs)
 UIKIT_STUB_FORWARDING
 @end
+
+/*
+ * Classes of newer iOS releases that apps reference but Darling's UIKit has no
+ * behaviour for yet. They exist so the apps link and can allocate them; every
+ * message answers nil or zero through the forwarding above.
+ */
+@interface UIBarAppearance : NSObject @end
+@implementation UIBarAppearance
+UIKIT_STUB_FORWARDING
+@end
+@interface UINavigationBarAppearance : UIBarAppearance @end
+@implementation UINavigationBarAppearance @end
+@interface UITabBarAppearance : UIBarAppearance @end
+@implementation UITabBarAppearance @end
+@interface UITabBarItemAppearance : NSObject @end
+@implementation UITabBarItemAppearance
+UIKIT_STUB_FORWARDING
+@end
+@interface UIImageConfiguration : NSObject @end
+@implementation UIImageConfiguration
+UIKIT_STUB_FORWARDING
+@end
+@interface UIImageSymbolConfiguration : UIImageConfiguration @end
+@implementation UIImageSymbolConfiguration @end
+@interface UIHoverGestureRecognizer : UIGestureRecognizer @end
+@implementation UIHoverGestureRecognizer @end
+@interface UIPress : NSObject @end
+@implementation UIPress
+UIKIT_STUB_FORWARDING
+@end
+@interface UIPointerStyle : NSObject @end
+@implementation UIPointerStyle
+UIKIT_STUB_FORWARDING
+@end
+@interface UIContextualAction : NSObject @end
+@implementation UIContextualAction
+UIKIT_STUB_FORWARDING
+@end
+@interface UISwipeActionsConfiguration : NSObject @end
+@implementation UISwipeActionsConfiguration
+UIKIT_STUB_FORWARDING
+@end
+@interface UISheetPresentationControllerDetent : NSObject @end
+@implementation UISheetPresentationControllerDetent
+UIKIT_STUB_FORWARDING
+@end
+@interface UITab : NSObject @end
+@implementation UITab
+UIKIT_STUB_FORWARDING
+@end
+@interface UITabAccessory : NSObject @end
+@implementation UITabAccessory
+UIKIT_STUB_FORWARDING
+@end
+@interface UIWindowSceneGeometryPreferences : NSObject @end
+@implementation UIWindowSceneGeometryPreferences
+UIKIT_STUB_FORWARDING
+@end
+@interface UIWindowSceneGeometryPreferencesIOS : UIWindowSceneGeometryPreferences @end
+@implementation UIWindowSceneGeometryPreferencesIOS @end
+@interface UIDocumentPickerViewController : UIViewController @end
+@implementation UIDocumentPickerViewController @end
+
+/* UIGraphicsImageRenderer draws through the UIGraphics image context. */
+@interface UIGraphicsRendererFormat : NSObject
+@property (nonatomic) CGFloat scale;
+@property (nonatomic) BOOL opaque;
+@end
+@implementation UIGraphicsRendererFormat
+UIKIT_STUB_FORWARDING
++ (instancetype)defaultFormat { return [[self alloc] init]; }
++ (instancetype)preferredFormat { return [self defaultFormat]; }
+- (instancetype)init
+{
+	if ((self = [super init]))
+		_scale = [[UIScreen mainScreen] scale];
+	return self;
+}
+@end
+@interface UIGraphicsImageRendererFormat : UIGraphicsRendererFormat @end
+@implementation UIGraphicsImageRendererFormat @end
+
+@interface UIGraphicsImageRendererContext : NSObject
+@end
+@implementation UIGraphicsImageRendererContext
+UIKIT_STUB_FORWARDING
+- (CGContextRef)CGContext { return UIGraphicsGetCurrentContext(); }
+- (UIImage *)currentImage { return UIGraphicsGetImageFromCurrentImageContext(); }
+- (void)fillRect:(CGRect)rect { UIRectFill(rect); }
+- (void)strokeRect:(CGRect)rect { UIRectFrame(rect); }
+@end
+
+@interface UIGraphicsImageRenderer : NSObject {
+	CGSize _size;
+	UIGraphicsImageRendererFormat *_format;
+}
+@end
+@implementation UIGraphicsImageRenderer
+UIKIT_STUB_FORWARDING
+- (instancetype)initWithSize:(CGSize)size format:(UIGraphicsImageRendererFormat *)format
+{
+	if ((self = [super init])) {
+		_size = size;
+		_format = format ?: [UIGraphicsImageRendererFormat defaultFormat];
+	}
+	return self;
+}
+- (instancetype)initWithSize:(CGSize)size { return [self initWithSize:size format:nil]; }
+- (instancetype)initWithBounds:(CGRect)bounds format:(UIGraphicsImageRendererFormat *)format { return [self initWithSize:bounds.size format:format]; }
+- (instancetype)initWithBounds:(CGRect)bounds { return [self initWithSize:bounds.size format:nil]; }
+- (UIImage *)imageWithActions:(void (^)(UIGraphicsImageRendererContext *))actions
+{
+	UIGraphicsBeginImageContextWithOptions(_size, [_format opaque], [_format scale]);
+	UIGraphicsImageRendererContext *context = [[UIGraphicsImageRendererContext alloc] init];
+	if (actions)
+		actions(context);
+	UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+	UIGraphicsEndImageContext();
+	return image;
+}
+- (NSData *)PNGDataWithActions:(void (^)(UIGraphicsImageRendererContext *))actions
+{
+	return UIImagePNGRepresentation([self imageWithActions:actions]);
+}
+- (NSData *)JPEGDataWithCompressionQuality:(CGFloat)quality actions:(void (^)(UIGraphicsImageRendererContext *))actions
+{
+	return UIImageJPEGRepresentation([self imageWithActions:actions], quality);
+}
+@end

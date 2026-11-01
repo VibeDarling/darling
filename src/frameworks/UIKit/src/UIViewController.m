@@ -17,6 +17,39 @@
 #import <UIKit/UITabBarController.h>
 #import <UIKit/UIBarButtonItem.h>
 #import "UIKitPrivate.h"
+#import <objc/runtime.h>
+
+@interface UIViewController (UIKitLoadedView)
+- (UIView *)uikitLoadedView;
+@end
+
+/* A weak reference, for the link from a view to its controller. */
+@interface UIKitWeakBox : NSObject {
+@public
+	__weak id _object;
+}
+@end
+@implementation UIKitWeakBox
+@end
+
+static char UIKitViewControllerKey;
+
+void UIKitSetViewController(UIView *view, UIViewController *controller)
+{
+	if (view == nil)
+		return;
+	UIKitWeakBox *box = [[UIKitWeakBox alloc] init];
+	box->_object = controller;
+	objc_setAssociatedObject(view, &UIKitViewControllerKey, box, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+UIViewController *UIKitViewControllerForView(UIView *view)
+{
+	UIKitWeakBox *box = objc_getAssociatedObject(view, &UIKitViewControllerKey);
+	UIViewController *controller = box != nil ? box->_object : nil;
+	/* Still its view: a view handed to another controller answers that one. */
+	return controller != nil && [controller uikitLoadedView] == view ? controller : nil;
+}
 
 @implementation UIViewController {
 	NSString *_nibName;
@@ -117,9 +150,22 @@
 			_view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]];
 		[self uikitUpdateLayoutGuides];
 		[self uikitPerformSeguesOnLoad:YES];
+		UIKitSetViewController(_view, self);
 		[self viewDidLoad];
+	} else if (UIKitViewControllerForView(_view) != self) {
+		/* A view archived with the controller, or assigned to its ivar directly. */
+		UIKitSetViewController(_view, self);
 	}
 	return _view;
+}
+
+/* As on iOS: the view's superview, else the parent or presenting controller. */
+- (UIResponder *)nextResponder
+{
+	NSView *superview = [_view superview];
+	if (superview != nil)
+		return (UIResponder *) superview;
+	return [self parentViewController] ?: [self presentingViewController] ?: [super nextResponder];
 }
 
 - (void)loadViewIfNeeded
@@ -178,6 +224,13 @@
 	if (view == nil && _view != nil)
 		[self viewDidUnload];
 	_view = view;
+	UIKitSetViewController(view, self);
+}
+
+/* The view, without loading it. */
+- (UIView *)uikitLoadedView
+{
+	return _view;
 }
 
 - (BOOL)isViewLoaded

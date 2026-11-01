@@ -170,11 +170,16 @@ static void FBDGoHome(void)
 
 static void FBDLaunchSystemApp(void);
 
-static void FBDRemove(FBDProcess *process)
+static void FBDRemove(FBDProcess *process, int status)
 {
 	if (![sProcesses containsObject:process])
 		return;
-	FBDLog(@"%@ (%d) exited", process.bundleIdentifier, process.pid);
+	if (WIFSIGNALED(status))
+		FBDLog(@"%@ (%d) was killed by signal %d (%s)", process.bundleIdentifier, process.pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+	else if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+		FBDLog(@"%@ (%d) exited with status %d", process.bundleIdentifier, process.pid, WEXITSTATUS(status));
+	else
+		FBDLog(@"%@ (%d) exited", process.bundleIdentifier, process.pid);
 	BOOL wasForeground = process.state == FBSApplicationStateForeground;
 	[sProcesses removeObject:process];
 	if (FBDIsSystem(process)) {
@@ -254,7 +259,7 @@ static FBDProcess *FBDLaunch(NSString *bundleIdentifier, NSDictionary *options, 
 		while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
 			;
 		dispatch_async(sQueue, ^{
-			FBDRemove(process);
+			FBDRemove(process, status);
 		});
 	});
 	return process;
@@ -452,7 +457,7 @@ static void FBDServe(int fd)
 					process.eventFD = -1;
 				/* Apps we did not launch are not our children to reap. */
 				if (!FBDIsAlive(process.pid))
-					FBDRemove(process);
+					FBDRemove(process, 0);
 			});
 			close(fd);
 			return;

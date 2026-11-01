@@ -16,6 +16,8 @@
 #import <CoreGraphics/CGGeometry.h>
 #import <CoreGraphics/CGColor.h>
 
+@class NSBundle, NSString;
+
 @interface UIColor : NSObject {
 @private
 	CGFloat _red, _green, _blue, _alpha;
@@ -86,6 +88,8 @@
 + (UIColor *)systemGray4Color;
 + (UIColor *)systemGray5Color;
 + (UIColor *)systemGray6Color;
++ (UIColor *)colorNamed:(NSString *)name;
++ (UIColor *)colorNamed:(NSString *)name inBundle:(NSBundle *)bundle compatibleWithTraitCollection:(id)traitCollection;
 + (UIColor *)colorWithDynamicProvider:(UIColor *(^)(id traitCollection))provider;
 - (instancetype)initWithDynamicProvider:(UIColor *(^)(id traitCollection))provider;
 - (UIColor *)resolvedColorWithTraitCollection:(id)traitCollection;
