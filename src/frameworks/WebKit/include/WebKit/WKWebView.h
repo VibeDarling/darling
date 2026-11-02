@@ -25,6 +25,7 @@
 
 @class WKWebViewHostState;
 @class WKWebViewConfiguration;
+@protocol WKNavigationDelegate;
 
 /* WKWebView is a view on macOS, and an application that allocates one expects
  * to be able to put it in a window and have AppKit lay it out. Declared here as
@@ -50,6 +51,37 @@
 	id _currentRequest;
 	NSString *_customUserAgent;
 	double _estimatedProgress;
+	BOOL _drawsBackground;
 }
+
+@property (nonatomic, readonly, copy) WKWebViewConfiguration *configuration;
+@property (nonatomic, assign) id <WKNavigationDelegate> navigationDelegate;
+@property (nonatomic, readonly, copy) NSString *title;
+@property (nonatomic, readonly, copy) NSURL *URL;
+@property (nonatomic, readonly, getter=isLoading) BOOL loading;
+@property (nonatomic, readonly) double estimatedProgress;
+@property (nonatomic) BOOL allowsBackForwardNavigationGestures;
+@property (nonatomic, copy) NSString *customUserAgent;
+@property (nonatomic) BOOL allowsLinkPreview;
+@property (nonatomic, readonly) BOOL canGoBack;
+@property (nonatomic, readonly) BOOL canGoForward;
+@property (nonatomic) BOOL drawsBackground;
+
+- (instancetype)initWithFrame:(NSRect)frame configuration:(WKWebViewConfiguration *)configuration;
+- (id)loadRequest:(NSURLRequest *)request;
+- (id)loadHTMLString:(NSString *)string baseURL:(NSURL *)baseURL;
+- (id)reload;
+- (void)stopLoading;
+- (id)goBack;
+- (id)goForward;
+- (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(void (^)(id result, NSError *error))completionHandler;
+
+@end
+
+@interface WKWebView (Compatibility)
+
+- (id)scrollView;
+- (NSURLRequest *)request;
+- (NSString *)loadingTitle;
 
 @end
