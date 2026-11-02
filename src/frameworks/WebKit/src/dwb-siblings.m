@@ -270,7 +270,7 @@ typedef NS_ENUM(NSInteger, DWBInjectionTime) {
 /* The object WKWebViewConfiguration.preferences returns. YouLearn reads it and
  * immediately sets a media policy on it, so it must be a real object: a nil
  * here throws on the very next call. */
-@interface DWBWebViewPreferences : NSObject {
+@interface DWBWebViewPreferences : NSObject <NSCopying> {
 @public
 	NSUInteger _mediaTypesRequiringUserAction;
 	BOOL _allowsAirPlayForMediaPlayback;
@@ -287,6 +287,19 @@ typedef NS_ENUM(NSInteger, DWBInjectionTime) {
 	self = [super init];
 	_allowsInlineMediaPlayback = YES;
 	return self;
+}
+
+- (id) copyWithZone: (NSZone *)zone
+{
+	DWBWebViewPreferences *copy = [[[self class] allocWithZone: zone] init];
+	if (copy != nil) {
+		copy->_mediaTypesRequiringUserAction = _mediaTypesRequiringUserAction;
+		copy->_allowsAirPlayForMediaPlayback = _allowsAirPlayForMediaPlayback;
+		copy->_allowsPictureInPictureMediaPlayback = _allowsPictureInPictureMediaPlayback;
+		copy->_allowsInlineMediaPlayback = _allowsInlineMediaPlayback;
+		copy->_fullScreenEnabled = _fullScreenEnabled;
+	}
+	return copy;
 }
 
 - (NSUInteger) mediaTypesRequiringUserActionForPlayback
@@ -389,6 +402,22 @@ typedef NS_ENUM(NSInteger, DWBInjectionTime) {
 	_allowsInlineMediaPlayback = YES;
 	_mediaPlaybackRequiresUserGesture = NO;
 	return self;
+}
+
+- (id) copyWithZone: (NSZone *)zone
+{
+	WKWebViewConfiguration *copy = [[[self class] allocWithZone: zone] init];
+	if (copy != nil) {
+		[copy setUserContentController: _userContentController];
+		[copy->_preferences release];
+		copy->_preferences = [_preferences copyWithZone: zone];
+		copy->_mediaTypesRequiringUserAction = _mediaTypesRequiringUserAction;
+		copy->_allowsInlineMediaPlayback = _allowsInlineMediaPlayback;
+		copy->_mediaPlaybackRequiresUserGesture = _mediaPlaybackRequiresUserGesture;
+		copy->_applicationNameForUserAgent = [_applicationNameForUserAgent copyWithZone: zone];
+		copy->_userAgent = [_userAgent copyWithZone: zone];
+	}
+	return copy;
 }
 
 - (void) dealloc

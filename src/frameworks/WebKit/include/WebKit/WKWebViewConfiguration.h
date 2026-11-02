@@ -22,7 +22,7 @@
 @class WKUserContentController;
 @class DWBWebViewPreferences;
 
-@interface WKWebViewConfiguration : NSObject {
+@interface WKWebViewConfiguration : NSObject <NSCopying> {
 @public
 	WKUserContentController *_userContentController;
 	DWBWebViewPreferences *_preferences;
@@ -32,5 +32,10 @@
 	NSString *_applicationNameForUserAgent;
 	NSString *_userAgent;
 }
+
+@property (nonatomic, retain) WKUserContentController *userContentController;
+@property (nonatomic, copy) NSString *applicationNameForUserAgent;
+@property (nonatomic) BOOL allowsInlineMediaPlayback;
+@property (nonatomic) BOOL mediaPlaybackRequiresUserGesture;
 
 @end

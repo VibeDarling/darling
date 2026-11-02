@@ -158,6 +158,10 @@ static const char *dwb_socket_path(void)
 
 @end
 
+@interface WKWebView ()
+- (void) setTitle: (NSString *)title;
+@end
+
 @implementation WKWebView
 
 - (id) initWithFrame: (NSRect)frame configuration: (id)configuration
@@ -170,10 +174,11 @@ static const char *dwb_socket_path(void)
 
 	_host = [[WKWebViewHostState alloc] init];
 	_lastURL = @"";
+	_drawsBackground = YES;
 	/* A view that has never loaded reports 0.0, as WKWebView does; it reaches 1.0 when a
 	 * load finishes, fails or is stopped. */
 	_estimatedProgress = 0.0;
-	_configuration = (configuration != nil) ? [configuration retain] : nil;
+	_configuration = (configuration != nil) ? [configuration copy] : [[WKWebViewConfiguration alloc] init];
 
 	/* One pull, at load, showed a single frame and then nothing: no repaints, no
 	 * video, and the message queue drained exactly once. The transport holds only
@@ -386,7 +391,6 @@ static const char *dwb_socket_path(void)
 	[_host release];
 	[_lastURL release];
 	[_configuration release];
-	[_navigationDelegate release];
 	[_title release];
 	[_currentRequest release];
 	[_customUserAgent release];
@@ -518,7 +522,7 @@ static const char *dwb_socket_path(void)
 	                           [NSURL URLWithString: _lastURL]]];
 }
 
-- (void) evaluateJavaScript: (id)script completionHandler: (id)completion
+- (void) evaluateJavaScript: (NSString *)script completionHandler: (void (^)(id result, NSError *error))completion
 {
 	char *value = NULL;
 	NSString *result = nil;
@@ -793,7 +797,12 @@ static const char *dwb_socket_path(void)
 
 - (NSString *) title
 {
-	return _title ? _title : @"";
+	return _title ? [[_title copy] autorelease] : @"";
+}
+
+- (WKWebViewConfiguration *) configuration
+{
+	return [[_configuration copy] autorelease];
 }
 
 /* These accessors were missing entirely, and an unimplemented selector raises NSException and
@@ -857,12 +866,14 @@ static const char *dwb_socket_path(void)
 	return NO;
 }
 
-- (void) goBack
+- (id) goBack
 {
+	return nil;
 }
 
-- (void) goForward
+- (id) goForward
 {
+	return nil;
 }
 
 - (void) stopLoading
@@ -899,17 +910,17 @@ static const char *dwb_socket_path(void)
  * and ignored. Same reasoning as the guarded [super setFrame:] below. */
 - (void) setDrawsBackground: (BOOL)flag
 {
+	_drawsBackground = flag;
 }
 
 - (BOOL) drawsBackground
 {
-	return YES;
+	return _drawsBackground;
 }
 
 - (void) setNavigationDelegate: (id)delegate
 {
-	[_navigationDelegate release];
-	_navigationDelegate = [delegate retain];
+	_navigationDelegate = delegate;
 }
 
 - (void) setFrame: (NSRect)frame
