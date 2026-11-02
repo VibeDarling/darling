@@ -78,6 +78,22 @@ and one running a since-replaced binary, are stopped; and that a non-`mldr` proc
 another prefix's guest and a process without the socket environment survive. The
 prefix is the run's own temporary directory.
 
+## Inspection failure on /proc/<pid>/cmdline
+
+Run without root or any Darling container:
+
+```sh
+cc -Wall -Wextra -Werror -O2 -Wl,--wrap=open tests/launcher/proc-permission.c -o /tmp/darling-proc-permission-test
+/tmp/darling-proc-permission-test
+```
+
+Under `/proc` mounted with `hidepid=1` or `hidepid=2`, inspecting another process's
+`cmdline` requires `PTRACE_MODE_READ_FSCREDS`, which fails with `EACCES` or `EPERM`
+when GIDs differ (for example, after `newgrp`). `shutdownServerMatches()` separates
+inspection failure (-1) from mismatch (0), so `shutdownOrphans()` and `darling shutdown`
+fail closed instead of treating an unreadable server as absent and killing guests
+or spawning a duplicate server.
+
 For container integration testing, use the fixed launcher with two disposable
 prefixes. Boot both, shut down the first, check the second server PID remains
 alive and serves another request, then shut down the second. Do not run the

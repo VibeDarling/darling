@@ -67,8 +67,8 @@ int main(int argc,char **argv) {
  close(p[1]); close(p[0]);
  pid_t server=fork(); assert(server>=0);
  if (!server) { execl(self,"darlingserver",dir,NULL); _exit(99); }
- for (int i=0;i<50 && !shutdownServerMatches(server,dir);i++) usleep(20000);
- assert(shutdownServerMatches(server,dir));
+ for (int i=0;i<50 && shutdownServerMatches(server,dir) != 1;i++) usleep(20000);
+ assert(shutdownServerMatches(server,dir) == 1);
  pid_t live=-1;
  assert(shutdownOrphans(dir,getuid(),mldr,&live)==0 && live==server);
  for(int i=0;i<3;i++) assert(alive(guests[i]) && alive(spared[i]));

@@ -36,8 +36,8 @@ int main(int argc,char **argv) {
  for(int i=0;i<3;i++) assert(read(p[0],&members[i],sizeof(pid_t))==sizeof(pid_t));
  close(p[0]);
  int handle=shutdownHandle(server); assert(handle>=0);
- assert(shutdownServerMatches(server,"/owned-test"));
- assert(!shutdownServerMatches(server,"/other-prefix"));
+ assert(shutdownServerMatches(server,"/owned-test") == 1);
+ assert(shutdownServerMatches(server,"/other-prefix") == 0);
  int childhandles[3]; for(int i=0;i<3;i++) {childhandles[i]=shutdownHandle(members[i]); assert(childhandles[i]>=0);}
  assert(shutdownContainer(server,handle,external,externalHandle)); close(handle);
  struct pollfd externalPoll={.fd=externalHandle,.events=POLLIN};
