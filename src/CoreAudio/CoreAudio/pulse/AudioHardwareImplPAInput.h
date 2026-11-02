@@ -31,6 +31,8 @@ public:
 	
 	OSStatus setPropertyData(const AudioObjectPropertyAddress* inAddress, UInt32 inQualifierDataSize,
 		const void* inQualifierData, UInt32 inDataSize, const void* inData) override;
+
+	bool isInput() const override { return true; }
 protected:
 	AudioHardwareStream* createStream(AudioDeviceIOProc callback, void* clientData) override;
 };
