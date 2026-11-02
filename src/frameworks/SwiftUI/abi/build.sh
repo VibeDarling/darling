@@ -54,3 +54,11 @@ rm -rf "$OUT/module-cache"
 	-L "$IOS_SDK/usr/lib/swift" -lswiftCore -weak_library "$OBSERVATION_DYLIB" -lswiftCoreFoundation -lswift_Concurrency \
 	-framework Foundation -framework CoreFoundation -framework UIKit -framework CoreGraphics -framework Combine -lobjc
 echo "Built $OUT/SwiftUI.framework/SwiftUI"
+
+# Exercise the SDK interface, independently of the source module emitted above.
+SWIFT_TOOLCHAIN="$SWIFT_TOOLCHAIN" IOS_SDK="$IOS_SDK" \
+    SWIFT_CORE_MODULES="$SWIFT_CORE_MODULES" SWIFT_SHIMS="$SWIFT_SHIMS" \
+    SWIFT_APINOTES="$SWIFT_APINOTES" \
+    "$here/../../../HelloSwiftUI/build-sdk.sh" "$OUT/hello-sdk"
+python3 "$here/../../../HelloSwiftUI/check-abi.py" \
+    "$OUT/hello-sdk/Payload/HelloWorld.app/HelloWorld" "$OUT/SwiftUI.framework/SwiftUI"
