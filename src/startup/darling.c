@@ -2149,10 +2149,14 @@ int main(int argc, char ** argv)
 		if (pidInit > 0)
 		{
 			int handle = shutdownHandle(pidInit);
-			if (handle < 0 || !shutdownServerMatches(pidInit, prefix))
+			int match = shutdownServerMatches(pidInit, prefix);
+			if (handle < 0 || match != 1)
 			{
 				if (handle >= 0) close(handle);
-				fprintf(stderr, "Cannot verify this prefix's server for shutdown.\n");
+				if (match < 0)
+					fprintf(stderr, "Cannot inspect this prefix's server (%d) for shutdown: %s\n", pidInit, strerror(errno));
+				else
+					fprintf(stderr, "Cannot verify this prefix's server for shutdown.\n");
 				return 1;
 			}
 			int shellHandle = -1;

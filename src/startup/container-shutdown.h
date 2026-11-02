@@ -35,19 +35,29 @@ static bool shutdownNamespace(pid_t pid, char *buf, size_t size)
  buf[n] = 0; return true;
 }
 
-static bool shutdownServerMatches(pid_t pid, const char *expectedPrefix)
+/* Returns 1 if `pid` is a darlingserver for `expectedPrefix`; 0 if not (different binary,
+ * different prefix, or process already dead); -1 on inspection failure (errno preserved). */
+static int shutdownServerMatches(pid_t pid, const char *expectedPrefix)
 {
  char path[64], buf[8192];
  snprintf(path, sizeof(path), "/proc/%d/cmdline", pid);
  int fd = open(path, O_RDONLY | O_CLOEXEC);
- if (fd < 0) return false;
- ssize_t n = read(fd, buf, sizeof(buf)); close(fd);
- if (n <= 0) return false;
+ if (fd < 0) {
+  if (errno == ENOENT || errno == ESRCH) return 0;
+  return -1;
+ }
+ ssize_t n = read(fd, buf, sizeof(buf)); int err = errno; close(fd);
+ if (n < 0) {
+  if (err == ENOENT || err == ESRCH) return 0;
+  errno = err;
+  return -1;
+ }
+ if (n == 0) return 0;
  size_t first = strnlen(buf, n);
- if (first >= (size_t)n || strcmp(buf, "darlingserver")) return false;
+ if (first >= (size_t)n || strcmp(buf, "darlingserver")) return 0;
  size_t remain = n - first - 1;
  const char *arg = buf + first + 1;
- return strnlen(arg, remain) < remain && !strcmp(arg, expectedPrefix);
+ return (strnlen(arg, remain) < remain && !strcmp(arg, expectedPrefix)) ? 1 : 0;
 }
 
 static int shutdownHandle(pid_t pid)
@@ -123,7 +133,15 @@ static inline int shutdownOrphans(const char *prefix, uid_t uid, const char *con
   rewinddir(dir);
   while ((e = readdir(dir))) {
    pid_t pid = atoi(e->d_name);
-   if (pid > 1 && shutdownServerMatches(pid, prefix) && shutdownOwnedBy(pid, uid)) { *liveServer = pid; break; }
+   if (pid <= 1 || pid == getpid()) continue;
+   if (!shutdownOwnedBy(pid, uid)) continue;
+   int match = shutdownServerMatches(pid, prefix);
+   if (match < 0) {
+    fprintf(stderr, "Cannot inspect process %d: %s\n", pid, strerror(errno));
+    result = -1;
+    break;
+   }
+   if (match > 0) { *liveServer = pid; break; }
   }
  }
  closedir(dir);
