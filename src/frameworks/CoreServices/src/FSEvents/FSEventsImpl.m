@@ -100,17 +100,19 @@ extern uint64_t g_globalFSEventID;
 	if (_context.release)
 		_context.release(_context.info);
 
+	[self invalidate];
+
 	if (_source)
 	{
-		dispatch_suspend(_source);
+		if (!_running)
+			dispatch_resume(_source);
+		dispatch_source_cancel(_source);
 		dispatch_release(_source);
 	}
 	if (_rlSource)
 		CFRelease(_rlSource);
 	if (_runloops)
 		CFRelease(_runloops);
-
-	[self invalidate];
 
 	if (_fd != -1)
 		close(_fd);
