@@ -25,7 +25,11 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <CoreAudio/AudioHardware.h>
 #include <CoreAudio/HostTime.h>
 #include "AudioHardwareImplPA.h"
+#include <atomic>
 #include <condition_variable>
+#include <mutex>
+#include <vector>
+#include <pthread.h>
 
 class AudioHardwareStreamPA : public AudioHardwareStream
 {
@@ -44,13 +48,28 @@ protected:
 	AudioDeviceIOProc m_callback;
 	void* m_clientData;
 	pa_stream* m_stream = nullptr;
-	void(^m_cbDone)();
 	bool m_convertSignedUnsigned = false;
 	bool m_isInput = false;
 
-	bool m_running = false;
+	std::atomic<bool> m_running{false};
 	Float64 m_sampleTime = 0.0;
-	std::recursive_mutex m_stopMutex;
+
+	static void* ioThreadEntry(void* arg);
+	void runIOThread();
+
+	pthread_t m_ioThread = 0;
+	std::atomic<bool> m_ioThreadRunning{false};
+
+	std::vector<uint8_t> m_ringBuffer;
+	size_t m_ringHead = 0;
+	size_t m_ringTail = 0;
+	size_t m_ringCount = 0;
+	std::mutex m_ringMutex;
+	std::condition_variable m_ringCvRead;
+	std::condition_variable m_ringCvWrite;
+
+	size_t ringWrite(const uint8_t* data, size_t size);
+	size_t ringRead(uint8_t* data, size_t size);
 };
 
 #endif /* AUDIOHARDWARESTREAMPA_H */

@@ -23,6 +23,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 #include <CoreFoundation/CFString.h>
 #include <map>
 #include <mutex>
+#include <atomic>
 #include "AudioHardwareStream.h"
 
 class AudioHardwareImpl
@@ -66,10 +67,11 @@ public:
 	virtual OSStatus getNearestStartTime(AudioTimeStamp* ioRequestedStartTime,
 		UInt32 inFlags);
 	virtual OSStatus setBufferSize(uint32_t bufferSize);
-	uint32_t bufferSize() const { return m_bufferSize; }
+	uint32_t bufferSize() const { return m_bufferSize.load(std::memory_order_relaxed); }
 
 	AudioObjectID id() const { return m_myId; }
 	const AudioStreamBasicDescription& asbd() const { return m_asbd; }
+	virtual bool isInput() const { return false; }
 private:
 	static OSStatus getPropertyCFString(CFStringRef str, UInt32* ioDataSize, void* outData);
 	static OSStatus getPropertyString(CFStringRef str, UInt32* ioDataSize, void* outData);
@@ -83,7 +85,7 @@ protected:
 	int m_nextProcId = 1;
 	
 	std::map<AudioDeviceIOProcID, std::unique_ptr<AudioHardwareStream>> m_streams;
-	uint32_t m_bufferSize = 8192;
+	std::atomic<uint32_t> m_bufferSize{8192};
 
 	CFStringRef m_name = CFSTR("unknown"), m_uid = CFSTR("unknown"), m_manufacturer = CFSTR("unknown"), m_modelUid = CFSTR("unknown");
 	AudioStreamBasicDescription m_asbd;

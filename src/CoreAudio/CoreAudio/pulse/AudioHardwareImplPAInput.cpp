@@ -35,7 +35,7 @@ OSStatus AudioHardwareImplPAInput::getPropertyData(const AudioObjectPropertyAddr
 		{
 			if (AudioStreamID* sid = static_cast<AudioStreamID*>(outData); sid && *ioDataSize >= sizeof(AudioStreamID))
 			{
-				*sid = 1;
+				*sid = m_myId;
 			}
 			*ioDataSize = sizeof(AudioStreamID);
 			return kAudioHardwareNoError;

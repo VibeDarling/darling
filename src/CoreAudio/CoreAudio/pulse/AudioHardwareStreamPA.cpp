@@ -30,6 +30,7 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 AudioHardwareStreamPA::AudioHardwareStreamPA(AudioHardwareImplPA* hw, AudioDeviceIOProc callback, void* clientData, bool isInput)
 : AudioHardwareStream(hw, isInput), m_paHw(hw), m_callback(callback), m_clientData(clientData), m_isInput(isInput)
 {
+	m_ringBuffer.resize(65536);
 	hw->getPAContext(^(pa_context* context) {
 		if (!context)
 		{
@@ -117,6 +118,8 @@ AudioHardwareStreamPA::AudioHardwareStreamPA(AudioHardwareImplPA* hw, AudioDevic
 
 AudioHardwareStreamPA::~AudioHardwareStreamPA()
 {
+	stop();
+
 	PAThreadedMainLoop* loop = m_paHw ? m_paHw->loop() : nullptr;
 	if (loop) loop->lock();
 
@@ -130,12 +133,105 @@ AudioHardwareStreamPA::~AudioHardwareStreamPA()
 	if (loop) loop->unlock();
 }
 
+size_t AudioHardwareStreamPA::ringWrite(const uint8_t* data, size_t size)
+{
+	std::unique_lock<std::mutex> lock(m_ringMutex);
+	size_t written = 0;
+	while (written < size)
+	{
+		size_t space = m_ringBuffer.size() - m_ringCount;
+		if (space == 0)
+			break;
+		size_t chunk = std::min(size - written, std::min(space, m_ringBuffer.size() - m_ringHead));
+		memcpy(&m_ringBuffer[m_ringHead], data + written, chunk);
+		m_ringHead = (m_ringHead + chunk) % m_ringBuffer.size();
+		m_ringCount += chunk;
+		written += chunk;
+	}
+	m_ringCvRead.notify_one();
+	return written;
+}
+
+size_t AudioHardwareStreamPA::ringRead(uint8_t* data, size_t size)
+{
+	std::unique_lock<std::mutex> lock(m_ringMutex);
+	size_t read_bytes = 0;
+	while (read_bytes < size && m_ringCount > 0)
+	{
+		size_t chunk = std::min(size - read_bytes, std::min(m_ringCount, m_ringBuffer.size() - m_ringTail));
+		memcpy(data + read_bytes, &m_ringBuffer[m_ringTail], chunk);
+		m_ringTail = (m_ringTail + chunk) % m_ringBuffer.size();
+		m_ringCount -= chunk;
+		read_bytes += chunk;
+	}
+	m_ringCvWrite.notify_one();
+	return read_bytes;
+}
+
+void* AudioHardwareStreamPA::ioThreadEntry(void* arg)
+{
+	static_cast<AudioHardwareStreamPA*>(arg)->runIOThread();
+	return nullptr;
+}
+
+void AudioHardwareStreamPA::runIOThread()
+{
+	size_t bufSize = m_bufferSize ? m_bufferSize : 2048;
+	std::vector<uint8_t> tmp(bufSize);
+	std::vector<uint8_t> ablMem(sizeof(AudioBufferList) + sizeof(AudioBuffer));
+	AudioBufferList* abl = reinterpret_cast<AudioBufferList*>(ablMem.data());
+
+	while (m_running.load(std::memory_order_relaxed) && m_ioThreadRunning.load(std::memory_order_relaxed))
+	{
+		{
+			std::unique_lock<std::mutex> lock(m_ringMutex);
+			m_ringCvWrite.wait_for(lock, std::chrono::milliseconds(20), [this, bufSize]() {
+				return !m_running.load(std::memory_order_relaxed) ||
+				       !m_ioThreadRunning.load(std::memory_order_relaxed) ||
+				       (m_ringBuffer.size() - m_ringCount >= bufSize);
+			});
+		}
+		if (!m_running.load(std::memory_order_acquire) || !m_ioThreadRunning.load(std::memory_order_acquire))
+			break;
+
+		AudioTimeStamp nowTs = {0};
+		nowTs.mFlags = kAudioTimeStampHostTimeValid | kAudioTimeStampSampleTimeValid;
+		nowTs.mHostTime = AudioGetCurrentHostTime();
+		nowTs.mSampleTime = m_sampleTime;
+		AudioTimeStamp outTs = nowTs;
+
+		abl->mNumberBuffers = 1;
+		abl->mBuffers[0].mNumberChannels = m_paHw->asbd().mChannelsPerFrame ? m_paHw->asbd().mChannelsPerFrame : 2;
+		abl->mBuffers[0].mData = tmp.data();
+		abl->mBuffers[0].mDataByteSize = bufSize;
+
+		OSStatus status = m_callback(m_paHw->id(), &nowTs, nullptr, nullptr, abl, &outTs, m_clientData);
+
+		UInt32 bpf = m_paHw->asbd().mBytesPerFrame ? m_paHw->asbd().mBytesPerFrame : 4;
+		m_sampleTime += (Float64)(bufSize / bpf);
+
+		if (status != noErr || !abl->mBuffers[0].mDataByteSize)
+		{
+			memset(tmp.data(), 0, bufSize);
+		}
+		else if (abl->mBuffers[0].mDataByteSize < bufSize)
+		{
+			memset(tmp.data() + abl->mBuffers[0].mDataByteSize, 0, bufSize - abl->mBuffers[0].mDataByteSize);
+		}
+
+		if (m_convertSignedUnsigned)
+			transformSignedUnsigned(abl);
+
+		ringWrite(tmp.data(), bufSize);
+	}
+}
+
 void AudioHardwareStreamPA::start()
 {
 	PAThreadedMainLoop* loop = m_paHw ? m_paHw->loop() : nullptr;
 	if (loop) loop->lock();
 
-	m_running = true;
+	m_running.store(true, std::memory_order_release);
 	if (m_stream)
 	{
 		int waitCycles = 20; // 20 * 50ms = 1000ms max wait
@@ -154,6 +250,12 @@ void AudioHardwareStreamPA::start()
 	}
 
 	if (loop) loop->unlock();
+
+	if (!m_isInput && !m_ioThreadRunning.load(std::memory_order_acquire))
+	{
+		m_ioThreadRunning.store(true, std::memory_order_release);
+		pthread_create(&m_ioThread, nullptr, ioThreadEntry, this);
+	}
 }
 
 void AudioHardwareStreamPA::stop()
@@ -161,27 +263,43 @@ void AudioHardwareStreamPA::stop()
 	PAThreadedMainLoop* loop = m_paHw ? m_paHw->loop() : nullptr;
 	if (loop) loop->lock();
 
-	m_running = false;
 	if (m_stream && pa_stream_get_state(m_stream) == PA_STREAM_READY)
 	{
 		pa_stream_cork(m_stream, true, nullptr, nullptr);
 	}
 
 	if (loop) loop->unlock();
+
+	if (m_ioThreadRunning.load(std::memory_order_acquire))
+	{
+		{
+			std::unique_lock<std::mutex> lock(m_ringMutex);
+			m_ioThreadRunning.store(false, std::memory_order_release);
+			m_running.store(false, std::memory_order_release);
+			m_ringCvWrite.notify_all();
+			m_ringCvRead.notify_all();
+		}
+		pthread_join(m_ioThread, nullptr);
+		m_ioThread = 0;
+	}
 }
 
 void AudioHardwareStreamPA::paStreamWriteCB(pa_stream* s, size_t length, void* self)
 {
 	AudioHardwareStreamPA* This = static_cast<AudioHardwareStreamPA*>(self);
+	if (!This)
+		return;
 
-	if (!This->m_running)
+	if (!This->m_running.load(std::memory_order_relaxed))
 	{
-		void* pdata = nullptr;
-		size_t rqsize = length;
-		if (pa_stream_begin_write(This->m_stream, &pdata, &rqsize) == 0 && pdata && rqsize > 0)
+		uint8_t zeroChunk[4096] = {0};
+		size_t done = 0;
+		while (done < length)
 		{
-			memset(pdata, 0, rqsize);
-			pa_stream_write(This->m_stream, pdata, rqsize, nullptr, 0, PA_SEEK_RELATIVE);
+			size_t rqsize = std::min<size_t>(sizeof(zeroChunk), length - done);
+			if (pa_stream_write(This->m_stream, zeroChunk, rqsize, nullptr, 0, PA_SEEK_RELATIVE) < 0)
+				break;
+			done += rqsize;
 		}
 		return;
 	}
@@ -194,66 +312,21 @@ void AudioHardwareStreamPA::paStreamWriteCB(pa_stream* s, size_t length, void* s
 		if (op2) pa_operation_unref(op2);
 	}
 
-	AudioTimeStamp nowTs = {0};
-	nowTs.mFlags = kAudioTimeStampHostTimeValid | kAudioTimeStampSampleTimeValid;
-	nowTs.mHostTime = AudioGetCurrentHostTime();
-	nowTs.mSampleTime = This->m_sampleTime;
-
-	AudioTimeStamp outTs = nowTs;
-	AudioBufferList* abl = static_cast<AudioBufferList*>(alloca(sizeof(AudioBufferList) + sizeof(AudioBuffer)));
-
+	uint8_t chunk[4096];
 	size_t done = 0;
 
-	while (done < length && This->m_running)
+	while (done < length && This->m_running.load(std::memory_order_relaxed))
 	{
-		abl->mNumberBuffers = 1;
-		abl->mBuffers[0].mNumberChannels = This->m_paHw->asbd().mChannelsPerFrame ? This->m_paHw->asbd().mChannelsPerFrame : 2;
-
-		size_t rqsize = std::min<UInt32>(This->m_bufferSize, length - done);
-		void* pdata = nullptr;
-		int err = pa_stream_begin_write(This->m_stream, &pdata, &rqsize);
-		if (err < 0 || !pdata || rqsize == 0)
+		size_t rqsize = std::min<size_t>(sizeof(chunk), length - done);
+		size_t got = This->ringRead(chunk, rqsize);
+		if (got < rqsize)
 		{
-			if (err < 0)
-			{
-				std::cerr << "[CoreAudio PA] pa_stream_begin_write failed: " << err << std::endl;
-				pa_stream_cork(This->m_stream, true, nullptr, nullptr);
-			}
+			memset(chunk + got, 0, rqsize - got);
+		}
+
+		int rv = pa_stream_write(This->m_stream, chunk, rqsize, nullptr, 0, PA_SEEK_RELATIVE);
+		if (rv < 0)
 			break;
-		}
-
-		abl->mBuffers[0].mData = pdata;
-		abl->mBuffers[0].mDataByteSize = rqsize;
-
-		OSStatus status = This->m_callback(This->m_paHw->id(), &nowTs, nullptr, nullptr, abl, &outTs, This->m_clientData);
-
-		UInt32 bpf = This->m_paHw->asbd().mBytesPerFrame ? This->m_paHw->asbd().mBytesPerFrame : 8;
-		This->m_sampleTime += (Float64)(rqsize / bpf);
-
-		if (status != noErr || !abl->mBuffers[0].mDataByteSize)
-		{
-			memset(pdata, 0, rqsize);
-		}
-		else if (abl->mBuffers[0].mDataByteSize < rqsize)
-		{
-			memset((uint8_t*)pdata + abl->mBuffers[0].mDataByteSize, 0, rqsize - abl->mBuffers[0].mDataByteSize);
-		}
-
-		if (This->m_convertSignedUnsigned)
-			This->transformSignedUnsigned(abl);
-
-		int rv = pa_stream_write(This->m_stream, pdata, rqsize, nullptr, 0, PA_SEEK_RELATIVE);
-		if (rv != 0)
-		{
-			std::cerr << "[CoreAudio PA] pa_stream_write failed: " << rv << std::endl;
-			break;
-		}
-
-		if (!This->m_running)
-		{
-			pa_stream_cork(This->m_stream, true, nullptr, nullptr);
-			break;
-		}
 
 		done += rqsize;
 	}
@@ -263,30 +336,41 @@ void AudioHardwareStreamPA::paStreamReadCB(pa_stream* s, size_t length, void* se
 {
 	AudioHardwareStreamPA* This = static_cast<AudioHardwareStreamPA*>(self);
 
-	if (!This->m_running)
+	if (!This || !This->m_running.load(std::memory_order_relaxed))
 		return;
 
 	AudioTimeStamp fake = {0};
-	AudioBufferList* abl = static_cast<AudioBufferList*>(alloca(sizeof(AudioBufferList) + sizeof(AudioBuffer)));
+	fake.mFlags = kAudioTimeStampHostTimeValid;
+	fake.mHostTime = AudioGetCurrentHostTime();
+
+	std::vector<uint8_t> ablMem(sizeof(AudioBufferList) + sizeof(AudioBuffer));
+	AudioBufferList* abl = reinterpret_cast<AudioBufferList*>(ablMem.data());
 	std::vector<uint8_t> hole;
 
 	while (true)
 	{
 		abl->mNumberBuffers = 1;
-		abl->mBuffers[0].mNumberChannels = 2;
+		abl->mBuffers[0].mNumberChannels = This->m_paHw->asbd().mChannelsPerFrame ? This->m_paHw->asbd().mChannelsPerFrame : 2;
 
-		size_t nbytes;
+		size_t nbytes = 0;
+		const void* pdata = nullptr;
 
-		int rv = pa_stream_peek(This->m_stream, (const void**) &abl->mBuffers[0].mData, &nbytes);
+		int rv = pa_stream_peek(This->m_stream, &pdata, &nbytes);
 
 		if (rv < 0 || !nbytes)
 		{
 			break;
 		}
 
-		if (nbytes && !abl->mBuffers[0].mData)
+		if (pdata)
 		{
 			hole.resize(nbytes);
+			memcpy(hole.data(), pdata, nbytes);
+			abl->mBuffers[0].mData = hole.data();
+		}
+		else
+		{
+			hole.assign(nbytes, 0);
 			abl->mBuffers[0].mData = hole.data();
 		}
 		abl->mBuffers[0].mDataByteSize = nbytes;
@@ -309,10 +393,9 @@ void AudioHardwareStreamPA::paStreamReadCB(pa_stream* s, size_t length, void* se
 template <typename T>
 void transform(typename std::make_unsigned<T>::type* data)
 {
-	typedef typename std::make_signed<T>::type signed_type;
-	signed_type* s = reinterpret_cast<signed_type*>(data);
-
-	*s = *data + std::numeric_limits<signed_type>::min();
+	typedef typename std::make_unsigned<T>::type unsigned_type;
+	constexpr unsigned_type msb = static_cast<unsigned_type>(1) << (sizeof(unsigned_type) * 8 - 1);
+	*data ^= msb;
 }
 
 void AudioHardwareStreamPA::transformSignedUnsigned(AudioBufferList* abl) const
@@ -347,22 +430,32 @@ void AudioHardwareStreamPA::transformSignedUnsigned(AudioBufferList* abl) const
 				}
 				break;
 			case 24:
-				for (int j = 0; j < buf->mDataByteSize / sizeof(uint32_t); j++)
+				for (size_t j = 0; j + 3 <= buf->mDataByteSize; j += 3)
 				{
-					uint32_t v = *(reinterpret_cast<uint32_t*>(buf->mData) + j);
-					if (revEndian)
-						v = __builtin_bswap32(v);
-					
+					uint8_t* p = reinterpret_cast<uint8_t*>(buf->mData) + j;
+					uint32_t v;
+					if (!revEndian)
+						v = (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16);
+					else
+						v = ((uint32_t)p[0] << 16) | ((uint32_t)p[1] << 8) | (uint32_t)p[2];
+
 					if (v & 0x800000)
 						v |= 0xff000000;
 
 					transform<uint32_t>(&v);
-					
-					v &= 0xffffff;
-					if (revEndian)
-						v = __builtin_bswap32(v);
-					
-					*(reinterpret_cast<uint32_t*>(buf->mData) + j) = v;
+
+					if (!revEndian)
+					{
+						p[0] = v & 0xff;
+						p[1] = (v >> 8) & 0xff;
+						p[2] = (v >> 16) & 0xff;
+					}
+					else
+					{
+						p[0] = (v >> 16) & 0xff;
+						p[1] = (v >> 8) & 0xff;
+						p[2] = v & 0xff;
+					}
 				}
 				break;
 			case 32:

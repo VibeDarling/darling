@@ -35,6 +35,26 @@ enum
 
 enum
 {
+    kAudioStreamPropertyIsActive                 = 'sact',
+    kAudioStreamPropertyDirection                = 'sdir',
+    kAudioStreamPropertyTerminalType             = 'term',
+    kAudioStreamPropertyStartingChannel          = 'schn',
+    kAudioStreamPropertyLatency                  = 'ltnc',
+    kAudioStreamPropertyVirtualFormat            = 'sfmt',
+    kAudioStreamPropertyAvailableVirtualFormats  = 'sfma',
+    kAudioStreamPropertyPhysicalFormat           = 'pft ',
+    kAudioStreamPropertyAvailablePhysicalFormats = 'pfta'
+};
+
+struct AudioStreamRangedDescription
+{
+    AudioStreamBasicDescription mFormat;
+    AudioValueRange             mSampleRateRange;
+};
+typedef struct AudioStreamRangedDescription AudioStreamRangedDescription;
+
+enum
+{
     kAudioObjectPropertyCreator             = 'oplg',
     kAudioObjectPropertyListenerAdded       = 'lisa',
     kAudioObjectPropertyListenerRemoved     = 'lisr',
