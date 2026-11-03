@@ -13,7 +13,7 @@ import time
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('runtime', 'prefix', 'native-dir', 'fixture-dir', 'cache-dir', 'report'):
+    for name in ('runtime', 'prefix', 'native-dir', 'fixture-dir', 'cache-dir', 'report', 'control-report'):
         parser.add_argument('--'+name, type=Path, required=True)
     args = parser.parse_args()
     protocol_path = Path(__file__).with_name('test-boundary-diagnostics.py')
@@ -32,6 +32,11 @@ def main():
                DARLING_SERVER_PATH=str(args.native_dir/'libdarlingserver.so'),
                LD_LIBRARY_PATH=str(args.native_dir), DARLING_SHM_DIR=str(args.cache_dir/'shm'),
                DARLING_NO_CORE_DUMPS='1', TMPDIR=str(args.cache_dir))
+    control = json.loads(args.control_report.read_text())
+    baselines = {row['case']:row['exit'] for row in control['cases']}
+    strict_exit = baselines['released-strict-nonlazy']
+    if baselines['released-resolved'] != 0 or not isinstance(strict_exit, int) or strict_exit == 0:
+        raise RuntimeError('INVALID_RELEASED_CONTROL_RESULT')
     ready = 'diag.ready\n'
     reports = []
 
@@ -50,8 +55,10 @@ def main():
     def guest_endpoint(path):
         return '/Volumes/SystemRoot'+str(path)
 
-    def run(label, binary, endpoint, receiver, expected, strict=False, failed=False, extra=(), collect=True):
-        command = [launcher, 'shell', 'env', 'DYLD_BIND_AT_LAUNCH=1']
+    def run(label, binary, endpoint, receiver, expected, strict=False, expected_exit=0, extra=(), collect=True, bind_now=False):
+        command = [launcher, 'shell', 'env']
+        if bind_now:
+            command.append('DYLD_BIND_AT_LAUNCH=1')
         if endpoint is not None:
             command.append('DARLING_BOUNDARY_SOCKET='+endpoint)
         if strict:
@@ -71,13 +78,12 @@ def main():
                 notice += 60
         if collect:
             records.extend(receive(receiver))
-        status_ok = process.returncode != 0 if failed else process.returncode == 0
+        status_ok = process.returncode == expected_exit
         exact = records == expected
-        reports.append({'case':label, 'exit':process.returncode, 'exactRecords':exact, 'records':records})
+        reports.append({'case':label, 'exit':process.returncode, 'exactRecords':exact, 'expectedExit':expected_exit, 'statusMatches':status_ok, 'records':records})
         args.report.write_text(json.dumps(reports, indent=2)+'\n')
         print(json.dumps({'case':label, 'exit':process.returncode, 'exactRecords':exact}), flush=True)
-        if not status_ok or not exact:
-            raise RuntimeError('FIXTURE_CONTRACT_FAILED')
+        return status_ok and exact
 
     api = [ready, 'coredata.store-description.init.enter\n', 'coredata.store-description.init.ok\n',
            'coredata.model.load.enter\n', 'coredata.model.load.error\n', 'coredata.container.init.enter\n',
@@ -96,12 +102,11 @@ def main():
             endpoint.chmod(0o600)
             run('resolved', 'RESOLVED', mapped, receiver, [ready])
             run('strong-permissive', 'STRONG', mapped, receiver, [ready, 'missing-import:_authored_missing_import\n'])
-            run('strong-strict', 'STRONG', mapped, receiver, [ready, 'missing-import:_authored_missing_import\n'], strict=True, failed=True)
             run('weak', 'WEAK', mapped, receiver, [ready, 'missing-import:_authored_weak_import\n'])
-            run('weak-strict', 'WEAK', mapped, receiver, [ready, 'missing-import:_authored_weak_import\n'], strict=True)
             run('missing-dependency', 'DEPENDENCY', mapped, receiver, [ready, 'missing-import:_authored_missing_dependency\n'])
             run('swift-import', 'SWIFT', mapped, receiver,
-                [ready, 'missing-import:_$s24AuthoredImportDependency15authoredMissingSiyF\n'])
+                [ready, 'missing-import:_$s24AuthoredImportDependency15authoredMissingSiyF\n'], bind_now=True)
+            run('nonmain-import-excluded', 'SCOPE_NEGATIVE', mapped, receiver, [ready])
             run('coredata-api', 'COREDATA_API', mapped, receiver, api)
             run('automatic-exception-output', 'AUTOMATIC_EXCEPTION_OUTPUT', mapped, receiver, [ready])
             run('disabled', 'RESOLVED', None, receiver, [])
@@ -129,11 +134,18 @@ def main():
                 run('saturated', 'RESOLVED', mapped, receiver, [], collect=False)
                 if receive(receiver) != [ready]*fill_count:
                     raise RuntimeError('SATURATED_CHANNEL_CHANGED')
-        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as receiver:
-            receiver.bind(str(directory/'closed'))
-        run('closed', 'RESOLVED', guest_endpoint(directory/'closed'), receiver, [], collect=False)
-    print('PASS_IMPORT_DIAGNOSTIC_PHONE_MATRIX', flush=True)
-    return 0
+            with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as closed_receiver:
+                closed_receiver.bind(str(directory/'closed'))
+            run('closed', 'RESOLVED', guest_endpoint(directory/'closed'), receiver, [], collect=False)
+            permissive_valid = all(row['statusMatches'] and row['exactRecords'] for row in reports)
+            print('PASS_PERMISSIVE_DIAGNOSTIC_GATES' if permissive_valid else 'FAIL_PERMISSIVE_DIAGNOSTIC_GATES', flush=True)
+            run('strong-strict', 'STRONG', mapped, receiver,
+                [ready, 'missing-import:_authored_missing_import\n'], strict=True, expected_exit=strict_exit)
+            run('weak-strict', 'WEAK', mapped, receiver,
+                [ready, 'missing-import:_authored_weak_import\n'], strict=True)
+    valid = all(row['statusMatches'] and row['exactRecords'] for row in reports)
+    print('PASS_IMPORT_DIAGNOSTIC_PHONE_MATRIX' if valid else 'FAIL_IMPORT_DIAGNOSTIC_PHONE_MATRIX', flush=True)
+    return 0 if valid else 1
 
 
 if __name__ == '__main__':
