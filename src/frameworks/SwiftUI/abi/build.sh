@@ -33,13 +33,16 @@ rm -rf "$OUT/module-cache"
 
 "$SWIFT_TOOLCHAIN/bin/swiftc" -frontend -c "$here"/Sources/*.swift -whole-module-optimization \
 	-target arm64-apple-ios16.0 -sdk "$IOS_SDK" -resource-dir "$OUT/resource" \
-	-module-cache-path "$OUT/module-cache" -I "$SWIFT_CORE_MODULES" -I "$OBSERVATION_MODULES" \
+	-module-cache-path "$OUT/module-cache" -I "$SWIFT_CORE_MODULES" -I "$OBSERVATION_MODULES" -I "$here/CoreDataBridge" \
 	-swift-version 5 -O -module-name SwiftUI -enable-library-evolution -parse-as-library \
 	-disable-availability-checking \
 	-emit-module-path "$OUT/SwiftUI.swiftmodule" \
 	-runtime-compatibility-version none -disable-autolinking-runtime-compatibility \
 	-disable-implicit-concurrency-module-import -disable-implicit-string-processing-module-import \
 	-o "$OUT/SwiftUI.o"
+
+"$SWIFT_TOOLCHAIN/bin/clang" -c -O2 -fobjc-exceptions -fblocks -target arm64-apple-ios16.0 -isysroot "$IOS_SDK" -I "$here/../../../include" \
+    "$here/CoreDataBridge/CoreDataBridge.m" -o "$OUT/CoreDataBridge.o"
 
 # The runtime of #available, which Apple's clang would link from libclang_rt.ios.a.
 "$SWIFT_TOOLCHAIN/bin/clang" -c -O2 -target arm64-apple-ios16.0 -isysroot "$IOS_SDK" \
@@ -50,9 +53,9 @@ rm -rf "$OUT/module-cache"
 "${LD64_LLD:-ld64.lld}" -dylib -arch arm64 -platform_version ios 16.0 16.4 -syslibroot "$IOS_SDK" \
 	-ignore_auto_link -undefined dynamic_lookup \
 	-install_name /System/Library/Frameworks/SwiftUI.framework/SwiftUI \
-	-o "$OUT/SwiftUI.framework/SwiftUI" "$OUT/SwiftUI.o" "$OUT/os_version_check.o" \
+	-o "$OUT/SwiftUI.framework/SwiftUI" "$OUT/SwiftUI.o" "$OUT/os_version_check.o" "$OUT/CoreDataBridge.o" \
 	-L "$IOS_SDK/usr/lib/swift" -lswiftCore -weak_library "$OBSERVATION_DYLIB" -lswiftCoreFoundation -lswift_Concurrency \
-	-framework Foundation -framework CoreFoundation -framework UIKit -framework CoreGraphics -framework Combine -lobjc
+	-framework Foundation -framework CoreFoundation -framework UIKit -framework CoreGraphics -framework Combine -framework CoreData -lobjc
 echo "Built $OUT/SwiftUI.framework/SwiftUI"
 
 # Exercise the SDK interface, independently of the source module emitted above.

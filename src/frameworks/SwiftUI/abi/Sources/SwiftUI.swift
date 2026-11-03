@@ -5,6 +5,7 @@
 // This uses the runtime's UIKit presenter, not OpenSwiftUI's full graph engine.
 import CoreFoundation
 import UIKit
+import DarlingCoreDataBridge
 
 // These types are resilient in the SDK. Their private representation belongs
 // to this library; clients compiled against the SDK access it through metadata.
@@ -408,6 +409,7 @@ private var applicationDelegate: NSObject?
 
 extension App {
     public static func main() {
+        DarlingSwiftUIEntry()
         installButtonHandler()
         var app = Self()
         let graph = ViewGraph()

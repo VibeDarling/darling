@@ -38,7 +38,7 @@ EVENTS = (
     b'fixture.coredata.case.complete\n',
 )
 FIXTURE_FETCH_EVENTS = (
-    b'fixture.fetch.context.ok\n', b'fixture.fetch.add.ok\n', b'fixture.fetch.edit.ok\n',
+    b'swiftui.app.main.enter\n', b'fixture.fetch.context.ok\n', b'fixture.fetch.add.ok\n', b'fixture.fetch.edit.ok\n',
     b'fixture.fetch.delete.ok\n', b'fixture.fetch.other.ok\n', b'fixture.fetch.return.ok\n',
 )
 CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS)
