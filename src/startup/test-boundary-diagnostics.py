@@ -37,7 +37,11 @@ EVENTS = (
     b'fixture.coredata.case.enter\n',
     b'fixture.coredata.case.complete\n',
 )
-CATEGORIES = frozenset(EVENTS)
+FIXTURE_FETCH_EVENTS = (
+    b'fixture.fetch.context.ok\n', b'fixture.fetch.add.ok\n', b'fixture.fetch.edit.ok\n',
+    b'fixture.fetch.delete.ok\n', b'fixture.fetch.other.ok\n', b'fixture.fetch.return.ok\n',
+)
+CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 
@@ -75,6 +79,8 @@ def check(condition):
 
 
 def main(binary):
+    for packet in CATEGORIES:
+        check(permitted(packet) and not permitted(packet+b'x') and not permitted(packet[:-1]))
     with tempfile.TemporaryDirectory(prefix='fcd-', dir=Path.home()/'.cache') as temporary:
         root = Path(temporary)
         endpoint = root/'s'
