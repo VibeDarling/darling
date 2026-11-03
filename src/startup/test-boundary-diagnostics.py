@@ -110,6 +110,10 @@ PATH_PROBE_EVENTS = (
     b'fixture.path.empty.enter\n', b'fixture.path.empty.ready\n',
 )
 FOUNDATION_WORKLOAD_EVENTS = (
+    b'foundation.url.path-property.enter\n',
+    b'foundation.url.path-property.return\n',
+    b'foundation.files.exists.enter\n',
+    b'foundation.files.exists.return\n',
     b'foundation.cache.init.enter\n',
     b'foundation.cache.init.return\n',
     b'foundation.cache.disk-capacity.enter\n',
