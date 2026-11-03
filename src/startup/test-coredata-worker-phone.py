@@ -14,7 +14,7 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--base', required=True, type=Path)
 parser.add_argument('--prepare-from', type=Path)
-parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'update-notifications', 'swift-disk-create', 'swift-disk-reopen', 'swift-disk-change', 'swift-disk-changed', 'merge-enabled', 'merge-disabled', 'inherited-mixed', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
+parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'swift-fetch', 'update-notifications', 'swift-disk-create', 'swift-disk-reopen', 'swift-disk-change', 'swift-disk-changed', 'merge-enabled', 'merge-disabled', 'inherited-mixed', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
 parser.add_argument('--data-name', default='durability.sqlite')
 args = parser.parse_args()
 base = args.base.resolve()
@@ -93,8 +93,8 @@ else:
         raise SystemExit('OWN_PREFIX_MARKER_REQUIRED')
     verify(base/'prefix')
     data = '/Volumes/SystemRoot'+str(base/'data'/args.data_name)
-    binary = {'update-notifications': 'COREDATA_UPDATE_NOTIFICATIONS', 'inherited-mixed': 'COREDATA_INHERITED_MIXED', 'merge-enabled': 'COREDATA_AUTOMATIC_MERGE', 'merge-disabled': 'COREDATA_AUTOMATIC_MERGE', 'protocol': 'COREDATA_FETCH_RESULT_PROTOCOL', 'swift': 'COREDATA_MANAGED_SWIFT', 'memory': 'COREDATA_MEMORY_NIL', 'inherited': 'COREDATA_INHERITED_ACCESSORS', 'errors': 'COREDATA_STORE_ERRORS', 'writers': 'COREDATA_WRITERS', 'stale-delete': 'COREDATA_WRITERS'}.get(args.case, 'COREDATA_DURABILITY_STAGED')
-    parameters = [] if args.case in ('swift', 'inherited', 'inherited-mixed', 'protocol', 'update-notifications') else ([data] if args.case in ('errors', 'memory') else [args.case, data])
+    binary = {'swift-fetch':'COREDATA_SWIFT_FETCH', 'update-notifications': 'COREDATA_UPDATE_NOTIFICATIONS', 'inherited-mixed': 'COREDATA_INHERITED_MIXED', 'merge-enabled': 'COREDATA_AUTOMATIC_MERGE', 'merge-disabled': 'COREDATA_AUTOMATIC_MERGE', 'protocol': 'COREDATA_FETCH_RESULT_PROTOCOL', 'swift': 'COREDATA_MANAGED_SWIFT', 'memory': 'COREDATA_MEMORY_NIL', 'inherited': 'COREDATA_INHERITED_ACCESSORS', 'errors': 'COREDATA_STORE_ERRORS', 'writers': 'COREDATA_WRITERS', 'stale-delete': 'COREDATA_WRITERS'}.get(args.case, 'COREDATA_DURABILITY_STAGED')
+    parameters = [] if args.case in ('swift', 'inherited', 'inherited-mixed', 'protocol', 'swift-fetch', 'update-notifications') else ([data] if args.case in ('errors', 'memory') else [args.case, data])
     if args.case in ('merge-enabled', 'merge-disabled'):
         parameters = [args.case.removeprefix('merge-')]
     if args.case.startswith('swift-disk-'):
