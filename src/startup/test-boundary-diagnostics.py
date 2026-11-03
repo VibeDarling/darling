@@ -24,6 +24,7 @@ EVENTS = (
     b'coredata.context.init.ok\n',
     b'foundation.overlay.lookup.success\n',
     b'foundation.overlay.bridge.success\n',
+    b'foundation.sort.invalid-keypath\n',
     b'coredata.container.load.model-error\n',
     b'coredata.container.load.unsupported-sqlite\n',
     b'coredata.container.load.unsupported-type\n',
