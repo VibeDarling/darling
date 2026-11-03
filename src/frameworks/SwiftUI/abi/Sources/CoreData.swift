@@ -75,8 +75,10 @@ private final class FetchState<Result: NSFetchRequestResult> {
     private var state: FetchState<Result>
     public init(entity: NSEntityDescription, sortDescriptors: [NSSortDescriptor], predicate: NSPredicate? = nil,
                 animation: Animation? = nil) {
+        DarlingSwiftUIPhase(15)
         initial = FetchConfiguration(entity: entity, sort: sortDescriptors, predicate: predicate, animation: animation)
         state = FetchState(initial)
+        DarlingSwiftUIPhase(16)
     }
     public var wrappedValue: FetchedResults<Result> {
         guard state.context != nil else { preconditionFailure("FetchRequest used before graph installation") }

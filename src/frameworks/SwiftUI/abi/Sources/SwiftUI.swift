@@ -384,18 +384,25 @@ private struct PrimitiveScene: Scene {
 public struct WindowGroup<Content: View>: Scene {
     private let content: () -> Content
     public init(@ViewBuilder content: () -> Content) {
+        DarlingSwiftUIPhase(11)
         let value = content()
         self.content = { value }
+        DarlingSwiftUIPhase(12)
     }
     public init(id: String?, title: Text?, lazyContent: @escaping () -> Content) {
+        DarlingSwiftUIPhase(11)
         precondition(id == nil && title == nil, "SwiftUI: named windows and window titles require scene support")
         content = lazyContent
+        DarlingSwiftUIPhase(12)
     }
     public var body: some Scene { PrimitiveScene() }
     public static func _makeScene(scene: _GraphValue<Self>, inputs: _SceneInputs) -> _SceneOutputs {
+        DarlingSwiftUIPhase(13)
         var viewInputs = _ViewInputs(graph: inputs.graph)
         viewInputs.environment.scenePhase = inputs.graph?.phase ?? .background
-        let output = Content._makeView(view: _GraphValue(value: scene.value.content()), inputs: viewInputs)
+        let content = scene.value.content()
+        DarlingSwiftUIPhase(14)
+        let output = Content._makeView(view: _GraphValue(value: content), inputs: viewInputs)
         return _SceneOutputs(text: output.text, accessibility: output.accessibility, node: output.renderedNode)
     }
 }

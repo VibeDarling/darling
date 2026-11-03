@@ -11,7 +11,10 @@ void DarlingSwiftUIPhase(int phase) {
         "swiftui.app.self.ready\n", "swiftui.app.graph.ready\n", "swiftui.app.uikit.enter\n",
         "swiftui.app.launch.enter\n", "swiftui.app.render.enter\n", "swiftui.app.body.enter\n",
         "swiftui.fetch.enter\n", "swiftui.fetch.success\n", "swiftui.fetch.error\n",
-        "swiftui.observer.enter\n", "swiftui.observer.ready\n"
+        "swiftui.observer.enter\n", "swiftui.observer.ready\n",
+        "swiftui.windowgroup.init.enter\n", "swiftui.windowgroup.init.ready\n",
+        "swiftui.windowgroup.make.enter\n", "swiftui.windowgroup.content.ready\n",
+        "swiftui.fetch.init.enter\n", "swiftui.fetch.init.ready\n"
     };
     if ((unsigned)phase < sizeof(events)/sizeof(events[0]))
         darling_diagnostic_send(getenv("DARLING_BOUNDARY_SOCKET"), events[phase], strlen(events[phase]));
