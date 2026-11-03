@@ -15,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('runtime', 'prefix', 'native-dir', 'fixture-dir', 'cache-dir', 'report', 'control-report'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--case', action='append', default=[])
     args = parser.parse_args()
     protocol_path = Path(__file__).with_name('test-boundary-diagnostics.py')
     spec = importlib.util.spec_from_file_location('owned_diagnostic_protocol', protocol_path)
@@ -56,6 +57,8 @@ def main():
         return '/Volumes/SystemRoot'+str(path)
 
     def run(label, binary, endpoint, receiver, expected, strict=False, expected_exit=0, extra=(), collect=True, bind_now=False):
+        if args.case and label not in args.case:
+            return None
         command = [launcher, 'shell', 'env']
         if bind_now:
             command.append('DYLD_BIND_AT_LAUNCH=1')
@@ -132,19 +135,24 @@ def main():
                     except BlockingIOError:
                         break
                 run('saturated', 'RESOLVED', mapped, receiver, [], collect=False)
-                if receive(receiver) != [ready]*fill_count:
+                drained = receive(receiver)
+                print(json.dumps({'saturationInjected':fill_count, 'saturationDrained':len(drained), 'saturationExact':drained == [ready]*fill_count}), flush=True)
+                if drained != [ready]*fill_count:
                     raise RuntimeError('SATURATED_CHANNEL_CHANGED')
             with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as closed_receiver:
                 closed_receiver.bind(str(directory/'closed'))
             run('closed', 'RESOLVED', guest_endpoint(directory/'closed'), receiver, [], collect=False)
             permissive_valid = all(row['statusMatches'] and row['exactRecords'] for row in reports)
-            print('PASS_PERMISSIVE_DIAGNOSTIC_GATES' if permissive_valid else 'FAIL_PERMISSIVE_DIAGNOSTIC_GATES', flush=True)
+            if not args.case:
+                print('PASS_PERMISSIVE_DIAGNOSTIC_GATES' if permissive_valid else 'FAIL_PERMISSIVE_DIAGNOSTIC_GATES', flush=True)
             run('strong-strict', 'STRONG', mapped, receiver,
                 [ready, 'missing-import:_authored_missing_import\n'], strict=True, expected_exit=strict_exit)
             run('weak-strict', 'WEAK', mapped, receiver,
                 [ready, 'missing-import:_authored_weak_import\n'], strict=True)
+    if args.case and set(args.case) != {row['case'] for row in reports}:
+        raise RuntimeError('SELECTED_CASE_NOT_RUN')
     valid = all(row['statusMatches'] and row['exactRecords'] for row in reports)
-    print('PASS_IMPORT_DIAGNOSTIC_PHONE_MATRIX' if valid else 'FAIL_IMPORT_DIAGNOSTIC_PHONE_MATRIX', flush=True)
+    print(('PASS_SELECTED_DIAGNOSTIC_CASES' if valid else 'FAIL_SELECTED_DIAGNOSTIC_CASES') if args.case else ('PASS_IMPORT_DIAGNOSTIC_PHONE_MATRIX' if valid else 'FAIL_IMPORT_DIAGNOSTIC_PHONE_MATRIX'), flush=True)
     return 0 if valid else 1
 
 
