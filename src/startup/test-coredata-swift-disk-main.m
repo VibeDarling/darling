@@ -4,7 +4,7 @@
 #include <unistd.h>
 static char checkpointPath[4096];
 void authored_swift_disk_checkpoint(int value) {
-    if (value<70 || value>116) _exit(49);
+    if (value<70 || value>122) _exit(49);
     char data[8]; int length=snprintf(data,sizeof(data),"%d\n",value);
     int descriptor=open(checkpointPath,O_WRONLY|O_CREAT|O_TRUNC,0600);
     if (descriptor<0 || write(descriptor,data,length)!=length || close(descriptor)!=0) _exit(48);
@@ -19,7 +19,7 @@ int main(int argc, const char **argv) {
         @try { return authored_swift_disk_probe(argv[1], argv[2]); }
         @catch (id exception) {
             int stage=authored_swift_disk_stage();
-            return stage>=70 && stage<=116 ? stage : 90;
+            return stage>=70 && stage<=122 ? stage : 90;
         }
     }
 }

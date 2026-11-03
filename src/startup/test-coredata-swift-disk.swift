@@ -42,9 +42,16 @@ private func authoredDiskModel() -> NSManagedObjectModel {
     return model
 }
 private func diskRows(_ context: NSManagedObjectContext) throws -> [AuthoredSwiftDiskRow] {
+    stage(118)
     let request = NSFetchRequest<AuthoredSwiftDiskRow>(entityName: "SwiftDiskRow")
-    request.sortDescriptors = [NSSortDescriptor(key: "moment", ascending: false)]
-    return try context.fetch(request)
+    stage(119)
+    let descriptor = NSSortDescriptor(key: "moment", ascending: false)
+    stage(120)
+    request.sortDescriptors = [descriptor]
+    stage(121)
+    let result = try context.fetch(request)
+    stage(122)
+    return result
 }
 @_cdecl("authored_swift_disk_probe")
 public func authoredSwiftDiskProbe(_ modeBytes: UnsafePointer<CChar>, _ pathBytes: UnsafePointer<CChar>) -> Int32 {
