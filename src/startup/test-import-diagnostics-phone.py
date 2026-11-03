@@ -125,20 +125,35 @@ def main():
             directory.chmod(0o700)
             run('invalid-name', 'boundary-diagnostics-guest', mapped, receiver, [ready, ready], extra=('authored invalid name',))
             run('overlong-name', 'boundary-diagnostics-guest', mapped, receiver, [ready, ready], extra=('x'*201,))
-            with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as filler:
-                filler.setblocking(False)
+            fillers = []
+            try:
                 fill_count = 0
-                while True:
-                    try:
-                        filler.sendto(ready.encode(), str(endpoint))
-                        fill_count += 1
-                    except BlockingIOError:
+                for attempt in range(32):
+                    filler = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+                    fillers.append(filler)
+                    filler.setblocking(False)
+                    from_this_sender = 0
+                    while fill_count < 10000:
+                        try:
+                            filler.sendto(ready.encode(), str(endpoint))
+                            fill_count += 1
+                            from_this_sender += 1
+                        except BlockingIOError:
+                            break
+                    if from_this_sender == 0:
                         break
+                else:
+                    raise RuntimeError('DESTINATION_SATURATION_NOT_REACHED')
+                if fill_count == 10000:
+                    raise RuntimeError('DESTINATION_SATURATION_NOT_REACHED')
                 run('saturated', 'RESOLVED', mapped, receiver, [], collect=False)
                 drained = receive(receiver)
                 print(json.dumps({'saturationInjected':fill_count, 'saturationDrained':len(drained), 'saturationExact':drained == [ready]*fill_count}), flush=True)
                 if drained != [ready]*fill_count:
                     raise RuntimeError('SATURATED_CHANNEL_CHANGED')
+            finally:
+                for filler in fillers:
+                    filler.close()
             with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as closed_receiver:
                 closed_receiver.bind(str(directory/'closed'))
             run('closed', 'RESOLVED', guest_endpoint(directory/'closed'), receiver, [], collect=False)
