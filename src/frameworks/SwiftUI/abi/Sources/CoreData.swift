@@ -11,6 +11,7 @@ extension EnvironmentValues {
     public var managedObjectContext: NSManagedObjectContext {
         get {
             guard let context = self[ManagedObjectContextKey.self] else {
+                DarlingSwiftUIPhase(17)
                 preconditionFailure("A managed object context must be supplied in the environment")
             }
             return context
@@ -58,9 +59,13 @@ private final class FetchState<Result: NSFetchRequestResult> {
         self.configuration = configuration
     }
     func refresh() {
-        guard let context = context else { preconditionFailure("FetchRequest used before graph installation") }
+        guard let context = context else {
+            DarlingSwiftUIPhase(18)
+            preconditionFailure("FetchRequest used before graph installation")
+        }
         guard let objects = DarlingContextFetch(context, configuration.entity, configuration.sort, configuration.predicate),
               let results = objects as? [Result] else {
+            DarlingSwiftUIPhase(19)
             preconditionFailure("The managed object fetch failed")
         }
         values = results
@@ -81,7 +86,10 @@ private final class FetchState<Result: NSFetchRequestResult> {
         DarlingSwiftUIPhase(16)
     }
     public var wrappedValue: FetchedResults<Result> {
-        guard state.context != nil else { preconditionFailure("FetchRequest used before graph installation") }
+        guard state.context != nil else {
+            DarlingSwiftUIPhase(20)
+            preconditionFailure("FetchRequest used before graph installation")
+        }
         return FetchedResults(state.values)
     }
     public var projectedValue: Binding<Configuration> {

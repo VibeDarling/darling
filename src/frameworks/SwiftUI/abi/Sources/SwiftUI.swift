@@ -448,6 +448,7 @@ public protocol DynamicProperty {
 extension DynamicProperty {
     public static func _makeProperty<V>(in buffer: inout _DynamicPropertyBuffer,
                                        container: _GraphValue<V>, fieldOffset: Int, inputs: inout _GraphInputs) {
+        DarlingSwiftUIPhase(21)
         fatalError("SwiftUI ABI slice: dynamic property graph installation is unsupported")
     }
     public static var _propertyBehaviors: UInt32 { 0 }
