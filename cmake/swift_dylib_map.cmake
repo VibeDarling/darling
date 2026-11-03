@@ -27,6 +27,13 @@ FUNCTION(add_swift_dylib_map target)
 		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/usr/lib/swift/${gen_name}:${gen_path} -Wl,-dylib_file,@rpath/${gen_name}:${gen_path}")
 	endforeach()
 
+	# Foundation reexports this optional source-built library. Its consumers
+	# must resolve the guest install name to the build output too.
+	if (DARLING_FOUNDATION_SWIFT_SUPPLEMENT)
+		set(supplement_path "${CMAKE_BINARY_DIR}/src/external/foundation/swift/libDarlingFoundationSupplement.dylib")
+		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/usr/lib/swift/libDarlingFoundationSupplement.dylib:${supplement_path} -Wl,-dylib_file,@rpath/libDarlingFoundationSupplement.dylib:${supplement_path}")
+	endif()
+
 	# Pre-staged dylibs in source tree (skipping any generated dylibs to prevent duplicate mappings)
 	file(GLOB DARLING_SWIFT_SRC_DYLIBS "${CMAKE_SOURCE_DIR}/src/external/swift/libswift*.dylib")
 	foreach(swift_dylib ${DARLING_SWIFT_SRC_DYLIBS})
