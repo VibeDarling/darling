@@ -43,10 +43,14 @@ with tempfile.TemporaryDirectory(prefix='fcs-',dir=Path.home()/'.cache') as temp
                     '/Volumes/SystemRoot'+str(a.fixture),*extra],env=env,stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 print(json.dumps({'case':name,'launcherPid':process.pid}),flush=True)
-                records=[];notice=time.monotonic()+45
+                records=[];notice=time.monotonic()+45;last_stage=None
                 while process.poll() is None:
                     records+=drain()
                     assert len(records)<=1000
+                    stages=[x for x in records if x.startswith('fixture.')]
+                    if stages and stages[-1]!=last_stage:
+                        last_stage=stages[-1]
+                        print(json.dumps({'case':name,'stage':last_stage.strip()}),flush=True)
                     if time.monotonic()>=notice:
                         print(json.dumps({'case':name,'running':True,'records':len(records)}),flush=True);notice+=45
                 records+=drain()
