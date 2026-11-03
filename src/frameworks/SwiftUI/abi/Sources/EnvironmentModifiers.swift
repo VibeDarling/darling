@@ -1,3 +1,4 @@
+import DarlingCoreDataBridge
 // Frozen modifier storage and the single graph-input witness follow the SDK.
 public protocol _GraphInputsModifier {
     static func _makeInputs(modifier: _GraphValue<Self>, inputs: inout _GraphInputs)
@@ -10,12 +11,16 @@ public protocol _GraphInputsModifier {
     }
     public typealias Body = Never
     public static func _makeInputs(modifier: _GraphValue<Self>, inputs: inout _GraphInputs) {
+        DarlingSwiftUIPhase(23)
         inputs.environment[keyPath: modifier.value.keyPath] = modifier.value.value
+        DarlingSwiftUIPhase(24)
     }
     public static func _makeView(modifier: _GraphValue<Self>, inputs: _ViewInputs,
         body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
         var inputs = inputs
+        DarlingSwiftUIPhase(23)
         inputs.environment[keyPath: modifier.value.keyPath] = modifier.value.value
+        DarlingSwiftUIPhase(24)
         return body(_Graph(), inputs)
     }
 }

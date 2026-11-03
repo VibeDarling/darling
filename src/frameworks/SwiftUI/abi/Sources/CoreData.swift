@@ -16,7 +16,10 @@ extension EnvironmentValues {
             }
             return context
         }
-        set { self[ManagedObjectContextKey.self] = newValue }
+        set {
+            DarlingSwiftUIPhase(22)
+            self[ManagedObjectContextKey.self] = newValue
+        }
     }
 }
 
