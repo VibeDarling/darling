@@ -17,6 +17,11 @@ CATEGORIES = frozenset((
     b'coredata.container.load.error\n',
     b'coredata.store-description.init.enter\n',
     b'coredata.store-description.init.ok\n',
+    b'coredata.model.load.enter\n',
+    b'coredata.model.load.ok\n',
+    b'coredata.model.load.error\n',
+    b'coredata.context.init.enter\n',
+    b'coredata.context.init.ok\n',
 ))
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 

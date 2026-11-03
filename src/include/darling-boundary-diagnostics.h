@@ -21,7 +21,21 @@ enum darling_boundary_event {
     DARLING_DIAG_CONTAINER_LOAD_ERROR,
     DARLING_DIAG_DESCRIPTION_INIT_ENTER,
     DARLING_DIAG_DESCRIPTION_INIT_OK,
+    DARLING_DIAG_MODEL_LOAD_ENTER,
+    DARLING_DIAG_MODEL_LOAD_OK,
+    DARLING_DIAG_MODEL_LOAD_ERROR,
+    DARLING_DIAG_CONTEXT_INIT_ENTER,
+    DARLING_DIAG_CONTEXT_INIT_OK,
 };
+
+static inline const char *darling_boundary_endpoint(const char *const *environment) {
+    static const char key[] = "DARLING_BOUNDARY_SOCKET=";
+    if (environment)
+        for (; *environment; environment++)
+            if (strncmp(*environment, key, sizeof(key) - 1) == 0)
+                return *environment + sizeof(key) - 1;
+    return NULL;
+}
 
 static inline void darling_diagnostic_send(const char *endpoint, const char *record, size_t length) {
     int saved_errno = errno, descriptor = -1, flags;
@@ -87,6 +101,11 @@ static inline void darling_boundary_emit(const char *endpoint, enum darling_boun
         "coredata.container.load.error\n",
         "coredata.store-description.init.enter\n",
         "coredata.store-description.init.ok\n",
+        "coredata.model.load.enter\n",
+        "coredata.model.load.ok\n",
+        "coredata.model.load.error\n",
+        "coredata.context.init.enter\n",
+        "coredata.context.init.ok\n",
     };
     if ((unsigned)event < sizeof(records) / sizeof(records[0]))
         darling_diagnostic_send(endpoint, records[event], strlen(records[event]));
