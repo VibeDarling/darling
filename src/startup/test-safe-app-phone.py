@@ -19,6 +19,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base', type=Path, required=True)
     parser.add_argument('--prefix', type=Path, required=True)
+    parser.add_argument('--reuse-owned-prefix', action='store_true')
     parser.add_argument('--archive', type=Path, required=True)
     parser.add_argument('--archive-sha256', required=True)
     parser.add_argument('--bundle', required=True)
@@ -26,7 +27,12 @@ def main():
     args = parser.parse_args()
     base = args.base.resolve()
     prefix = args.prefix.resolve()
-    if prefix.parent != base or prefix.exists():
+    if prefix.parent != base:
+        raise RuntimeError('OWN_PREFIX_PARENT_REQUIRED')
+    if args.reuse_owned_prefix:
+        if not (prefix/'clean-release-control-20261103').is_file():
+            raise RuntimeError('OWN_PREFIX_MARKER_REQUIRED')
+    elif prefix.exists():
         raise RuntimeError('FRESH_OWN_PREFIX_REQUIRED')
     if any('/' in part or part in ('', '.', '..') for part in (args.bundle, args.executable)):
         raise RuntimeError('INVALID_APP_COMPONENT')
@@ -116,6 +122,7 @@ def main():
         active = True
         def report():
             value = {'source':manifest['source'], 'prefix':str(prefix),
+                     'reusedOwnedPrefix':args.reuse_owned_prefix,
                      'archiveSha256':args.archive_sha256,
                      'guestStarted':guest is not None, 'guestExit':None if guest is None else guest.poll(),
                      'hostExit':host.poll(), 'records':records}
