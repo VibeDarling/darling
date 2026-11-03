@@ -15,6 +15,23 @@ import time
 import zipfile
 
 
+def drain_diagnostics(receiver, protocol, records, capture):
+    while True:
+        try:
+            packet, ancillary, flags, address = receiver.recvmsg(1025)
+        except BlockingIOError:
+            return
+        if flags & socket.MSG_TRUNC:
+            capture['truncatedDatagrams'] += 1
+        if flags & socket.MSG_TRUNC or not protocol.permitted(packet):
+            capture['protocolRejected'] = True
+            raise RuntimeError('DIAGNOSTIC_PROTOCOL_REJECTED')
+        if len(records) >= capture['recordLimit']:
+            capture['recordLimitExceeded'] = True
+            raise RuntimeError('DIAGNOSTIC_RECORD_LIMIT')
+        records.append(packet.decode('ascii'))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base', type=Path, required=True)
@@ -118,6 +135,8 @@ def main():
                 raise RuntimeError('DISPLAY_HOST_FAILED')
             time.sleep(0.02)
         records = []
+        capture = {'recordLimit':10000, 'recordLimitExceeded':False, 'protocolRejected':False,
+                   'truncatedDatagrams':0, 'transportDrops':None}
         guest = None
         active = True
         def report():
@@ -125,11 +144,14 @@ def main():
                      'reusedOwnedPrefix':args.reuse_owned_prefix,
                      'archiveSha256':args.archive_sha256,
                      'guestStarted':guest is not None, 'guestExit':None if guest is None else guest.poll(),
-                     'hostExit':host.poll(), 'records':records}
+                     'hostExit':host.poll(), 'records':records,
+                     'diagnostics':dict(capture, enabled=True, readyReceived='diag.ready\n' in records,
+                                        recordsReceived=len(records), capReached=len(records) >= capture['recordLimit'])}
             (base/'safe-app-report.json').write_text(json.dumps(value, indent=2)+'\n')
             return value
         with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as receiver, socket.socket(socket.AF_UNIX) as server:
             receiver.bind(str(diagnostic))
+            receiver.setblocking(False)
             owned_sockets.append(diagnostic)
             diagnostic.chmod(0o600)
             server.bind(str(base/'app-control.sock'))
@@ -140,13 +162,16 @@ def main():
                 selector.register(server, selectors.EVENT_READ, 'control')
                 print('SAFE_APP_CONTROLLER_READY', flush=True)
                 while active:
-                    for key, mask in selector.select(0.2):
+                    events = selector.select(0.2)
+                    try:
+                        drain_diagnostics(receiver, protocol, records, capture)
+                    except RuntimeError:
+                        report()
+                        shutdown()
+                        raise
+                    for key, mask in events:
                         if key.data == 'diagnostic':
-                            packet = receiver.recv(1025)
-                            if not protocol.permitted(packet) or len(records) >= 10000:
-                                shutdown()
-                                raise RuntimeError('DIAGNOSTIC_PROTOCOL_REJECTED')
-                            records.append(packet.decode('ascii'))
+                            continue
                         else:
                             client, address = server.accept()
                             with client:
