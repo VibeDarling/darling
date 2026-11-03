@@ -1,4 +1,38 @@
 import DarlingCoreDataBridge
+// This implementation leaves some environment values unconfigured until
+// explicitly supplied. A generic computed-property key-path assignment reads its getter
+// for writeback, so use registered direct setters for those framework APIs.
+// Entries contain only API identity and setter code, never context instances.
+struct EnvironmentValueWriter {
+    let keyPath: AnyKeyPath
+    let apply: (inout EnvironmentValues, Any) -> Void
+    init<Value>(_ keyPath: WritableKeyPath<EnvironmentValues, Value>,
+                setter: @escaping (inout EnvironmentValues, Value) -> Void) {
+        self.keyPath = keyPath
+        apply = { environment, value in
+            guard let value = value as? Value else {
+                preconditionFailure("Environment write does not match its registered value type")
+            }
+            setter(&environment, value)
+        }
+    }
+}
+private enum EnvironmentWriteRegistry {
+    static let writers: [AnyKeyPath: EnvironmentValueWriter] = {
+        let context = managedObjectContextEnvironmentWriter
+        return [context.keyPath: context]
+    }()
+}
+extension EnvironmentValues {
+    mutating func write<Value>(_ value: Value, at keyPath: WritableKeyPath<Self, Value>) {
+        if let writer = EnvironmentWriteRegistry.writers[keyPath] {
+            writer.apply(&self, value)
+        } else {
+            self[keyPath: keyPath] = value
+        }
+    }
+}
+
 // Frozen modifier storage and the single graph-input witness follow the SDK.
 public protocol _GraphInputsModifier {
     static func _makeInputs(modifier: _GraphValue<Self>, inputs: inout _GraphInputs)
@@ -12,14 +46,14 @@ public protocol _GraphInputsModifier {
     public typealias Body = Never
     public static func _makeInputs(modifier: _GraphValue<Self>, inputs: inout _GraphInputs) {
         DarlingSwiftUIPhase(23)
-        inputs.environment[keyPath: modifier.value.keyPath] = modifier.value.value
+        inputs.environment.write(modifier.value.value, at: modifier.value.keyPath)
         DarlingSwiftUIPhase(24)
     }
     public static func _makeView(modifier: _GraphValue<Self>, inputs: _ViewInputs,
         body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
         var inputs = inputs
         DarlingSwiftUIPhase(23)
-        inputs.environment[keyPath: modifier.value.keyPath] = modifier.value.value
+        inputs.environment.write(modifier.value.value, at: modifier.value.keyPath)
         DarlingSwiftUIPhase(24)
         return body(_Graph(), inputs)
     }

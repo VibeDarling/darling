@@ -23,6 +23,12 @@ extension EnvironmentValues {
     }
 }
 
+// This adapter writes the actual supplied context without first reading an
+// unconfigured computed getter. It creates no default or global context.
+let managedObjectContextEnvironmentWriter = EnvironmentValueWriter(\EnvironmentValues.managedObjectContext) {
+    environment, context in environment.managedObjectContext = context
+}
+
 public struct FetchedResults<Result>: RandomAccessCollection where Result: NSFetchRequestResult {
     public typealias Element = Result
     public typealias Index = Int
