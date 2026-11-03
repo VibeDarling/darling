@@ -14,7 +14,7 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--base', required=True, type=Path)
 parser.add_argument('--prepare-from', type=Path)
-parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
+parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'merge-enabled', 'merge-disabled', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
 parser.add_argument('--data-name', default='durability.sqlite')
 args = parser.parse_args()
 base = args.base.resolve()
@@ -93,8 +93,10 @@ else:
         raise SystemExit('OWN_PREFIX_MARKER_REQUIRED')
     verify(base/'prefix')
     data = '/Volumes/SystemRoot'+str(base/'data'/args.data_name)
-    binary = {'protocol': 'COREDATA_FETCH_RESULT_PROTOCOL', 'swift': 'COREDATA_MANAGED_SWIFT', 'memory': 'COREDATA_MEMORY_NIL', 'inherited': 'COREDATA_INHERITED_ACCESSORS', 'errors': 'COREDATA_STORE_ERRORS', 'writers': 'COREDATA_WRITERS', 'stale-delete': 'COREDATA_WRITERS'}.get(args.case, 'COREDATA_DURABILITY_STAGED')
+    binary = {'merge-enabled': 'COREDATA_AUTOMATIC_MERGE', 'merge-disabled': 'COREDATA_AUTOMATIC_MERGE', 'protocol': 'COREDATA_FETCH_RESULT_PROTOCOL', 'swift': 'COREDATA_MANAGED_SWIFT', 'memory': 'COREDATA_MEMORY_NIL', 'inherited': 'COREDATA_INHERITED_ACCESSORS', 'errors': 'COREDATA_STORE_ERRORS', 'writers': 'COREDATA_WRITERS', 'stale-delete': 'COREDATA_WRITERS'}.get(args.case, 'COREDATA_DURABILITY_STAGED')
     parameters = [] if args.case in ('swift', 'inherited', 'protocol') else ([data] if args.case in ('errors', 'memory') else [args.case, data])
+    if args.case in ('merge-enabled', 'merge-disabled'):
+        parameters = [args.case.removeprefix('merge-')]
     command = [str(base/'native/libdarling.so'), 'shell', '/Volumes/SystemRoot'+str(base/'fixtures'/binary), *parameters]
 active.write_text(json.dumps({'case': args.case, 'launcherPid': None})+'\n')
 process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
