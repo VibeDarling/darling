@@ -3,6 +3,8 @@
 #include <sqlite3.h>
 #include <limits.h>
 
+static int AuthoredPhase = 90;
+
 @interface AuthoredLedger : NSManagedObject
 @property(nonatomic,retain) NSString *label;
 @property(nonatomic) BOOL enabled;
@@ -32,25 +34,39 @@
 @end
 
 static NSManagedObjectModel *schema(void) {
+    AuthoredPhase = 201;
     NSEntityDescription *entry = [NSEntityDescription new], *collection = [NSEntityDescription new];
+    AuthoredPhase = 202;
     entry.name = @"Ledger"; entry.managedObjectClassName = NSStringFromClass(AuthoredLedger.class);
     collection.name = @"Collection"; collection.managedObjectClassName = NSStringFromClass(AuthoredCollection.class);
     NSArray *names = @[@"label",@"enabled",@"sequence",@"ratio",@"sample",@"moment",@"link",@"payload"];
     const NSAttributeType types[] = {NSStringAttributeType,NSBooleanAttributeType,NSInteger64AttributeType,NSDoubleAttributeType,NSFloatAttributeType,NSDateAttributeType,NSURIAttributeType,NSBinaryDataAttributeType};
+    AuthoredPhase = 203;
     NSMutableArray *attributes = [NSMutableArray array];
     for (NSUInteger index=0; index<names.count; index++) {
+        AuthoredPhase = 204;
         NSAttributeDescription *attribute = [NSAttributeDescription new];
+        AuthoredPhase = 205;
         attribute.name = names[index]; attribute.attributeType = types[index]; attribute.optional = YES;
         [attributes addObject:attribute]; [attribute release];
     }
+    AuthoredPhase = 206;
     NSRelationshipDescription *owner = [NSRelationshipDescription new], *entries = [NSRelationshipDescription new];
+    AuthoredPhase = 207;
     owner.name = @"owner"; owner.destinationEntity = collection; owner.maxCount = 1; owner.optional = YES; owner.deleteRule = NSNullifyDeleteRule;
+    AuthoredPhase = 208;
     entries.name = @"entries"; entries.destinationEntity = entry; entries.maxCount = 0; entries.optional = YES; entries.deleteRule = NSNullifyDeleteRule;
+    AuthoredPhase = 209;
     owner.inverseRelationship = entries; entries.inverseRelationship = owner;
+    AuthoredPhase = 210;
     [attributes addObject:owner]; entry.properties = attributes;
+    AuthoredPhase = 211;
     NSAttributeDescription *name = [NSAttributeDescription new]; name.name = @"label"; name.attributeType = NSStringAttributeType; name.optional = YES;
+    AuthoredPhase = 212;
     collection.properties = @[name,entries];
+    AuthoredPhase = 213;
     NSManagedObjectModel *model = [NSManagedObjectModel new]; model.entities = @[entry,collection];
+    AuthoredPhase = 214;
     [entry release]; [collection release]; [owner release]; [entries release]; [name release];
     return [model autorelease];
 }
@@ -64,50 +80,83 @@ static AuthoredLedger *row(NSManagedObjectContext *context, int64_t sequence) {
     return nil;
 }
 static AuthoredLedger *insert(NSManagedObjectContext *context, int64_t sequence) {
+    AuthoredPhase = 161;
     AuthoredLedger *record = [[[AuthoredLedger alloc] initWithContext:context] autorelease];
+    AuthoredPhase = 162;
     record.sequence = sequence; record.label = [NSString stringWithFormat:@"entry%lld",(long long)sequence];
+    AuthoredPhase = 163;
     record.enabled = sequence == 1; record.ratio = -3.125; record.sample = 0.25f;
+    AuthoredPhase = 164;
     record.moment = [NSDate dateWithTimeIntervalSinceReferenceDate:sequence*100.25];
     return record;
 }
 static int run(NSString *mode, NSString *path) {
+    AuthoredPhase = 213;
+    AuthoredPhase = 101;
     NSManagedObjectModel *model = schema();
+    AuthoredPhase = 102;
     NSPersistentStoreCoordinator *coordinator = [[[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:model] autorelease];
     NSError *error = nil;
     BOOL readonly = [mode isEqual:@"readonly"];
+    AuthoredPhase = 103;
     NSPersistentStore *store = [coordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:[NSURL fileURLWithPath:path] options:readonly ? @{NSReadOnlyPersistentStoreOption:@YES} : nil error:&error];
     if (!store || error) return 10;
+    AuthoredPhase = 104;
     NSManagedObjectContext *context = [[[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType] autorelease]; context.persistentStoreCoordinator = coordinator;
+    AuthoredPhase = 105;
     SaveCounter *counter = [[[SaveCounter alloc] init] autorelease];
+    AuthoredPhase = 106;
     [NSNotificationCenter.defaultCenter addObserver:counter selector:@selector(saved:) name:NSManagedObjectContextDidSaveNotification object:context];
     if ([mode isEqual:@"create"]) {
+        AuthoredPhase = 107;
         if ([fetch(context,@"Ledger") count] || !fetch(context,@"Ledger")) return 11;
+        AuthoredPhase = 108;
         if ([AuthoredLedger entity] != model.entitiesByName[@"Ledger"]) return 12;
+        AuthoredPhase = 109;
         AuthoredCollection *first = [[[AuthoredCollection alloc] initWithContext:context] autorelease], *second = [[[AuthoredCollection alloc] initWithContext:context] autorelease];
+        AuthoredPhase = 110;
         first.label = @"first"; second.label = @"second";
+        AuthoredPhase = 111;
         AuthoredLedger *a=insert(context,1), *b=insert(context,2), *c=insert(context,3);
+        AuthoredPhase = 112;
         a.label = @"quote' λ 🐾"; a.sequence = INT64_MIN+7; a.link = [NSURL URLWithString:@"https://example.invalid/a%20b?q=%CE%BB#part"]; a.moment = [NSDate dateWithTimeIntervalSinceReferenceDate:-100.5];
+        AuthoredPhase = 113;
         const unsigned char bytes[] = {0,1,0,255}; a.payload = [NSData dataWithBytes:bytes length:sizeof(bytes)];
+        AuthoredPhase = 114;
         b.label = @""; b.link = [NSURL fileURLWithPath:@"/owned/a b"]; b.payload = [NSData data]; c.label = nil; c.payload = nil;
+        AuthoredPhase = 115;
         a.owner = first; b.owner = first; c.owner = second;
+        AuthoredPhase = 116;
         if (first.entries.count != 2 || second.entries.count != 1) return 13;
+        AuthoredPhase = 117;
         a.owner = second;
+        AuthoredPhase = 116;
         if (first.entries.count != 1 || second.entries.count != 2 || a.owner != second) return 14;
+        AuthoredPhase = 118;
         [[first mutableSetValueForKey:@"entries"] addObject:a];
+        AuthoredPhase = 119;
         if (a.owner != first || first.entries.count != 2 || second.entries.count != 1) return 15;
+        AuthoredPhase = 120;
         if (!context.hasChanges || ![context save:&error] || error || context.hasChanges || counter.saves != 1) return 16;
+        AuthoredPhase = 121;
         if (a.objectID.temporaryID || a.inserted || a.updated) return 17;
+        AuthoredPhase = 122;
         NSDictionary *metadata = [coordinator metadataForPersistentStore:store];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        AuthoredPhase = 123;
         NSDictionary *diskMetadata = [NSPersistentStoreCoordinator metadataForPersistentStoreOfType:NSSQLiteStoreType URL:[NSURL fileURLWithPath:path] error:&error];
 #pragma clang diagnostic pop
+        AuthoredPhase = 124;
         if (![metadata[NSStoreTypeKey] isEqual:NSSQLiteStoreType] || ![metadata[NSStoreUUIDKey] isEqual:diskMetadata[NSStoreUUIDKey]]) return 18;
+        AuthoredPhase = 125;
         NSDictionary *references = @{@"uuid":metadata[NSStoreUUIDKey], @"a":a.objectID.URIRepresentation.absoluteString, @"b":b.objectID.URIRepresentation.absoluteString, @"c":c.objectID.URIRepresentation.absoluteString};
+        AuthoredPhase = 126;
         if (![references writeToFile:[path stringByAppendingString:@".references"] atomically:YES]) return 19;
     } else if ([mode isEqual:@"reopen"] || readonly) {
         NSArray *all = fetch(context,@"Ledger"); if (all.count != 3 || ![all[0] isKindOfClass:AuthoredLedger.class]) return 20;
         AuthoredLedger *a=row(context,INT64_MIN+7), *b=row(context,2), *c=row(context,3);
+        AuthoredPhase = 113;
         const unsigned char bytes[] = {0,1,0,255};
         if (![a.label isEqual:@"quote' λ 🐾"] || !a.enabled || a.ratio != -3.125 || a.sample != 0.25f || ![a.payload isEqual:[NSData dataWithBytes:bytes length:sizeof(bytes)]] || a.moment.timeIntervalSinceReferenceDate != -100.5) return 21;
         if (![a.link.absoluteString isEqual:@"https://example.invalid/a%20b?q=%CE%BB#part"] || !b.link.fileURL || ![b.label isEqual:@""] || b.payload.length || !b.payload || c.label || c.payload || c.link) return 22;
@@ -157,6 +206,6 @@ int main(int argc, const char **argv) {
     @autoreleasepool {
         if (argc != 3) return 2;
         @try { return run([NSString stringWithUTF8String:argv[1]],[NSString stringWithUTF8String:argv[2]]); }
-        @catch (id exception) { return 90; }
+        @catch (id exception) { return AuthoredPhase >= 100 && AuthoredPhase <= 220 ? AuthoredPhase : 90; }
     }
 }
