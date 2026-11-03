@@ -26,6 +26,19 @@ enum darling_boundary_event {
     DARLING_DIAG_MODEL_LOAD_ERROR,
     DARLING_DIAG_CONTEXT_INIT_ENTER,
     DARLING_DIAG_CONTEXT_INIT_OK,
+    DARLING_DIAG_OVERLAY_LOOKUP_SUCCESS,
+    DARLING_DIAG_OVERLAY_BRIDGE_SUCCESS,
+    DARLING_DIAG_CONTAINER_LOAD_MODEL_ERROR,
+    DARLING_DIAG_CONTAINER_LOAD_UNSUPPORTED_SQLITE,
+    DARLING_DIAG_CONTAINER_LOAD_UNSUPPORTED_TYPE,
+    DARLING_DIAG_CONTAINER_LOAD_NONFILE_URL,
+    DARLING_DIAG_CONTAINER_LOAD_READONLY_MISSING,
+    DARLING_DIAG_CONTAINER_LOAD_DIRECTORY_ERROR,
+    DARLING_DIAG_CONTAINER_LOAD_COORDINATOR_ENTER,
+    DARLING_DIAG_CONTAINER_LOAD_COORDINATOR_ERROR,
+    DARLING_DIAG_CONTAINER_LOAD_COORDINATOR_EMPTY_ERROR,
+    DARLING_DIAG_CONTAINER_LOAD_COORDINATOR_EXCEPTION,
+    DARLING_DIAG_EVENT_COUNT,
 };
 
 static inline const char *darling_boundary_endpoint(const char *const *environment) {
@@ -106,6 +119,18 @@ static inline void darling_boundary_emit(const char *endpoint, enum darling_boun
         "coredata.model.load.error\n",
         "coredata.context.init.enter\n",
         "coredata.context.init.ok\n",
+        "foundation.overlay.lookup.success\n",
+        "foundation.overlay.bridge.success\n",
+        "coredata.container.load.model-error\n",
+        "coredata.container.load.unsupported-sqlite\n",
+        "coredata.container.load.unsupported-type\n",
+        "coredata.container.load.nonfile-url\n",
+        "coredata.container.load.readonly-missing\n",
+        "coredata.container.load.directory-error\n",
+        "coredata.container.load.coordinator-enter\n",
+        "coredata.container.load.coordinator-error\n",
+        "coredata.container.load.coordinator-empty-error\n",
+        "coredata.container.load.coordinator-exception\n",
     };
     if ((unsigned)event < sizeof(records) / sizeof(records[0]))
         darling_diagnostic_send(endpoint, records[event], strlen(records[event]));

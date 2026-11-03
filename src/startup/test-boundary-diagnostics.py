@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 
-CATEGORIES = frozenset((
+EVENTS = (
     b'diag.ready\n',
     b'coredata.container.init.enter\n',
     b'coredata.container.init.ok\n',
@@ -22,7 +22,20 @@ CATEGORIES = frozenset((
     b'coredata.model.load.error\n',
     b'coredata.context.init.enter\n',
     b'coredata.context.init.ok\n',
-))
+    b'foundation.overlay.lookup.success\n',
+    b'foundation.overlay.bridge.success\n',
+    b'coredata.container.load.model-error\n',
+    b'coredata.container.load.unsupported-sqlite\n',
+    b'coredata.container.load.unsupported-type\n',
+    b'coredata.container.load.nonfile-url\n',
+    b'coredata.container.load.readonly-missing\n',
+    b'coredata.container.load.directory-error\n',
+    b'coredata.container.load.coordinator-enter\n',
+    b'coredata.container.load.coordinator-error\n',
+    b'coredata.container.load.coordinator-empty-error\n',
+    b'coredata.container.load.coordinator-exception\n',
+)
+CATEGORIES = frozenset(EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 
@@ -30,12 +43,12 @@ def permitted(packet):
     return 0 < len(packet) <= 1024 and (packet in CATEGORIES or IMPORT.fullmatch(packet) is not None)
 
 
-def run(binary, endpoint, name='_authored.$9'):
+def run(binary, endpoint, name='_authored.$9', arguments=None):
     env = os.environ.copy()
     env.pop('DARLING_BOUNDARY_SOCKET', None)
     if endpoint is not None:
         env['DARLING_BOUNDARY_SOCKET'] = str(endpoint)
-    completed = subprocess.run([binary, name], env=env, stdin=subprocess.DEVNULL,
+    completed = subprocess.run([binary, *(arguments if arguments is not None else [name])], env=env, stdin=subprocess.DEVNULL,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
     if completed.returncode:
         raise AssertionError('FIXTURE_RESULT_CHANGED')
@@ -67,6 +80,13 @@ def main(binary):
         with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as receiver:
             receiver.bind(str(endpoint))
             endpoint.chmod(0o600)
+            for index, event in enumerate(EVENTS):
+                run(binary, endpoint, arguments=['--event', str(index)])
+                check(drain(receiver) == [event])
+                for invalid in (None, 'relative'):
+                    run(binary, invalid, arguments=['--event', str(index)])
+                    check(drain(receiver) == [])
+                check(not permitted(event+b'x') and not permitted(event+b'\n') and not permitted(event[:-1]))
             run(binary, endpoint)
             check(drain(receiver) == [b'diag.ready\n', b'missing-import:_authored.$9\n'])
             for name in ('', 'bad name', 'bad/name', 'bad\nname', 'bad:name', 'x'*201):
