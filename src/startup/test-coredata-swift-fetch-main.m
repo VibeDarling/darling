@@ -18,6 +18,6 @@ extern int authored_swift_fetch_stage(void);
 int main(void) {
     @autoreleasepool {
         @try { return authored_swift_fetch_probe(); }
-        @catch (id exception) { int stage=authored_swift_fetch_stage(); return stage>=50 && stage<=64 ? stage+50 : 90; }
+        @catch (id exception) { int stage=authored_swift_fetch_stage(); return stage>=50 && stage<=66 ? stage+50 : 90; }
     }
 }
