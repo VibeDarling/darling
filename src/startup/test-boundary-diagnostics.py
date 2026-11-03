@@ -85,7 +85,11 @@ DELEGATE_PROBE_EVENTS = (
     b'fixture.session.cache.ready\n',
     b'fixture.session.isolation.ready\n',
 )
-CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS)
+DIRECTORY_PROBE_EVENTS = (
+    b'fixture.directory.locator.enter\n', b'fixture.directory.locator.ready\n',
+    b'fixture.directory.getter.enter\n', b'fixture.directory.getter.ready\n',
+)
+CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS+DIRECTORY_PROBE_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 
