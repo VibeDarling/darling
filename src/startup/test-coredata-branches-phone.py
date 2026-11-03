@@ -50,11 +50,11 @@ cases = [('model', ['model-error']), ('sqlite', ['unsupported-sqlite']), ('unkno
          ('coordinator-success-error', ['coordinator-enter'])]
 expected = [ready]
 for case, reasons in cases:
-    expected += common+['coredata.container.init.'+('model-error' if case == 'model' else 'ok')+'\n',
+    expected += ['fixture.coredata.case.enter\n']+common+['coredata.container.init.'+('model-error' if case == 'model' else 'ok')+'\n',
                         'coredata.container.load.enter\n']
     if args.reason_events:
         expected += ['coredata.container.load.'+reason+'\n' for reason in reasons]
-    expected += ['coredata.container.load.'+('success' if case == 'memory' else 'error')+'\n']
+    expected += ['coredata.container.load.'+('success' if case == 'memory' else 'error')+'\n', 'fixture.coredata.case.complete\n']
 reports = []
 with tempfile.TemporaryDirectory(prefix='fcb-', dir=Path.home()/'.cache') as temporary:
     endpoint = Path(temporary)/'s'
@@ -67,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='fcb-', dir=Path.home()/'.cache') as tem
         receiver.settimeout(0.02)
         def drain():
             packets = []
-            while True:
+            for batch_index in range(256):
                 try:
                     packet = receiver.recv(1025)
                 except socket.timeout:
@@ -75,16 +75,19 @@ with tempfile.TemporaryDirectory(prefix='fcb-', dir=Path.home()/'.cache') as tem
                 if not protocol.permitted(packet):
                     raise RuntimeError('PROTOCOL_REJECTED')
                 packets.append(packet.decode('ascii'))
+            return packets
         def run(label, binary, arguments, expected_records):
             process = subprocess.Popen([str(base/'native/libdarling.so'), 'shell', 'env',
                 'DARLING_BOUNDARY_SOCKET='+mapped, '/Volumes/SystemRoot'+str(base/'diag-fixtures'/binary), *arguments],
                 env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             records = []
+            print(json.dumps({'case':label, 'launcherPid':process.pid, 'phase':'launched'}), flush=True)
             notice = time.monotonic()+60
             while process.poll() is None:
                 records += drain()
+                args.report.write_text(json.dumps({'source':manifest['source'], 'runningCase':label, 'launcherPid':process.pid, 'records':records}, indent=2)+'\n')
                 if time.monotonic() >= notice:
-                    print(json.dumps({'case':label, 'running':True}), flush=True)
+                    print(json.dumps({'case':label, 'running':True, 'recordsReceived':len(records)}), flush=True)
                     notice += 60
             records += drain()
             row = {'case':label, 'exit':process.returncode, 'exactRecords':records == expected_records, 'records':records}

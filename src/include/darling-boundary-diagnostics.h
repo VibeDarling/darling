@@ -38,6 +38,8 @@ enum darling_boundary_event {
     DARLING_DIAG_CONTAINER_LOAD_COORDINATOR_ERROR,
     DARLING_DIAG_CONTAINER_LOAD_COORDINATOR_EMPTY_ERROR,
     DARLING_DIAG_CONTAINER_LOAD_COORDINATOR_EXCEPTION,
+    DARLING_DIAG_FIXTURE_CASE_ENTER,
+    DARLING_DIAG_FIXTURE_CASE_COMPLETE,
     DARLING_DIAG_EVENT_COUNT,
 };
 
@@ -131,6 +133,8 @@ static inline void darling_boundary_emit(const char *endpoint, enum darling_boun
         "coredata.container.load.coordinator-error\n",
         "coredata.container.load.coordinator-empty-error\n",
         "coredata.container.load.coordinator-exception\n",
+        "fixture.coredata.case.enter\n",
+        "fixture.coredata.case.complete\n",
     };
     if ((unsigned)event < sizeof(records) / sizeof(records[0]))
         darling_diagnostic_send(endpoint, records[event], strlen(records[event]));

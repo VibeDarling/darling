@@ -34,6 +34,8 @@ EVENTS = (
     b'coredata.container.load.coordinator-error\n',
     b'coredata.container.load.coordinator-empty-error\n',
     b'coredata.container.load.coordinator-exception\n',
+    b'fixture.coredata.case.enter\n',
+    b'fixture.coredata.case.complete\n',
 )
 CATEGORIES = frozenset(EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
