@@ -35,10 +35,6 @@ Existing defects that the reviews read past. None is introduced by the PRs
 that surfaced them, and all entries describe master; the stored -1 watch in the
 FSEvents entry is fixed by VibeDarling/darling#1227 once it merges.
 
-- `src/startup/mldr/mldr.c:847` (`socket_bitmap_put`): `index = bitmap->highest -
-  socket` underflows for a socket number above `highest`, and a socket below the
-  bitmap's range gives an index past `bit_length`; in both cases the bit is
-  cleared at an out-of-bounds index.
 - `src/frameworks/CoreServices/src/LaunchServices/LSInfo.m` (lines 112, 122, 144,
   253, 281, 298): `if (*outError)` dereferences `outError` without checking that
   it is non-NULL.
