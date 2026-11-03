@@ -6,6 +6,7 @@
 import Foundation
 import CoreFoundation
 import UIKit
+import DarlingCoreDataBridge
 import os.log
 
 // MARK: - Main-thread scheduling
@@ -640,27 +641,41 @@ private var firstEvaluation: (() -> Void)?
 @objc(DarlingSwiftUIAppDelegate) final class SwiftUIAppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
     func application(_ application: UIApplication, willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        DarlingSwiftUIPhase(27)
         if let forwarded = forwardedDelegate as? UIApplicationDelegate,
            forwarded.responds(to: #selector(UIApplicationDelegate.application(_:willFinishLaunchingWithOptions:))) {
-            return forwarded.application?(application, willFinishLaunchingWithOptions: launchOptions) ?? true
+            DarlingSwiftUIPhase(28)
+            let result = forwarded.application?(application, willFinishLaunchingWithOptions: launchOptions) ?? true
+            DarlingSwiftUIPhase(29)
+            return result
         }
         return true
     }
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        DarlingSwiftUIPhase(30)
         var result = true
         if let forwarded = forwardedDelegate as? UIApplicationDelegate {
             if forwarded.responds(to: #selector(UIApplicationDelegate.application(_:didFinishLaunchingWithOptions:))) {
+                DarlingSwiftUIPhase(31)
                 result = forwarded.application?(application, didFinishLaunchingWithOptions: launchOptions) ?? true
+                DarlingSwiftUIPhase(32)
             } else if forwarded.responds(to: #selector(UIApplicationDelegate.applicationDidFinishLaunching(_:))) {
+                DarlingSwiftUIPhase(33)
                 forwarded.applicationDidFinishLaunching?(application)
+                DarlingSwiftUIPhase(34)
             }
         }
+        DarlingSwiftUIPhase(35)
         let window = UIWindow(frame: UIScreen.main.bounds)
+        DarlingSwiftUIPhase(36)
+        DarlingSwiftUIPhase(37)
         let controller = HostViewController()
         darlingHostViewController = controller
         window.rootViewController = controller
         let view = controller.view as! HostView
         hostView = view
+        DarlingSwiftUIPhase(38)
+        DarlingSwiftUIPhase(39)
         firstEvaluation?()
         firstEvaluation = nil
         view.tree = currentTree
@@ -691,9 +706,11 @@ private var firstEvaluation: (() -> Void)?
 }
 
 func darlingRunUIKit(delegate: NSObject?, startTasks: @escaping @convention(c) () -> Void, launched: @escaping () -> Void) -> Never {
+    DarlingSwiftUIPhase(25)
     forwardedDelegate = delegate
     startTasksCallback = startTasks
     firstEvaluation = launched
+    DarlingSwiftUIPhase(26)
     let code = UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, "DarlingSwiftUIAppDelegate")
     exit(code)
 }

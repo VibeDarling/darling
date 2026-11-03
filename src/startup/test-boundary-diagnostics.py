@@ -55,6 +55,21 @@ SWIFTUI_PHASE_EVENTS = (
     b'swiftui.dynamic-property.unsupported\n',
     b'swiftui.fetch.environment.setter.enter\n', b'swiftui.environment.write.enter\n',
     b'swiftui.environment.write.ready\n',
+    b'swiftui.uikit.runner.enter\n',
+    b'swiftui.uikit.main.enter\n',
+    b'swiftui.delegate.will.enter\n',
+    b'swiftui.delegate.will.forward.enter\n',
+    b'swiftui.delegate.will.forward.ready\n',
+    b'swiftui.delegate.did.enter\n',
+    b'swiftui.delegate.did.forward.enter\n',
+    b'swiftui.delegate.did.forward.ready\n',
+    b'swiftui.delegate.legacy.forward.enter\n',
+    b'swiftui.delegate.legacy.forward.ready\n',
+    b'swiftui.window.create.enter\n',
+    b'swiftui.window.create.ready\n',
+    b'swiftui.window.root.enter\n',
+    b'swiftui.window.root.ready\n',
+    b'swiftui.delegate.evaluate.enter\n',
 )
 CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')

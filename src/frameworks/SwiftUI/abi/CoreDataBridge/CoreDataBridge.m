@@ -19,7 +19,22 @@ void DarlingSwiftUIPhase(int phase) {
         "swiftui.fetch.refresh.failed\n", "swiftui.fetch.value.uninstalled\n",
         "swiftui.dynamic-property.unsupported\n",
         "swiftui.fetch.environment.setter.enter\n", "swiftui.environment.write.enter\n",
-        "swiftui.environment.write.ready\n"
+        "swiftui.environment.write.ready\n",
+        "swiftui.uikit.runner.enter\n",
+        "swiftui.uikit.main.enter\n",
+        "swiftui.delegate.will.enter\n",
+        "swiftui.delegate.will.forward.enter\n",
+        "swiftui.delegate.will.forward.ready\n",
+        "swiftui.delegate.did.enter\n",
+        "swiftui.delegate.did.forward.enter\n",
+        "swiftui.delegate.did.forward.ready\n",
+        "swiftui.delegate.legacy.forward.enter\n",
+        "swiftui.delegate.legacy.forward.ready\n",
+        "swiftui.window.create.enter\n",
+        "swiftui.window.create.ready\n",
+        "swiftui.window.root.enter\n",
+        "swiftui.window.root.ready\n",
+        "swiftui.delegate.evaluate.enter\n"
     };
     if ((unsigned)phase < sizeof(events)/sizeof(events[0]))
         darling_diagnostic_send(getenv("DARLING_BOUNDARY_SOCKET"), events[phase], strlen(events[phase]));
