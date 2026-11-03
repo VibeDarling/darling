@@ -14,7 +14,7 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--base', required=True, type=Path)
 parser.add_argument('--prepare-from', type=Path)
-parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'update-notifications', 'merge-enabled', 'merge-disabled', 'inherited-mixed', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
+parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'update-notifications', 'swift-disk-create', 'swift-disk-reopen', 'swift-disk-change', 'swift-disk-changed', 'merge-enabled', 'merge-disabled', 'inherited-mixed', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
 parser.add_argument('--data-name', default='durability.sqlite')
 args = parser.parse_args()
 base = args.base.resolve()
@@ -97,6 +97,9 @@ else:
     parameters = [] if args.case in ('swift', 'inherited', 'inherited-mixed', 'protocol', 'update-notifications') else ([data] if args.case in ('errors', 'memory') else [args.case, data])
     if args.case in ('merge-enabled', 'merge-disabled'):
         parameters = [args.case.removeprefix('merge-')]
+    if args.case.startswith('swift-disk-'):
+        binary = 'COREDATA_SWIFT_DISK'
+        parameters = [args.case.removeprefix('swift-disk-'), data]
     command = [str(base/'native/libdarling.so'), 'shell', '/Volumes/SystemRoot'+str(base/'fixtures'/binary), *parameters]
 active.write_text(json.dumps({'case': args.case, 'launcherPid': None})+'\n')
 process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
