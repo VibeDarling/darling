@@ -914,12 +914,12 @@ out:
  * its owner would later close our socket. F_DUPFD never replaces a descriptor: if the slot is taken, it returns the
  * lowest free number above it instead, and the slot goes back to the bitmap.
  *
- * Returns the new descriptor or -1; `fd` is left open either way.
+ * Returns `fd` itself if it is already on the slot, otherwise the new descriptor or -1; `fd` is left open.
  */
 static int socket_bitmap_place(int fd) {
 	int slot = socket_bitmap_get(&socket_bitmap);
-	if (slot < 0) {
-		return -1;
+	if (slot < 0 || slot == fd) {
+		return slot;
 	}
 
 	int placed = fcntl(fd, F_DUPFD, slot);
@@ -942,7 +942,7 @@ int __mldr_create_rpc_socket(void) {
 	if (fd < 0) {
 		// it could not be moved; keep it where it is
 		fd = pre_fd;
-	} else {
+	} else if (fd != pre_fd) {
 		close(pre_fd);
 	}
 	pre_fd = -1;
@@ -1002,7 +1002,9 @@ int __mldr_create_process_lifetime_pipe(int* fds) {
 			goto err_out;
 		}
 
-		close(pre_fds[i]);
+		if (fds[i] != pre_fds[i]) {
+			close(pre_fds[i]);
+		}
 		pre_fds[i] = -1;
 	}
 
@@ -1073,16 +1075,14 @@ static void setup_space(struct load_results* lr, bool is_64_bit) {
 	// darlingserver should already have the read pipe, so we don't need
 	// to check that in.
 	if (lr->lifetime_pipe != -1) {
-		lifetime_pipe[1] = socket_bitmap_get(&socket_bitmap);
-
-		if (lr->lifetime_pipe != lifetime_pipe[1]) {
-			// move the existing pipe to a higher fd number, and invalidate
-			// the old fd to prevent interfering with fds provided by
-			// socket_bitmap_get
-			if (dup2(lr->lifetime_pipe, lifetime_pipe[1]) == -1) {
-				fprintf(stderr, "Failed to dup process lifetime pipe: %d (%s)\n", errno, strerror(errno));
-				exit(1);
-			}
+		// move the existing pipe to a higher fd number, and invalidate
+		// the old fd to prevent interfering with fds provided by
+		// socket_bitmap_get
+		lifetime_pipe[1] = socket_bitmap_place(lr->lifetime_pipe);
+		if (lifetime_pipe[1] < 0) {
+			// it could not be moved; keep it where it is
+			lifetime_pipe[1] = lr->lifetime_pipe;
+		} else if (lifetime_pipe[1] != lr->lifetime_pipe) {
 			close(lr->lifetime_pipe);
 		}
 
