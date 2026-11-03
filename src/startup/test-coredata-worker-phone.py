@@ -14,7 +14,7 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--base', required=True, type=Path)
 parser.add_argument('--prepare-from', type=Path)
-parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'swift-fetch', 'update-notifications', 'swift-disk-create', 'swift-disk-reopen', 'swift-disk-change', 'swift-disk-changed', 'merge-enabled', 'merge-disabled', 'inherited-mixed', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
+parser.add_argument('--case', choices=['bootstrap', 'shutdown', 'swift', 'memory', 'protocol', 'swift-fetch', 'update-notifications', 'cancel-seed', 'cancel-insert', 'cancel-reopen', 'swift-disk-create', 'swift-disk-reopen', 'swift-disk-change', 'swift-disk-changed', 'merge-enabled', 'merge-disabled', 'inherited-mixed', 'inherited', 'create', 'reopen', 'integrity', 'readonly', 'change', 'changed', 'retry', 'retried', 'errors', 'stale-delete', 'writers'])
 parser.add_argument('--data-name', default='durability.sqlite')
 args = parser.parse_args()
 base = args.base.resolve()
@@ -97,6 +97,9 @@ else:
     parameters = [] if args.case in ('swift', 'inherited', 'inherited-mixed', 'protocol', 'swift-fetch', 'update-notifications') else ([data] if args.case in ('errors', 'memory') else [args.case, data])
     if args.case in ('merge-enabled', 'merge-disabled'):
         parameters = [args.case.removeprefix('merge-')]
+    if args.case in ('cancel-seed', 'cancel-insert', 'cancel-reopen'):
+        binary = 'COREDATA_CANCEL_INSERT'
+        parameters = [{'cancel-seed':'seed', 'cancel-insert':'cancel', 'cancel-reopen':'reopen'}[args.case], data]
     if args.case.startswith('swift-disk-'):
         binary = 'COREDATA_SWIFT_DISK'
         parameters = [args.case.removeprefix('swift-disk-'), data]
