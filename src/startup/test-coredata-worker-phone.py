@@ -2,6 +2,7 @@
 """Own isolated CoreData fixture prefix; never expose guest standard streams."""
 import argparse
 import hashlib
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -48,6 +49,11 @@ if args.prepare_from:
     print('OWN_RUNTIME_COPY_READY', flush=True)
 if not marker.is_file():
     raise SystemExit('OWN_BASE_MARKER_REQUIRED')
+operator_lock = (base/'.coredata-operator.lock').open('a')
+fcntl.flock(operator_lock, fcntl.LOCK_EX)
+active = base/'active-fixture.json'
+if active.exists():
+    raise SystemExit('ACTIVE_FIXTURE_REQUIRES_EXACT_HANDLE_AUDIT')
 manifest = json.loads((base/'diagnostic-payload/manifest.json').read_text())
 components = manifest['components']
 for component in components.values():
@@ -90,7 +96,9 @@ else:
     binary = {'protocol': 'COREDATA_FETCH_RESULT_PROTOCOL', 'swift': 'COREDATA_MANAGED_SWIFT', 'memory': 'COREDATA_MEMORY_NIL', 'inherited': 'COREDATA_INHERITED_ACCESSORS', 'errors': 'COREDATA_STORE_ERRORS', 'writers': 'COREDATA_WRITERS', 'stale-delete': 'COREDATA_WRITERS'}.get(args.case, 'COREDATA_DURABILITY_STAGED')
     parameters = [] if args.case in ('swift', 'inherited', 'protocol') else ([data] if args.case in ('errors', 'memory') else [args.case, data])
     command = [str(base/'native/libdarling.so'), 'shell', '/Volumes/SystemRoot'+str(base/'fixtures'/binary), *parameters]
+active.write_text(json.dumps({'case': args.case, 'launcherPid': None})+'\n')
 process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+active.write_text(json.dumps({'case': args.case, 'launcherPid': process.pid})+'\n')
 print(json.dumps({'case': args.case, 'launcherPid': process.pid, 'phase': 'launched'}), flush=True)
 notice = time.monotonic()+30
 while process.poll() is None:
@@ -101,6 +109,9 @@ while process.poll() is None:
 if args.case == 'bootstrap' and process.returncode == 0:
     verify(base/'prefix')
 report = {'case': args.case, 'exit': process.returncode, 'source': manifest['source'], 'components': components}
-(base/('result-'+args.case+'.json')).write_text(json.dumps(report, indent=2)+'\n')
+report_text = json.dumps(report, indent=2)+'\n'
+(base/('result-'+args.case+'-'+str(process.pid)+'.json')).write_text(report_text)
+(base/('result-'+args.case+'.json')).write_text(report_text)
+active.unlink()
 print(json.dumps({'case': args.case, 'exit': process.returncode, 'identityVerified': True}), flush=True)
 raise SystemExit(0 if process.returncode == 0 else 1)
