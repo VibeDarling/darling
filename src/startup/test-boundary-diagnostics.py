@@ -133,7 +133,11 @@ FOUNDATION_WORKLOAD_EVENTS = (
     b'foundation.files.list.enter\n',
     b'foundation.files.list.return\n',
 )
-CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS+DIRECTORY_PROBE_EVENTS+SESSION_PROBE_EVENTS+PATH_PROBE_EVENTS+FOUNDATION_WORKLOAD_EVENTS)
+TEMPORARY_PROBE_EVENTS = (
+    b'fixture.temporary.standard.enter\n', b'fixture.temporary.standard.ready\n',
+    b'fixture.temporary.getter.enter\n', b'fixture.temporary.getter.ready\n',
+)
+CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS+DIRECTORY_PROBE_EVENTS+SESSION_PROBE_EVENTS+PATH_PROBE_EVENTS+FOUNDATION_WORKLOAD_EVENTS+TEMPORARY_PROBE_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 
