@@ -39,9 +39,6 @@ FSEvents entry is fixed by VibeDarling/darling#1227 once it merges.
   socket` underflows for a socket number above `highest`, and a socket below the
   bitmap's range gives an index past `bit_length`; in both cases the bit is
   cleared at an out-of-bounds index.
-- `src/frameworks/CoreServices/src/LaunchServices/LSInfo.m` (lines 112, 122, 144,
-  253, 281, 298): `if (*outError)` dereferences `outError` without checking that
-  it is non-NULL.
 - `src/frameworks/CoreServices/src/LaunchServices/LSOpen.m:35`:
   `LSOpenURLsWithRole` is a stub that prints a STUB message and returns
   `unimpErr`.
