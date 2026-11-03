@@ -71,7 +71,21 @@ SWIFTUI_PHASE_EVENTS = (
     b'swiftui.window.root.ready\n',
     b'swiftui.delegate.evaluate.enter\n',
 )
-CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS)
+DELEGATE_PROBE_EVENTS = (
+    b'fixture.delegate.will.enter\n',
+    b'fixture.delegate.will.ready\n',
+    b'fixture.delegate.did.enter\n',
+    b'fixture.delegate.did.ready\n',
+    b'fixture.delegate.active\n',
+    b'fixture.cache.create.enter\n',
+    b'fixture.cache.create.ready\n',
+    b'fixture.cache.capacity.ready\n',
+    b'fixture.session.config.enter\n',
+    b'fixture.session.config.ready\n',
+    b'fixture.session.cache.ready\n',
+    b'fixture.session.isolation.ready\n',
+)
+CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 

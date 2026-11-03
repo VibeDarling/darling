@@ -1,0 +1,1 @@
+void AuthoredDelegateStage(int stage);

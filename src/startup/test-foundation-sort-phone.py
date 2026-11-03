@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run authored SDK sorting assertions with guest output discarded before creation."""
+"""Run authored SDK API assertions with guest output discarded before creation."""
 import argparse,hashlib,importlib.util,json,os,socket,subprocess,tempfile,time
 from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__)
@@ -7,6 +7,7 @@ p.add_argument('--base',type=Path,required=True)
 p.add_argument('--fixture',type=Path,required=True)
 p.add_argument('--fixture-sha256',required=True)
 p.add_argument('--expected-positive',type=int,required=True)
+p.add_argument('--positive-argument',action='append',default=[])
 p.add_argument('--check-invalid',action='store_true')
 p.add_argument('--report',type=Path,required=True)
 a=p.parse_args();b=a.base.resolve();prefix=b/'prefix'
@@ -37,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='fcs-',dir=Path.home()/'.cache') as temp
                 assert protocol.permitted(packet) and len(packets)<1000
                 packets.append(packet.decode('ascii'))
         try:
-            for name,extra,expected in [('positive',[],a.expected_positive)]+([('nonkvc',['nonkvc'],133)] if a.check_invalid else []):
+            for name,extra,expected in [('positive',a.positive_argument,a.expected_positive)]+([('nonkvc',['nonkvc'],133)] if a.check_invalid else []):
                 process=subprocess.Popen([launcher,'shell','env','DARLING_BOUNDARY_SOCKET='+mapped,
                     '/Volumes/SystemRoot'+str(a.fixture),*extra],env=env,stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
