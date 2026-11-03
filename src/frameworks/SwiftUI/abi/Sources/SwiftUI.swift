@@ -412,15 +412,21 @@ extension App {
         DarlingSwiftUIEntry()
         installButtonHandler()
         var app = Self()
+        DarlingSwiftUIPhase(0)
         let graph = ViewGraph()
+        DarlingSwiftUIPhase(1)
         applicationGraph = graph
         graph.render = {
+            DarlingSwiftUIPhase(4)
             graph.install(&app, at: ViewPath(components: ["app"]))
+            DarlingSwiftUIPhase(5)
             return Body._makeScene(scene: _GraphValue(value: app.body), inputs: _SceneInputs(graph: graph))
         }
         // As in SwiftUI, the scene's body is first evaluated once the application has finished
         // launching, after the adapted delegate's didFinishLaunching (where apps configure SDKs).
+        DarlingSwiftUIPhase(2)
         darlingRunUIKit(delegate: applicationDelegate, startTasks: startInstalledTasks) {
+            DarlingSwiftUIPhase(3)
             sendRenderTree(graph.update())
         }
     }

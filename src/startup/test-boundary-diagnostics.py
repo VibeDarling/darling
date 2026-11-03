@@ -41,7 +41,13 @@ FIXTURE_FETCH_EVENTS = (
     b'swiftui.app.main.enter\n', b'fixture.fetch.context.ok\n', b'fixture.fetch.add.ok\n', b'fixture.fetch.edit.ok\n',
     b'fixture.fetch.delete.ok\n', b'fixture.fetch.other.ok\n', b'fixture.fetch.return.ok\n',
 )
-CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS)
+SWIFTUI_PHASE_EVENTS = (
+    b'swiftui.app.self.ready\n', b'swiftui.app.graph.ready\n', b'swiftui.app.uikit.enter\n',
+    b'swiftui.app.launch.enter\n', b'swiftui.app.render.enter\n', b'swiftui.app.body.enter\n',
+    b'swiftui.fetch.enter\n', b'swiftui.fetch.success\n', b'swiftui.fetch.error\n',
+    b'swiftui.observer.enter\n', b'swiftui.observer.ready\n',
+)
+CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 

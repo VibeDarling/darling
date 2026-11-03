@@ -3,6 +3,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 void DarlingSwiftUIEntry(void);
+void DarlingSwiftUIPhase(int phase);
 @interface DarlingContextObservation : NSObject
 - (instancetype)initWithContext:(NSManagedObjectContext *)context change:(void (^)(void))change;
 - (void)cancel;
