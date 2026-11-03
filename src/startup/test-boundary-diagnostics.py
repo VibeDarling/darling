@@ -109,7 +109,27 @@ PATH_PROBE_EVENTS = (
     b'fixture.path.decoded.enter\n', b'fixture.path.decoded.ready\n',
     b'fixture.path.empty.enter\n', b'fixture.path.empty.ready\n',
 )
-CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS+DIRECTORY_PROBE_EVENTS+SESSION_PROBE_EVENTS+PATH_PROBE_EVENTS)
+FOUNDATION_WORKLOAD_EVENTS = (
+    b'foundation.cache.init.enter\n',
+    b'foundation.cache.init.return\n',
+    b'foundation.cache.disk-capacity.enter\n',
+    b'foundation.cache.disk-capacity.return\n',
+    b'foundation.session.default-config.enter\n',
+    b'foundation.session.default-config.return\n',
+    b'foundation.session.create.enter\n',
+    b'foundation.session.create.return\n',
+    b'foundation.session.description.enter\n',
+    b'foundation.session.description.return\n',
+    b'foundation.session.invalidate.enter\n',
+    b'foundation.session.invalidate.return\n',
+    b'foundation.files.directories.enter\n',
+    b'foundation.files.directories.return\n',
+    b'foundation.files.create-directory.enter\n',
+    b'foundation.files.create-directory.return\n',
+    b'foundation.files.list.enter\n',
+    b'foundation.files.list.return\n',
+)
+CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS+DIRECTORY_PROBE_EVENTS+SESSION_PROBE_EVENTS+PATH_PROBE_EVENTS+FOUNDATION_WORKLOAD_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 
