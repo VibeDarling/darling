@@ -103,7 +103,13 @@ SESSION_PROBE_EVENTS = (
     b'fixture.session.invalidate.enter\n',
     b'fixture.session.invalidate.ready\n',
 )
-CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS+DIRECTORY_PROBE_EVENTS+SESSION_PROBE_EVENTS)
+PATH_PROBE_EVENTS = (
+    b'fixture.path.default.enter\n', b'fixture.path.default.ready\n',
+    b'fixture.path.encoded.enter\n', b'fixture.path.encoded.ready\n',
+    b'fixture.path.decoded.enter\n', b'fixture.path.decoded.ready\n',
+    b'fixture.path.empty.enter\n', b'fixture.path.empty.ready\n',
+)
+CATEGORIES = frozenset(EVENTS+FIXTURE_FETCH_EVENTS+SWIFTUI_PHASE_EVENTS+DELEGATE_PROBE_EVENTS+DIRECTORY_PROBE_EVENTS+SESSION_PROBE_EVENTS+PATH_PROBE_EVENTS)
 IMPORT = re.compile(rb'missing-import:[A-Za-z0-9_.$]{1,200}\n\Z')
 
 

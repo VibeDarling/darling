@@ -1,0 +1,1 @@
+void AuthoredPathStage(int stage);
