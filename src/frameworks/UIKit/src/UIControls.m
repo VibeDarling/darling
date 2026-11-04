@@ -1299,7 +1299,7 @@ static BOOL UIKitFieldShouldChange(NSTextField *field, NSRange range, NSString *
 	if ([_delegate respondsToSelector:@selector(textFieldDidEndEditing:)])
 		[_delegate textFieldDidEndEditing:self];
 	[self sendActionsForControlEvents:UIControlEventEditingDidEnd];
-	[[NSNotificationCenter defaultCenter] postNotificationName:@"UITextFieldTextDidEndEditingNotification" object:self];
+	[[NSNotificationCenter defaultCenter] postNotificationName:UITextFieldTextDidEndEditingNotification object:self];
 }
 
 /* Return in the field. */

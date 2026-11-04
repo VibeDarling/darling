@@ -25,6 +25,18 @@
 static NSHashTable<UIWindow *> *sWindows;
 static __weak UIWindow *sKeyWindow;
 
+static void UIKitWindowBecomeKey(UIWindow *window)
+{
+	UIWindow *previous = sKeyWindow;
+	if (previous == window)
+		return;
+	sKeyWindow = window;
+	NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+	if (previous != nil)
+		[center postNotificationName:UIWindowDidResignKeyNotification object:previous];
+	[center postNotificationName:UIWindowDidBecomeKeyNotification object:window];
+}
+
 @implementation UIWindow
 
 + (UIWindow *)uikitKeyWindow
@@ -110,6 +122,7 @@ static __weak UIWindow *sKeyWindow;
 
 - (void)setHidden:(BOOL)hidden
 {
+	BOOL wasHidden = [self isHidden];
 	[super setHidden:hidden];
 	if (hidden) {
 		[(NSWindow *)_hostWindow orderOut:nil];
@@ -117,6 +130,8 @@ static __weak UIWindow *sKeyWindow;
 	} else {
 		[self orderFront:nil];
 	}
+	if (wasHidden != hidden)
+		[[NSNotificationCenter defaultCenter] postNotificationName:hidden ? UIWindowDidBecomeHiddenNotification : UIWindowDidBecomeVisibleNotification object:self];
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -178,17 +193,35 @@ static __weak UIWindow *sKeyWindow;
 
 - (void)makeKeyAndVisible
 {
-	sKeyWindow = self;
+	BOOL wasHidden = [self isHidden];
+	UIKitWindowBecomeKey(self);
 	[super setHidden:NO];
 	[(NSWindow *)_hostWindow makeKeyAndOrderFront:nil];
 	[[_rootViewController view] layoutIfNeeded];
 	[_rootViewController uikitAppear:NO];
+	if (wasHidden)
+		[[NSNotificationCenter defaultCenter] postNotificationName:UIWindowDidBecomeVisibleNotification object:self];
 }
 
 - (void)makeKeyWindow
 {
-	sKeyWindow = self;
+	UIKitWindowBecomeKey(self);
 	[(NSWindow *)_hostWindow makeKeyWindow];
+}
+
+@end
+
+/* -[UIView window] is AppKit's, so apps that ask a view for its window get the
+ * hosting NSWindow. Messages only a UIWindow answers (rootViewController,
+ * overrideUserInterfaceStyle, windowScene, ...) go on to the UIWindow it hosts. */
+@implementation NSWindow (UIKitHostedWindow)
+
+- (id)forwardingTargetForSelector:(SEL)selector
+{
+	id content = [self contentView];
+	if ([content isKindOfClass:[UIWindow class]] && [content respondsToSelector:selector])
+		return content;
+	return nil;
 }
 
 @end

@@ -245,16 +245,24 @@ static NSDictionary *UIKitSceneManifest(void)
 	return [manifest isKindOfClass:[NSDictionary class]] ? manifest : nil;
 }
 
-BOOL UIKitUsesScenes(void)
-{
-	return UIKitSceneManifest() != nil;
-}
-
 /* The Info.plist's configurations for the role: a list of dictionaries. */
 static NSArray<NSDictionary *> *UIKitPlistConfigurations(UISceneSessionRole role)
 {
 	id configurations = [[UIKitSceneManifest() objectForKey:@"UISceneConfigurations"] objectForKey:role];
 	return [configurations isKindOfClass:[NSArray class]] ? configurations : @[];
+}
+
+/* As on iOS, a scene manifest alone does not make the app scene-based: it needs a configuration to
+   connect its scene with, from the Info.plist or from its delegate. A manifest with none (an app whose
+   SceneDelegate was removed) keeps the main storyboard, the delegate's window and its callbacks. */
+BOOL UIKitUsesScenes(void)
+{
+	if (UIKitSceneManifest() == nil)
+		return NO;
+	if ([UIKitPlistConfigurations(UIWindowSceneSessionRoleApplication) count] > 0)
+		return YES;
+	id delegate = [[UIApplication sharedApplication] delegate];
+	return [delegate respondsToSelector:@selector(application:configurationForConnectingSceneSession:options:)];
 }
 
 static Class UIKitClassNamed(NSString *name)

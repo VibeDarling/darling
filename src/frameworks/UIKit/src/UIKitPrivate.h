@@ -34,6 +34,10 @@
 @interface UIView (DarlingPrivate)
 - (void)setWindow:(UIWindow *)window;
 - (void)attachToWindow:(UIWindow *)window;
+- (BOOL)uikitDrawsOnlyBackground;
+- (void)uikitLayoutSubtreeIfNeeded;
+/* Moves the view without redrawing where it was and is: the caller does. */
+- (void)uikitSetFrameQuietly:(NSRect)frame;
 @end
 
 /* The status bar along the top of the screen: 20 points, or the notch's
@@ -100,6 +104,12 @@ CGFloat UIKitPreferredWidthOfBarView(UIView *view);
 @interface UIScrollView (DarlingPrivate)
 /* Called after the content offset changes. */
 - (void)uikitDidScroll;
+/* Whether what the scroll view itself draws is attached to its content (as a table's
+   separators are), so that scrolling may move its pixels with the content. */
+- (BOOL)uikitDrawingScrollsWithContent;
+/* Moves a subview that stays in front of the content (the indicator, a pinned header): while a
+   scroll is being drawn, where it was and is are drawn apart from the rest. */
+- (void)uikitMoveSubview:(UIView *)view toFrame:(NSRect)frame;
 /* A press that did not become a drag. */
 - (void)uikitTouchesBegan:(NSSet *)touches withEvent:(UIEvent *)event;
 - (void)uikitTouchesEnded:(NSSet *)touches withEvent:(UIEvent *)event;

@@ -67,6 +67,14 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 @interface UITableViewCell ()
 @property (nonatomic, weak) UITableView *uikitTableView;
 @property (nonatomic) BOOL uikitShowsDeleteButton;
+/* The view a content configuration made (set by UIKit's Swift overlay); it sizes the cell. */
+@property (nonatomic, weak) UIView *uikitConfigurationView;
+- (CGFloat)uikitFittingHeight;
+- (void)uikitContentSizeChanged;
+@end
+
+@interface UITableView (UIKitSelfSizing)
+- (void)uikitCellContentSizeChanged:(UITableViewCell *)cell;
 @end
 
 /* The views nibs archive inside a cell. */
@@ -424,6 +432,24 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 	[self setNeedsLayout];
 }
 
+/* The height a self-sizing row takes: what its configuration's view needs at the content
+   view's width, or 0 when the cell doesn't size itself. */
+- (CGFloat)uikitFittingHeight
+{
+	UIView *view = _uikitConfigurationView;
+	if (view == nil || [view superview] != _contentView)
+		return 0;
+	[self layoutIfNeeded];
+	CGSize size = [view sizeThatFits:CGSizeMake([_contentView bounds].size.width, CGFLOAT_MAX)];
+	return size.height > 0 && size.height < 1e6 ? ceil(size.height) : 0;
+}
+
+/* Called by the configuration's view when what it shows needs another height. */
+- (void)uikitContentSizeChanged
+{
+	[[self uikitTableView] uikitCellContentSizeChanged:self];
+}
+
 - (void)prepareForReuse
 {
 	_highlighted = NO;
@@ -562,6 +588,7 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 	CGFloat footerHeight;
 	CGFloat rowsTop;
 	CGFloat *rowOffsets; /* rows + 1 entries: each row's top, then the end */
+	BOOL *selfSizing; /* rows of automatic height: measured whenever a cell shows them */
 	NSString *headerTitle;
 	NSString *footerTitle;
 }
@@ -572,6 +599,7 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 - (void)dealloc
 {
 	free(rowOffsets);
+	free(selfSizing);
 }
 
 @end
@@ -580,6 +608,9 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 	UITableViewStyle _style;
 	__weak id<UITableViewDataSource> _dataSource;
 	CGFloat _rowHeight;
+	/* Rows are UITableViewAutomaticDimension, iOS's default: cells that can size themselves
+	   are measured when they first show, starting from the estimate. */
+	BOOL _automaticRowHeight;
 	NSMutableArray<UIKitTableSection *> *_sections;
 	NSMutableDictionary<NSIndexPath *, UITableViewCell *> *_visibleCells;
 	NSMutableDictionary<NSString *, NSMutableArray<UITableViewCell *> *> *_reusableCells;
@@ -618,6 +649,7 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 		return nil;
 	_style = style;
 	_rowHeight = 44;
+	_automaticRowHeight = YES;
 	_sectionHeaderHeight = style == UITableViewStyleGrouped ? 35 : 22;
 	_sectionFooterHeight = style == UITableViewStyleGrouped ? 17 : 22;
 	_separatorStyle = UITableViewCellSeparatorStyleSingleLine;
@@ -646,8 +678,12 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 - (void)uikitDecodeNib:(NSCoder *)coder
 {
 	[super uikitDecodeNib:coder];
-	if ([coder containsValueForKey:@"UIRowHeight"])
-		_rowHeight = [coder decodeDoubleForKey:@"UIRowHeight"];
+	if ([coder containsValueForKey:@"UIRowHeight"]) {
+		CGFloat height = [coder decodeDoubleForKey:@"UIRowHeight"];
+		_automaticRowHeight = height <= 0;
+		if (height > 0)
+			_rowHeight = height;
+	}
 	if ([coder containsValueForKey:@"UISectionHeaderHeight"])
 		_sectionHeaderHeight = [coder decodeDoubleForKey:@"UISectionHeaderHeight"];
 	if ([coder containsValueForKey:@"UISectionFooterHeight"])
@@ -701,6 +737,7 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 
 - (void)setRowHeight:(CGFloat)rowHeight
 {
+	_automaticRowHeight = rowHeight == UITableViewAutomaticDimension;
 	_rowHeight = rowHeight > 0 ? rowHeight : 44;
 	_needsReload = YES;
 	[self setNeedsLayout];
@@ -803,13 +840,21 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 		y += section->headerHeight;
 		section->rowsTop = y;
 		section->rowOffsets = malloc(sizeof(CGFloat) * (section->rows + 1));
+		section->selfSizing = calloc(section->rows + 1, sizeof(BOOL));
 		for (NSInteger r = 0; r < section->rows; r++) {
 			section->rowOffsets[r] = y;
 			CGFloat height = _rowHeight;
+			BOOL automatic = _automaticRowHeight;
 			if (variable) {
 				height = [delegate tableView:self heightForRowAtIndexPath:[NSIndexPath indexPathForRow:r inSection:s]];
+				automatic = height == UITableViewAutomaticDimension;
 				if (height < 0)
 					height = _rowHeight;
+			}
+			if (automatic) {
+				section->selfSizing[r] = YES;
+				if (_estimatedRowHeight > 0)
+					height = _estimatedRowHeight;
 			}
 			y += height;
 		}
@@ -1066,11 +1111,78 @@ static NSInteger UIKitRowAtOffset(UIKitTableSection *section, CGFloat y)
 	return view;
 }
 
+/* Adds a cell below the views that stay in front of the rows (section headers, the index,
+   the scroll indicator), so that they need not be brought forward again as rows come in:
+   moving a view to the front redraws it. */
+- (void)uikitAddCell:(UITableViewCell *)cell
+{
+	static Class indicatorClass;
+	if (indicatorClass == Nil)
+		indicatorClass = NSClassFromString(@"UIKitScrollIndicator");
+	NSArray *headers = [_headerViews allValues];
+	for (NSView *view in [self subviews]) {
+		if (view == _indexView || [view isKindOfClass:indicatorClass] || [headers indexOfObjectIdenticalTo:view] != NSNotFound) {
+			[self addSubview:cell positioned:NSWindowBelow relativeTo:view];
+			return;
+		}
+	}
+	[self addSubview:cell];
+}
+
+/* A shown cell's content now needs another height (its SwiftUI state changed). */
+- (void)uikitCellContentSizeChanged:(UITableViewCell *)cell
+{
+	NSIndexPath *path = [[_visibleCells allKeysForObject:cell] firstObject];
+	if (path == nil || [path section] >= (NSInteger)[_sections count])
+		return;
+	UIKitTableSection *info = [_sections objectAtIndex:[path section]];
+	if ([path row] >= info->rows || !info->selfSizing[[path row]])
+		return;
+	CGRect rect = [self rectForRowAtIndexPath:path];
+	CGFloat height = [cell uikitFittingHeight];
+	if (height <= 0 || height == rect.size.height)
+		return;
+	[self uikitSetHeight:height ofRow:[path row] inSection:[path section]];
+	NSRect bounds = [self bounds];
+	if (rect.origin.y < NSMaxY(bounds))
+		[self setNeedsDisplayInRect:NSMakeRect(0, rect.origin.y, bounds.size.width, NSMaxY(bounds) - rect.origin.y)];
+	if (_tiling)
+		[self setNeedsLayout];
+	else
+		[self tile];
+}
+
+/* Gives a self-sized row its height, moving everything below it. */
+- (void)uikitSetHeight:(CGFloat)height ofRow:(NSInteger)row inSection:(NSInteger)section
+{
+	UIKitTableSection *info = [_sections objectAtIndex:section];
+	CGFloat delta = height - (info->rowOffsets[row + 1] - info->rowOffsets[row]);
+	for (NSInteger r = row + 1; r <= info->rows; r++)
+		info->rowOffsets[r] += delta;
+	for (NSUInteger s = section + 1; s < [_sections count]; s++) {
+		UIKitTableSection *next = [_sections objectAtIndex:s];
+		next->top += delta;
+		next->rowsTop += delta;
+		for (NSInteger r = 0; r <= next->rows; r++)
+			next->rowOffsets[r] += delta;
+	}
+	if (_tableFooterView != nil) {
+		NSRect frame = [_tableFooterView frame];
+		frame.origin.y += delta;
+		[_tableFooterView setFrame:frame];
+	}
+	CGSize size = [self contentSize];
+	size.height += delta;
+	[self setContentSize:size];
+}
+
 - (void)tile
 {
 	if (_tiling)
 		return;
 	_tiling = YES;
+	CGFloat resizedTop = CGFLOAT_MAX;
+retile:;
 	NSRect bounds = [self bounds];
 	CGFloat width = bounds.size.width;
 	CGFloat top = bounds.origin.y, bottom = NSMaxY(bounds);
@@ -1085,6 +1197,7 @@ static NSInteger UIKitRowAtOffset(UIKitTableSection *section, CGFloat y)
 	id<UITableViewDataSource> dataSource = _dataSource;
 	id<UITableViewDelegate> delegate = [self delegate];
 	BOOL canDelete = _editing && [dataSource respondsToSelector:@selector(tableView:commitEditingStyle:forRowAtIndexPath:)];
+	BOOL resized = NO;
 	for (NSIndexPath *path in [[wanted allObjects] sortedArrayUsingSelector:@selector(compare:)]) {
 		CGRect rect = [self rectForRowAtIndexPath:path];
 		UITableViewCell *cell = [_visibleCells objectForKey:path];
@@ -1108,12 +1221,32 @@ static NSInteger UIKitRowAtOffset(UIKitTableSection *section, CGFloat y)
 			[cell setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
 			if ([delegate respondsToSelector:@selector(tableView:willDisplayCell:forRowAtIndexPath:)])
 				[delegate tableView:self willDisplayCell:cell forRowAtIndexPath:path];
-			[self addSubview:cell];
+			[self uikitAddCell:cell];
 			[cell layoutIfNeeded];
+			UIKitTableSection *info = [_sections objectAtIndex:[path section]];
+			/* Measured again each time: what the row shows may have changed since. */
+			if (info->selfSizing[[path row]]) {
+				CGFloat height = [cell uikitFittingHeight];
+				if (height > 0 && height != rect.size.height) {
+					[self uikitSetHeight:height ofRow:[path row] inSection:[path section]];
+					resized = YES;
+					resizedTop = MIN(resizedTop, rect.origin.y);
+					break;
+				}
+			}
 		} else {
-			[cell setFrame:NSMakeRect(0, rect.origin.y, width, rect.size.height)];
+			NSRect frame = NSMakeRect(0, rect.origin.y, width, rect.size.height);
+			BOOL resizedCell = !NSEqualSizes([cell frame].size, frame.size);
+			[cell setFrame:frame];
+			/* Its content (a SwiftUI view laid out for the old height) follows now, before it draws. */
+			if (resizedCell)
+				[cell layoutIfNeeded];
 		}
 	}
+
+	/* A row that measured differently moves the rows after it: lay them out again. */
+	if (resized)
+		goto retile;
 
 	/* Headers and footers of the sections in view. */
 	NSMutableSet *wantedHeaders = [NSMutableSet set];
@@ -1139,9 +1272,8 @@ static NSInteger UIKitRowAtOffset(UIKitTableSection *section, CGFloat y)
 			/* Plain tables keep the current section's header pinned. */
 			if (!footer && _style == UITableViewStylePlain && y < top)
 				y = MIN(top, info->rowOffsets[info->rows] - height);
-			[view setFrame:NSMakeRect(0, y, width, height)];
-			if (!footer && _style == UITableViewStylePlain)
-				[self addSubview:view positioned:NSWindowAbove relativeTo:nil];
+			/* A pinned header stays put while the content moves: what scrolling moved of it goes. */
+			[self uikitMoveSubview:view toFrame:NSMakeRect(0, y, width, height)];
 			[wantedHeaders addObject:key];
 		}
 	}
@@ -1155,11 +1287,18 @@ static NSInteger UIKitRowAtOffset(UIKitTableSection *section, CGFloat y)
 	if (_indexView != nil) {
 		if ([_indexView superview] != self)
 			[self addSubview:_indexView];
-		[_indexView setFrame:NSMakeRect(width - 18, top, 18, bounds.size.height)];
-		[self addSubview:_indexView positioned:NSWindowAbove relativeTo:nil];
+		[self uikitMoveSubview:(UIView *)_indexView toFrame:NSMakeRect(width - 18, top, 18, bounds.size.height)];
 	}
 	_tiling = NO;
-	[self setNeedsDisplay:YES];
+	/* Scrolling redraws what it exposes; rows that changed height move everything below them. */
+	if (resizedTop < NSMaxY([self bounds]))
+		[self setNeedsDisplayInRect:NSMakeRect(0, resizedTop, [self bounds].size.width, NSMaxY([self bounds]) - resizedTop)];
+}
+
+/* The separators and the empty rows' lines are drawn where the rows are. */
+- (BOOL)uikitDrawingScrollsWithContent
+{
+	return YES;
 }
 
 - (void)uikitDidScroll

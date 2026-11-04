@@ -58,6 +58,24 @@ extension UIAction {
     }
 }
 
+extension UIMenu {
+    // The iOS 16 initializer. The SDK's headers leave Swift only init(coder:),
+    // which Darling's UIMenu treats as a plain init; the rest is set through
+    // KVC, like UIAction's handler above.
+    @available(iOS 16.0, *)
+    public convenience init(title: String = "", subtitle: String? = nil, image: UIImage? = nil,
+                            identifier: UIMenu.Identifier? = nil, options: UIMenu.Options = [],
+                            preferredElementSize: UIMenu.ElementSize = .large, children: [UIMenuElement] = []) {
+        self.init(coder: NSCoder())!
+        setValue(title as NSString, forKey: "title")
+        setValue(subtitle.map { $0 as NSString }, forKey: "subtitle")
+        setValue(image, forKey: "image")
+        setValue((identifier?.rawValue ?? UUID().uuidString) as NSString, forKey: "identifier")
+        setValue(options.rawValue, forKey: "options")
+        setValue(children as NSArray, forKey: "children")
+    }
+}
+
 extension UIBarButtonItem {
     public convenience init(title: String? = nil, image: UIImage? = nil, primaryAction: UIAction? = nil, menu: UIMenu? = nil) {
         self.init()
@@ -130,10 +148,20 @@ extension UIContentView {
 private var contentConfigurationKey = 0
 private var contentConfigurationViewKey = 0
 private func setContentConfiguration(_ configuration: (any UIContentConfiguration)?, on owner: NSObject, in container: UIView) {
-    (objc_getAssociatedObject(owner, &contentConfigurationViewKey) as? UIView)?.removeFromSuperview()
+    let old = objc_getAssociatedObject(owner, &contentConfigurationKey) as? any UIContentConfiguration
+    let oldView = objc_getAssociatedObject(owner, &contentConfigurationViewKey) as? UIView
     objc_setAssociatedObject(owner, &contentConfigurationKey, configuration.map { $0 as Any }, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    // A reused cell keeps its content view when the new configuration is of the same kind, as on iOS.
+    if let configuration = configuration, let old = old, type(of: old) == type(of: configuration),
+       let contentView = oldView as? (UIView & UIContentView), contentView.supports(configuration) {
+        contentView.configuration = configuration
+        return
+    }
+    oldView?.removeFromSuperview()
+    let sizingView = NSSelectorFromString("setUikitConfigurationView:")
     guard let configuration = configuration else {
         objc_setAssociatedObject(owner, &contentConfigurationViewKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        if owner.responds(to: sizingView) { owner.perform(sizingView, with: nil) }
         return
     }
     let view = configuration.makeContentView()
@@ -141,6 +169,8 @@ private func setContentConfiguration(_ configuration: (any UIContentConfiguratio
     view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     container.addSubview(view)
     objc_setAssociatedObject(owner, &contentConfigurationViewKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    // Cells size themselves from this view (UITableView's automatic row heights).
+    if owner.responds(to: sizingView) { owner.perform(sizingView, with: view) }
 }
 
 extension UICollectionViewCell {
@@ -151,6 +181,13 @@ extension UICollectionViewCell {
 }
 
 extension UITableViewCell {
+    public var contentConfiguration: (any UIContentConfiguration)? {
+        get { objc_getAssociatedObject(self, &contentConfigurationKey) as? any UIContentConfiguration }
+        set(config) { setContentConfiguration(config, on: self, in: contentView) }
+    }
+}
+
+extension UITableViewHeaderFooterView {
     public var contentConfiguration: (any UIContentConfiguration)? {
         get { objc_getAssociatedObject(self, &contentConfigurationKey) as? any UIContentConfiguration }
         set(config) { setContentConfiguration(config, on: self, in: contentView) }

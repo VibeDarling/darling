@@ -20,6 +20,11 @@
  * A UIWindow is a UIView so that its view hierarchy is the NSWindow's content
  * view hierarchy, exactly one hosting window per UIKit root.
  */
+extern NSString *const UIWindowDidBecomeVisibleNotification;
+extern NSString *const UIWindowDidBecomeHiddenNotification;
+extern NSString *const UIWindowDidBecomeKeyNotification;
+extern NSString *const UIWindowDidResignKeyNotification;
+
 @interface UIWindow : UIView {
 @private
 	id _hostWindow;

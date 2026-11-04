@@ -250,10 +250,20 @@
 	CGContextSetLineDash(context, _dashPhase, _dash, _dashCount);
 }
 
+/* Whether all that painting path, outset by outset, would touch is clipped
+ * away: a view drawn again for a strip of it draws all its shapes, and
+ * Onyx2D strokes and fills a whole path before clipping it. */
+static BOOL uikitClippedAway(CGContextRef context, CGPathRef path, CGFloat outset)
+{
+	CGRect clip = CGContextGetClipBoundingBox(context);
+	CGRect box = CGRectInset(CGPathGetBoundingBox(path), -outset, -outset);
+	return !CGRectIntersectsRect(clip, box);
+}
+
 - (void)fillWithBlendMode:(CGBlendMode)blendMode alpha:(CGFloat)alpha
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
-	if (context == NULL)
+	if (context == NULL || uikitClippedAway(context, _path, 1))
 		return;
 	CGContextSaveGState(context);
 	CGContextSetBlendMode(context, blendMode);
@@ -269,7 +279,8 @@
 - (void)strokeWithBlendMode:(CGBlendMode)blendMode alpha:(CGFloat)alpha
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
-	if (context == NULL)
+	CGFloat outset = _lineWidth / 2 * (_lineJoinStyle == kCGLineJoinMiter ? MAX(_miterLimit, 1) : 1) + 1;
+	if (context == NULL || uikitClippedAway(context, _path, outset))
 		return;
 	CGContextSaveGState(context);
 	CGContextSetBlendMode(context, blendMode);

@@ -133,6 +133,7 @@ extern NSString *const UIApplicationUserDidTakeScreenshotNotification;
 
 extern NSString *const UITextFieldTextDidBeginEditingNotification;
 extern NSString *const UITextFieldTextDidChangeNotification;
+extern NSString *const UITextFieldTextDidEndEditingNotification;
 extern NSString *const UITextViewTextDidBeginEditingNotification;
 extern NSString *const UITextViewTextDidChangeNotification;
 extern NSString *const UITextViewTextDidEndEditingNotification;

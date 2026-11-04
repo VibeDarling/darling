@@ -184,6 +184,18 @@ CGRect UIKitArchivedFrame(NSCoder *coder)
 	}
 }
 
+/* AppKit's ordered add does not go through -addSubview:; the view needs its
+ * UIWindow all the same (a touch's window coordinates come from it). */
+- (void)addSubview:(NSView *)view positioned:(NSWindowOrderingMode)place relativeTo:(NSView *)otherView
+{
+	[super addSubview:view positioned:place relativeTo:otherView];
+	if ([view isKindOfClass:[UIView class]]) {
+		if (_uiWindow != nil)
+			[(UIView *)view attachToWindow:_uiWindow];
+		[self setNeedsLayout];
+	}
+}
+
 - (void)layoutSubviews
 {
 }
@@ -208,9 +220,24 @@ CGRect UIKitArchivedFrame(NSCoder *coder)
  * now; AppKit leaves that to the caller.  Views laid out after their window
  * first displayed (from -layoutSubviews) would otherwise never be drawn.
  */
+static BOOL sQuietFrameChange;
+
+/* A move whose redrawing the caller does itself (a scroll view moving its indicator). */
+- (void)uikitSetFrameQuietly:(NSRect)frame
+{
+	sQuietFrameChange = YES;
+	@try {
+		[self setFrame:frame];
+	} @finally {
+		sQuietFrameChange = NO;
+	}
+}
+
 - (void)setFrame:(NSRect)frame
 {
 	NSRect old = [self frame];
+	BOOL quiet = sQuietFrameChange;
+	sQuietFrameChange = NO;
 	[super setFrame:frame];
 	[_uiLayer setBounds:NSRectToCGRect([self bounds])];
 	if (NSEqualRects(old, frame))
@@ -220,7 +247,7 @@ CGRect UIKitArchivedFrame(NSCoder *coder)
 	if (!NSEqualSizes(old.size, frame.size))
 		[self setNeedsLayout];
 	NSView *superview = [self superview];
-	if (superview != nil && [self window] != nil) {
+	if (!quiet && superview != nil && [self window] != nil) {
 		[superview setNeedsDisplayInRect:old];
 		[superview setNeedsDisplayInRect:frame];
 	}
@@ -261,6 +288,22 @@ CGRect UIKitArchivedFrame(NSCoder *coder)
 		_uiNeedsLayout = NO;
 		[self layoutSubviews];
 	}
+	/* As on iOS, the subviews that need it are laid out too (a cell's hosted
+	 * SwiftUI view, resized with it, before the cell draws). */
+	for (NSView *subview in [[self subviews] copy])
+		if ([subview isKindOfClass:[UIView class]])
+			[(UIView *)subview uikitLayoutSubtreeIfNeeded];
+}
+
+- (void)uikitLayoutSubtreeIfNeeded
+{
+	if (_uiNeedsLayout) {
+		_uiNeedsLayout = NO;
+		[self layoutSubviews];
+	}
+	for (NSView *subview in [[self subviews] copy])
+		if ([subview isKindOfClass:[UIView class]])
+			[(UIView *)subview uikitLayoutSubtreeIfNeeded];
 }
 
 #pragma mark - Touches
@@ -935,12 +978,25 @@ static BOOL sAnimationsDisabled;
 
 - (void)drawRect:(NSRect)rect
 {
-	if (_uiBackgroundColor != nil) {
+	/* An opaque GL frame covers the whole view: filling under it first
+	 * would cost as much again as drawing it. */
+	BOOL covered = [_uiLayer isOpaque] && [_uiLayer contents] != nil
+		&& [_uiLayer isKindOfClass:NSClassFromString(@"CAEAGLLayer")];
+	if (_uiBackgroundColor != nil && !covered) {
 		[_uiBackgroundColor setFill];
 		NSRectFill(rect);
 	}
 	if (_uiLayer != nil)
 		[self uikitDrawLayerContents];
+}
+
+/* Whether the view draws nothing but its background colour (UIColors are
+ * solid: patterns are drawn as one colour), the same everywhere it covers. */
+- (BOOL)uikitDrawsOnlyBackground
+{
+	if ([[self class] instanceMethodForSelector:@selector(drawRect:)] != [UIView instanceMethodForSelector:@selector(drawRect:)])
+		return NO;
+	return [_uiLayer contents] == nil;
 }
 
 @end
