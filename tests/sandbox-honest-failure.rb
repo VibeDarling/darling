@@ -60,7 +60,7 @@ Dir.mktmpdir('sandbox-') do |dir|
     "-I#{dir}", "-I#{root}/src/libsandbox/include", "#{dir}/probe.c", "#{root}/src/libsandbox/src/sandbox.c",
     "#{root}/src/sandbox/sandbox.c", '-I' + "#{root}/src/sandbox", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'sandbox honest failure regression' unless st.success?
 end

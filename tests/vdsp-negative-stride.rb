@@ -86,7 +86,7 @@ Dir.mktmpdir('vdsp-stride-') do |dir|
   out, st = Open3.capture2e('clang', '-O2', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w',
     "-I#{vdsp}/include", "#{dir}/probe.c", "#{vdsp}/src/arith.c", "#{vdsp}/src/fft.c", '-lm', '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'vDSP negative stride regression' unless st.success?
 end

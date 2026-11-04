@@ -171,7 +171,7 @@ Dir.mktmpdir('ls-handler-') do |dir|
     "-I#{dir}", "-I#{ls}", "-I#{root}/src/startup/mldr/elfcalls", "#{dir}/probe.c", "#{ls}/LSHostOpen.c", "#{ls}/LSHostOpenBus.c", "#{ls}/LSHostOpenURL.c", '-o', "#{dir}/probe")
   abort out unless st.success?
   %w[handler open nosystemd nolibc nosymbol noelfcalls].each do |mode|
-    out, st = Open3.capture2e("#{dir}/probe", mode, rlimit_core: 0)
+    out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", mode, rlimit_core: 0)
     puts "#{mode}: #{out.lines.last}"
     abort "host handler regression (#{mode})" unless st.success?
   end

@@ -45,7 +45,7 @@ Dir.mktmpdir('bitmap-shrink-') do |dir|
   C
   out, status = Open3.capture2e('clang', '-pthread', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w', "#{dir}/probe.c", '-o', "#{dir}/probe")
   abort out unless status.success?
-  out, status = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, status = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'socket bitmap shrink regression' unless status.success?
 end

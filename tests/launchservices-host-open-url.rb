@@ -8,12 +8,12 @@ root = ARGV.fetch(0, File.expand_path('..', __dir__))
 ls = "#{root}/src/frameworks/CoreServices/src/LaunchServices"
 Dir.mktmpdir('ls-url-') do |dir|
   File.write("#{dir}/probe.c", <<~'C')
-    #include <assert.h>
+    #include <stdlib.h>
     #include <stdio.h>
     #include <string.h>
     #include "LSHostOpenURL.h"
-    static void ok(const char *u)  { if (_LSHostOpenValidateURL(u) != 0)  { printf("should accept: %s\n", u); assert(0); } }
-    static void bad(const char *u) { if (_LSHostOpenValidateURL(u) == 0) { printf("should reject: %s\n", u); assert(0); } }
+    static void ok(const char *u)  { if (_LSHostOpenValidateURL(u) != 0)  { printf("should accept: %s\n", u); fflush(stdout); exit(1); } }
+    static void bad(const char *u) { if (_LSHostOpenValidateURL(u) == 0) { printf("should reject: %s\n", u); fflush(stdout); exit(1); } }
     int main(void) {
       ok("https://example.org/");
       ok("HTTP://example.org:8080/a/b?x=1&y=%20z#frag");
@@ -50,7 +50,7 @@ Dir.mktmpdir('ls-url-') do |dir|
   out, st = Open3.capture2e('clang', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-Wall', "-I#{ls}",
     "#{dir}/probe.c", "#{ls}/LSHostOpenURL.c", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'host open URL validation regression' unless st.success?
 end

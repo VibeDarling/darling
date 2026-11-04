@@ -55,7 +55,7 @@ Dir.mktmpdir('uckey-') do |dir|
   out, st = Open3.capture2e('clang++', '-std=c++17', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w',
     "-I#{dir}", "-I#{root}/src/frameworks/CoreServices/include", "#{dir}/probe.cpp", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'UCKeyTranslate modifier regression' unless st.success?
 end

@@ -90,7 +90,7 @@ Dir.mktmpdir('gestalt-') do |dir|
     "-I#{root}/src/frameworks/CoreServices/include", "#{dir}/probe.cpp",
     "#{root}/src/frameworks/CoreServices/src/CarbonCore/Gestalt.cpp", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'gestalt system version regression' unless st.success?
 end

@@ -26,7 +26,7 @@ Dir.mktmpdir('vdsp-fftsize-') do |dir|
   out, st = Open3.capture2e('clang', '-O2', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w',
     '-include', "#{dir}/size32.h", "-I#{vdsp}/include", "#{dir}/probe.c", "#{vdsp}/src/fft.c", '-lm', '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'vDSP fft setup size guard missing' unless st.success?
 end
