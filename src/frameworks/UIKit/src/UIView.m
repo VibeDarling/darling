@@ -21,9 +21,73 @@
 - (instancetype)initWithFrame:(CGRect)frame
 {
 	self = [super initWithFrame:frame];
-	if (self != nil)
+	if (self != nil) {
 		_uiNeedsLayout = YES;
+		_uiTransform = CGAffineTransformIdentity;
+	}
 	return self;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	self = [super initWithCoder:coder];
+	if (self != nil) {
+		_uiNeedsLayout = YES;
+		_uiTransform = CGAffineTransformIdentity;
+	}
+	return self;
+}
+
+- (CGPoint)center
+{
+	CGRect frame = [self frame];
+	return CGPointMake(CGRectGetMidX(frame), CGRectGetMidY(frame));
+}
+
+- (void)setCenter:(CGPoint)center
+{
+	CGSize size = [self frame].size;
+	[self setFrameOrigin:CGPointMake(center.x - size.width / 2, center.y - size.height / 2)];
+}
+
+- (CGAffineTransform)transform
+{
+	return _uiTransform;
+}
+
+- (void)setTransform:(CGAffineTransform)transform
+{
+	_uiTransform = transform;
+}
+
+- (CGFloat)alpha
+{
+	return [self alphaValue];
+}
+
+- (void)setAlpha:(CGFloat)alpha
+{
+	[self setAlphaValue:alpha];
+}
+
+- (NSInteger)tag
+{
+	return _uiTag;
+}
+
+- (void)setTag:(NSInteger)tag
+{
+	_uiTag = tag;
+}
+
+- (BOOL)clipsToBounds
+{
+	return _uiClipsToBounds;
+}
+
+- (void)setClipsToBounds:(BOOL)clipsToBounds
+{
+	_uiClipsToBounds = clipsToBounds;
 }
 
 /* UIKit's origin is top-left; AppKit's is bottom-left. */

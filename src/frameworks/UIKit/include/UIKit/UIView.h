@@ -14,6 +14,7 @@
 
 #import <AppKit/NSView.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGAffineTransform.h>
 
 @class UIColor, UIWindow;
 
@@ -31,11 +32,26 @@
 	UIColor *_uiBackgroundColor;
 	UIWindow *_uiWindow;
 	BOOL _uiNeedsLayout;
+	CGAffineTransform _uiTransform;
+	BOOL _uiClipsToBounds;
+	NSInteger _uiTag;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame;
 
 @property (nonatomic, strong) UIColor *backgroundColor;
+
+/*
+ * Members NSView does not have.  center is derived from the frame, alpha maps
+ * to NSView's alphaValue, and tag is settable (NSView's is read-only and
+ * defaults to -1; UIKit's defaults to 0).  transform and clipsToBounds are
+ * stored state: nothing draws with them yet.
+ */
+@property (nonatomic) CGPoint center;
+@property (nonatomic) CGAffineTransform transform;
+@property (nonatomic) CGFloat alpha;
+@property (nonatomic) NSInteger tag;
+@property (nonatomic) BOOL clipsToBounds;
 
 - (void)layoutSubviews;
 - (void)setNeedsLayout;
