@@ -7,7 +7,8 @@ import tempfile
 
 recipe = Path(__file__).resolve().parents[1] / 'src/frameworks/Symbols/build-source.py'
 failures = []
-with tempfile.TemporaryDirectory(dir=Path.home()) as tmp:
+# build-source.py rejects outputs under /tmp, so use the other system temp area.
+with tempfile.TemporaryDirectory(dir='/var/tmp') as tmp:
     root = Path(tmp)
     output = root / 'out'
     command = [sys.executable, '-I', str(recipe), '--swiftc', '/bin/false', '--clang', '/bin/false',
@@ -20,6 +21,8 @@ with tempfile.TemporaryDirectory(dir=Path.home()) as tmp:
             failures.append('attempt %d: a failing compiler reported success' % attempt)
         if 'Output must be a new directory' in result.stderr:
             failures.append('attempt %d: the failed first run left the output directory behind' % attempt)
+        if 'durable output' in result.stderr:
+            failures.append('attempt %d: output path was rejected before the build ran' % attempt)
         if output.exists():
             failures.append('attempt %d: output directory still exists' % attempt)
 if failures:
