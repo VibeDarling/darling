@@ -99,7 +99,29 @@ int main(int argc, char **argv)
         CHECK(CGBitmapContextGetWidth(current()) == 101 && CGBitmapContextGetHeight(current()) == 1);
         end();
         CHECK(current() == NULL);
-        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership, scale 0 as main-screen scale, ceil of fractional pixels, end with a foreign context raising, non-finite/zero/negative sizes, 100.0000001 ceil to 101");
+        begin(CGSizeMake(2, 2), YES, 1);
+        CGContextRef own = current();
+        push(own);
+        end();
+        CHECK(current() == own);
+        pop();
+        CHECK(current() == NULL && image() == nil);
+        begin(CGSizeMake(2, 2), YES, 1);
+        own = current();
+        CGColorSpaceRef otherSpace = CGColorSpaceCreateDeviceRGB();
+        CGContextRef other = CGBitmapContextCreate(NULL, 1, 1, 8, 4, otherSpace, kCGImageAlphaPremultipliedLast);
+        CGColorSpaceRelease(otherSpace);
+        CHECK(other);
+        push(other);
+        BOOL otherRaised = NO;
+        @try { end(); } @catch (NSException *exception) { otherRaised = YES; }
+        CHECK(otherRaised && current() == other);
+        pop();
+        CHECK(current() == own);
+        end();
+        CHECK(current() == NULL);
+        CGContextRelease(other);
+        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership, scale 0 as main-screen scale, ceil of fractional pixels, end with a foreign context raising, non-finite/zero/negative sizes, 100.0000001 ceil to 101, End pops exactly one entry so a re-pushed own context stays current, End with another pushed context raises and leaves both stacks intact");
     }
     return 0;
 }
