@@ -70,6 +70,7 @@ add_framework(AVFAudio
         src/AVAudioUnitSampler.m
         src/AVAudioUnitEffect.m
         src/AVAudioPlayerNode.m
+        src/AVAudioSourceNode.m
         src/AVAudioUnit.m
         src/AVAudioEngine.m
         src/AVAudioChannelLayout.m

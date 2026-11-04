@@ -79,6 +79,7 @@
 #import <AVFAudio/AVAudioUnitSampler.h>
 #import <AVFAudio/AVAudioUnitEffect.h>
 #import <AVFAudio/AVAudioPlayerNode.h>
+#import <AVFAudio/AVAudioSourceNode.h>
 #import <AVFAudio/AVAudioUnit.h>
 #import <AVFAudio/AVAudioEngine.h>
 #import <AVFAudio/AVAudioChannelLayout.h>

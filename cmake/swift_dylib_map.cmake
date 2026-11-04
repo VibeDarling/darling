@@ -32,6 +32,9 @@ FUNCTION(add_swift_dylib_map target)
 	if (DARLING_FOUNDATION_SWIFT_SUPPLEMENT)
 		set(supplement_path "${CMAKE_BINARY_DIR}/src/external/foundation/swift/libDarlingFoundationSupplement.dylib")
 		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/usr/lib/swift/libDarlingFoundationSupplement.dylib:${supplement_path} -Wl,-dylib_file,@rpath/libDarlingFoundationSupplement.dylib:${supplement_path}")
+		# It was linked against the SDK, under the unversioned framework
+		# paths: targets linked without the SDK (Ruby's bundles) need them too.
+		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/System/Library/Frameworks/Foundation.framework/Foundation:${CMAKE_BINARY_DIR}/src/external/foundation/Foundation -Wl,-dylib_file,/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation:${CMAKE_BINARY_DIR}/src/external/corefoundation/CoreFoundation")
 	endif()
 
 	# CoreData's source-built generic Swift API is reexported to SDK clients.
