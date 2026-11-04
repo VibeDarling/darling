@@ -94,6 +94,17 @@ inspection failure (-1) from mismatch (0), so `shutdownOrphans()` and `darling s
 fail closed instead of treating an unreadable server as absent and killing guests
 or spawning a duplicate server.
 
+For container integration testing, use the fixed launcher with two disposable
+prefixes. Boot both, shut down the first, check the second server PID remains
+alive and serves another request, then shut down the second. Do not run the
+historical launcher's shutdown path alongside any valuable running container.
+
+Nonroot shellspawn has a separate process tree. The launcher records its host PID
+at startup and validates its user and exact prefix socket environment before
+obtaining a shutdown target. Existing nonroot containers started by an older
+launcher lack this record and are refused rather than falling back to a global
+process-name search. Start disposable nonroot tests with the fixed launcher.
+
 ## Missing init pid file
 
 Run without root or any Darling container:
@@ -108,14 +119,3 @@ temporary directory, and runs three cases. A live darlingserver with a missing
 or invalid `.init.pid` and a failed server inspection must both refuse with
 exit 1 and no unlink, setup, spawn or pid write. A verified absence of a server
 must proceed with setup. The script fails if the branch's shape changes.
-
-For container integration testing, use the fixed launcher with two disposable
-prefixes. Boot both, shut down the first, check the second server PID remains
-alive and serves another request, then shut down the second. Do not run the
-historical launcher's shutdown path alongside any valuable running container.
-
-Nonroot shellspawn has a separate process tree. The launcher records its host PID
-at startup and validates its user and exact prefix socket environment before
-obtaining a shutdown target. Existing nonroot containers started by an older
-launcher lack this record and are refused rather than falling back to a global
-process-name search. Start disposable nonroot tests with the fixed launcher.
