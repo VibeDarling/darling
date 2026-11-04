@@ -50,6 +50,7 @@ NSNotificationName const UIDeviceOrientationDidChangeNotification = @"UIDeviceOr
     return [self model];
 }
 
+// The host macOS version, not an iOS or Mac Catalyst version number.
 - (NSString *)systemVersion
 {
     NSOperatingSystemVersion v = [[NSProcessInfo processInfo] operatingSystemVersion];
