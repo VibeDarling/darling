@@ -72,6 +72,11 @@
 	}
 }
 
+- (BOOL)isDescendantOfView:(NSView *)view
+{
+	return [self isDescendantOf:view];
+}
+
 - (void)layoutSubviews
 {
 }
