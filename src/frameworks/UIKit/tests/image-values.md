@@ -39,7 +39,9 @@ artifact (missing UIImage/PNG export, expected exit 1), then the new artifact
 
 The fixture creates authored straight RGBA pixels before checking missing APIs.
 It tests CGImage caller-release and pool-drain ownership, default scale/orientation,
-all eight orientation sizes at scale 2, immutable copies and explicit nil results
+all eight orientation sizes at scale 2, immutable copies, the raises for zero, negative,
+NaN and infinite scale and for out-of-range orientation (a counting subclass checks the
+rejected instance is deallocated exactly once) and explicit nil results
 for unsupported inputs. Its PNG must decode to 4x2 and all 32 original RGBA bytes,
 including fractional and zero alpha. Decode only this authored output, for example
 with ImageMagick read-only `magick fixture.png -depth 8 rgba:-`; compare every byte
