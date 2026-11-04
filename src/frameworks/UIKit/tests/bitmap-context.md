@@ -28,7 +28,7 @@ Authored baseline test bitmap-context.m dynamically looks up the three functions
 against the unchanged d216 UIKit artifact. It must fail missing exports. The same
 executable against a candidate verifies scale2 pixels, exact CTM, opaque/translucent
 formats, partial alpha, nested contexts, foreign context getnil/endno-op, retained
-snapshot bytes after cleanup, nil restoration, scale 0 as the main-screen scale, ceil of fractional pixels (including 100.0000001 to 101), the raise on a foreign current context, rejection of NaN, infinite, zero and negative sizes and NaN scale, and that ending after pushing the same bitmap context again pops every entry for it so the stack returns to its prior depth.
+snapshot bytes after cleanup, nil restoration, scale 0 as the main-screen scale, ceil of fractional pixels (including 100.0000001 to 101), the raise on a foreign current context, rejection of NaN, infinite, zero and negative sizes and NaN scale.
 
 Compile serially only in an owner-granted short shared-lock slot:
 

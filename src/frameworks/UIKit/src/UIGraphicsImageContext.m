@@ -130,8 +130,7 @@ void UIGraphicsEndImageContext(void)
         return;
     if (frame.context != UIGraphicsGetCurrentContext())
         [NSException raise:NSInternalInconsistencyException format:@"UIGraphicsEndImageContext called with another context current"];
-    while (UIGraphicsGetCurrentContext() == frame.context)
-        UIGraphicsPopContext();
+    UIGraphicsPopContext();
     [stack removeLastObject];
     if ([stack count] == 0)
         [[[NSThread currentThread] threadDictionary] removeObjectForKey:imageStackKey];

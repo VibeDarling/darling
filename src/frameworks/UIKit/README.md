@@ -80,4 +80,8 @@ This implements context selection, without claiming rendering or image APIs.
 ARGB, which the PNG wrapper does not support, so `UIImagePNGRepresentation` of such a
 snapshot returns nil. Re-encode through an RGBA8 CGImage first. Scale 0 in
 `UIGraphicsBeginImageContextWithOptions` uses the main screen scale, and fractional pixel
-sizes are rounded up.
+sizes are rounded up. `UIGraphicsEndImageContext` pops one entry and only when the
+current context is the frame's own bitmap context; otherwise it raises and leaves both
+stacks intact. Pushing the same bitmap context again after Begin and then calling End
+leaves that context current, a boundary of the conservative local rung 6 policy with no
+observed Apple contract.
