@@ -3546,7 +3546,16 @@ void setupPrefix()
 
 	useOriginalIds();
 
+	// The server socket lives in the prefix root, so a prefix created here is
+	// private to its owner whatever the umask. An existing directory keeps its mode.
+	struct stat st;
+	bool prefixExisted = lstat(prefix, &st) == 0;
 	createDir(prefix);
+	if (!prefixExisted && chmod(prefix, 0700) != 0)
+	{
+		fprintf(stderr, "Cannot set the mode of %s: %s\n", prefix, strerror(errno));
+		exit(1);
+	}
 	strcpy(path, prefix);
 	strcat(path, "/");
 	plen = strlen(path);
@@ -3760,6 +3769,12 @@ void checkPrefixOwner()
 		if (g_originalUid != 0 && st.st_uid != g_originalUid)
 		{
 			fprintf(stderr, "You do not own the prefix directory.\n");
+			exit(1);
+		}
+		// The prefix root holds the server socket; only its owner may write it.
+		if (st.st_mode & S_IWOTH)
+		{
+			fprintf(stderr, "The prefix directory %s is writable by other users. Run: chmod o-w %s\n", prefix, prefix);
 			exit(1);
 		}
 	}
