@@ -32,11 +32,7 @@
 #import <ImageIO/CGImageDestination.h>
 #include <math.h>
 
-@implementation UIImage {
-    CGImageRef _CGImage;
-    CGFloat _scale;
-    UIImageOrientation _orientation;
-}
+@implementation UIImage
 - (instancetype)init
 {
     [NSException raise:NSInvalidArgumentException format:@"Use a CGImage initializer"];
