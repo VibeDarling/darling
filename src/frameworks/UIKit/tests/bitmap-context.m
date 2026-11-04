@@ -86,7 +86,35 @@ int main(int argc, char **argv)
         @try { begin(CGSizeMake(1, 1), NO, -1); }
         @catch (NSException *exception) { rejected = YES; }
         CHECK(rejected && current() == NULL);
-        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership, scale 0 as main-screen scale, ceil of fractional pixels, end with a foreign context raising");
+        CGSize badSizes[] = {{NAN, 1}, {1, NAN}, {0, 1}, {1, 0}, {-1, 1}, {1, -1}, {INFINITY, 1}, {1, INFINITY}};
+        for (unsigned i = 0; i < sizeof(badSizes) / sizeof(badSizes[0]); i++) {
+            rejected = NO;
+            @try { begin(badSizes[i], YES, 1); } @catch (NSException *exception) { rejected = YES; }
+            CHECK(rejected && current() == NULL);
+        }
+        rejected = NO;
+        @try { begin(CGSizeMake(1, 1), YES, NAN); } @catch (NSException *exception) { rejected = YES; }
+        CHECK(rejected && current() == NULL);
+        begin(CGSizeMake(100.0000001, 1), YES, 1);
+        CHECK(CGBitmapContextGetWidth(current()) == 101 && CGBitmapContextGetHeight(current()) == 1);
+        end();
+        CHECK(current() == NULL);
+        begin(CGSizeMake(2, 2), YES, 1);
+        CGContextRef again = current();
+        push(again);
+        push(again);
+        CHECK(current() == again);
+        end();
+        CHECK(current() == NULL && image() == nil);
+        begin(CGSizeMake(2, 2), YES, 1);
+        CGContextRef under = current();
+        begin(CGSizeMake(1, 1), YES, 1);
+        push(current());
+        end();
+        CHECK(current() == under);
+        end();
+        CHECK(current() == NULL);
+        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership, scale 0 as main-screen scale, ceil of fractional pixels, end with a foreign context raising, non-finite/zero/negative sizes, 100.0000001 ceil to 101, ending after re-pushing the same context restores the prior depth");
     }
     return 0;
 }
