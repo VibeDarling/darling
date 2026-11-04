@@ -8,13 +8,16 @@ UISceneSessionRole const UIWindowSceneSessionRoleApplication = @"UIWindowSceneSe
 @synthesize delegateClass = _delegateClass;
 - (instancetype)init
 {
+    self = nil;
     [NSException raise:NSInvalidArgumentException format:@"Use initWithName:sessionRole:"];
     return nil;
 }
 - (instancetype)initWithName:(NSString *)name sessionRole:(UISceneSessionRole)sessionRole
 {
-    if (sessionRole == nil)
+    if (sessionRole == nil) {
+        self = nil;
         [NSException raise:NSInvalidArgumentException format:@"A scene session role is required"];
+    }
     if ((self = [super init])) {
         _name = [name copy];
         _role = [sessionRole copy];
