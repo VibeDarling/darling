@@ -290,6 +290,34 @@ static void FBDOpen(NSDictionary *request, void (^reply)(NSDictionary *))
 	reply(@{ @"pid": @(process.pid) });
 }
 
+/* A URL opened with no app named. itms-services:// asks installd to
+   install the app its manifest describes, as the app stores do. */
+static void FBDOpenURL(NSDictionary *request, void (^reply)(NSDictionary *))
+{
+	NSString *url = request[@"url"];
+	NSString *scheme = [[[NSURL URLWithString:url] scheme] lowercaseString];
+	if (![scheme isEqualToString:@"itms-services"]) {
+		reply(FBDError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"No app is registered to open %@", url]));
+		return;
+	}
+	char *argv[] = { "/usr/libexec/installd", (char *)[url UTF8String], NULL };
+	extern char **environ;
+	pid_t pid;
+	int rc = posix_spawn(&pid, argv[0], NULL, NULL, argv, environ);
+	if (rc != 0) {
+		reply(FBDError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"Cannot start installd: %s", strerror(rc)]));
+		return;
+	}
+	FBDLog(@"started installd (%d) for %@", pid, url);
+	FBDDetach(^{
+		int status;
+		while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+			;
+		FBDLog(@"installd (%d) exited with status %d", pid, WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+	});
+	reply(@{});
+}
+
 /* The home screen, if one is installed and not already running. It comes
    to the front only when no other app is there. */
 static void FBDLaunchSystemApp(void)
@@ -472,6 +500,8 @@ static void FBDServe(int fd)
 		dispatch_async(sQueue, ^{
 			if ([op isEqualToString:@"open"])
 				FBDOpen(request, reply);
+			else if ([op isEqualToString:@"openURL"])
+				FBDOpenURL(request, reply);
 			else if ([op isEqualToString:@"terminate"])
 				FBDTerminate(request, reply);
 			else if ([op isEqualToString:@"pid"])

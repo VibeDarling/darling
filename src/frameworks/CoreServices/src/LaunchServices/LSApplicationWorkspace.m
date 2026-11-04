@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <objc/message.h>
+#include <mach/port.h>
 #import "LSApplicationProxyPrivate.h"
 
 /* iOS's view of the installed apps (MobileCoreServices). Apps live where
@@ -88,8 +89,28 @@ NSArray<LSApplicationProxy *> *LSInstalledApplicationProxies(void)
 
 - (BOOL)openURL:(NSURL *)url withOptions:(NSDictionary *)options
 {
-	NSLog(@"LSApplicationWorkspace: no app is registered to open %@", url);
-	return NO;
+	Class service = NSClassFromString(@"FBSSystemService");
+	if (service == Nil || url == nil)
+		return NO;
+	id shared = ((id (*)(id, SEL))objc_msgSend)(service, @selector(sharedService));
+	((void (*)(id, SEL, id, id, id, mach_port_t, id))objc_msgSend)(shared,
+		@selector(openURL:application:options:clientPort:withResult:), url, nil, nil, MACH_PORT_NULL, nil);
+	return YES;
+}
+
+/* installd writes how far it is with an app (0 to 1) to a file named by
+   its bundle identifier, and removes it when done. */
+- (NSProgress *)installProgressForBundleID:(NSString *)identifier makeSynchronous:(BOOL)synchronous
+{
+	if ([identifier length] == 0 || [identifier rangeOfString:@"/"].location != NSNotFound)
+		return nil;
+	NSString *path = [@"/private/var/installd/Progress" stringByAppendingPathComponent:identifier];
+	NSString *value = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL];
+	if (value == nil)
+		return nil;
+	NSProgress *progress = [NSProgress progressWithTotalUnitCount:1000];
+	[progress setCompletedUnitCount:(int64_t)([value doubleValue] * 1000)];
+	return progress;
 }
 
 - (NSArray *)installedPlugins { return @[]; }

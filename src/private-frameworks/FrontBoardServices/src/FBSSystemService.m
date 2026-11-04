@@ -209,6 +209,18 @@ static NSError *FBSErrorFromReply(NSDictionary *reply)
 
 - (void)openURL:(NSURL *)url application:(NSString *)bundleIdentifier options:(FBSOpenApplicationOptions *)options clientPort:(mach_port_t)port withResult:(void (^)(NSError *))result
 {
+	/* No app named: frontboardd finds the service for the URL's scheme. */
+	if ([bundleIdentifier length] == 0 && url != nil) {
+		NSString *string = [url absoluteString];
+		dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+			NSDictionary *reply = FBSLiteRequest(@{ @"op": @"openURL", @"url": string });
+			NSError *error = reply != nil ? FBSErrorFromReply(reply)
+				: FBSOpenError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"Nothing can open %@", string]);
+			if (result != nil)
+				result(error);
+		});
+		return;
+	}
 	NSMutableDictionary *dictionary = [[options dictionary] mutableCopy] ?: [NSMutableDictionary dictionary];
 	if (url != nil)
 		dictionary[FBSOpenApplicationOptionKeyPayloadURL] = url;
