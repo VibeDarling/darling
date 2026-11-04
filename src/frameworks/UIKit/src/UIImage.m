@@ -35,6 +35,7 @@
 @implementation UIImage
 - (instancetype)init
 {
+    self = nil;
     [NSException raise:NSInvalidArgumentException format:@"Use a CGImage initializer"];
     return nil;
 }
@@ -46,8 +47,10 @@
 {
     if (image == NULL)
         return nil;
-    if (!isfinite(scale) || scale <= 0)
+    if (!isfinite(scale) || scale <= 0) {
+        self = nil;
         [NSException raise:NSInvalidArgumentException format:@"Image scale must be finite and positive"];
+    }
     switch (orientation) {
         case UIImageOrientationUp:
         case UIImageOrientationDown:
@@ -59,6 +62,7 @@
         case UIImageOrientationRightMirrored:
             break;
         default:
+            self = nil;
             [NSException raise:NSInvalidArgumentException format:@"Unknown image orientation"];
     }
     if ((self = [super init])) {
@@ -76,7 +80,7 @@
 {
     return [[self alloc] initWithCGImage:image scale:scale orientation:orientation];
 }
-- (void)dealloc { CGImageRelease(_CGImage); }
+- (void)dealloc { if (_CGImage != NULL) CGImageRelease(_CGImage); }
 - (CGImageRef)CGImage { return _CGImage; }
 - (CGFloat)scale { return _scale; }
 - (UIImageOrientation)imageOrientation { return _orientation; }
