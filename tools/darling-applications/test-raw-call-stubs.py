@@ -50,7 +50,11 @@ class RawCallTest(unittest.TestCase):
                                "evidence": "authored test fixture"}], root, False)
             (root / "fixture.c").write_text(
                 'extern void fixture(long long, void *, double, float) __asm__("_Fixture");\n'
-                'int main(void) { fixture(-42, (void *)1, 3.25, -2.5f); return 99; }\n')
+                'int main(void) {\n'
+                '  __asm__ volatile("movz x7, #0x7777\\n movz x8, #0x1234\\n movz x19, #0x1919\\n"\n'
+                '                   "movz x20, #0x5678\\n movz x21, #0x9abc" ::: "x7", "x8", "x19", "x20", "x21");\n'
+                '  fixture(-42, (void *)1, 3.25, -2.5f);\n'
+                '  return 99;\n}\n')
             executable = root / "fixture"
             subprocess.run(["clang", "-Wall", "-Wextra", "-Werror",
                             str(root / "logger.c"), str(root / "entries.S"),
@@ -62,6 +66,10 @@ class RawCallTest(unittest.TestCase):
             self.assertIn("x0 raw=0xffffffffffffffd6", result.stderr)
             self.assertIn("i64=-42", result.stderr)
             self.assertIn("x1 raw=0x0000000000000001", result.stderr)
+            self.assertIn("x7 raw=0x0000000000007777", result.stderr)
+            self.assertIn("x8 raw=0x0000000000001234", result.stderr)
+            self.assertIn("x20 raw=0x0000000000005678", result.stderr)
+            self.assertIn("x21 raw=0x0000000000009abc", result.stderr)
             self.assertIn("v-low0 raw=0x400a000000000000", result.stderr)
             self.assertIn("f64=0x1.ap+1", result.stderr)
             self.assertIn("f32=-0x1.4p+1", result.stderr)

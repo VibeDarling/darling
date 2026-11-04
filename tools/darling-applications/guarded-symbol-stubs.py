@@ -67,7 +67,10 @@ def source_for(install_name, symbols):
     return "\n".join(lines) + "\n"
 
 
-def generate(scan, output, runtime_root, arch):
+def generate(scan, output, runtime_root, arch, darling_output=False):
+    if not darling_output:
+        raise ValueError("--runtime-root is read with llvm-objdump; pass --runtime-root-is-darling-output "
+                         "only for a Darling build output or a prefix holding guest apps, never a macOS install")
     report = json.loads(scan.read_text())
     if len(report) != 1:
         raise ValueError("Supply a filtered report for exactly one imported guest app")
@@ -102,7 +105,7 @@ def generate(scan, output, runtime_root, arch):
         (output / name).write_text(source)
     manifest = {"diagnostic_only": True, "exit_status": DIAGNOSTIC_EXIT_STATUS,
                 "scan_sha256": hashlib.sha256(scan.read_bytes()).hexdigest(),
-                "arch": arch, "runtime_root": str(runtime_root.resolve()), "modules": modules}
+                "arch": arch, "runtime_root_attested_darling_output": True, "runtime_root": str(runtime_root.resolve()), "modules": modules}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Generated {len(modules)} guarded images covering "
           f"{sum(len(m['symbols']) for m in modules)} requested exports")
@@ -113,9 +116,12 @@ def main():
     parser.add_argument("--scan", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--runtime-root", type=Path, required=True)
+    parser.add_argument("--runtime-root-is-darling-output", action="store_true",
+                        help="attest that --runtime-root is Darling build output or a Darling prefix, "
+                             "not a macOS install (AGENTS.md section 1)")
     parser.add_argument("--arch", choices=("arm64", "arm64e", "x86_64"), default="arm64")
     args = parser.parse_args()
-    generate(args.scan, args.output, args.runtime_root, args.arch)
+    generate(args.scan, args.output, args.runtime_root, args.arch, args.runtime_root_is_darling_output)
 
 
 if __name__ == "__main__":

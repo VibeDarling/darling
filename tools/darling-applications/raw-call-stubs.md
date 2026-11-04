@@ -44,12 +44,12 @@ by compiling our own assembly with Clang.
 Verification:
 
 ```
-flock /tmp/agent-locks/darling-heavy-build.lock \
-  python3 tools/darling-applications/test-raw-call-stubs.py
+python3 tools/darling-applications/test-raw-call-stubs.py
 ```
 
 The native ARM64 fixture calls an authored function with -42, an invalid address
-1, a double 3.25 and a float -2.5; the test checks capture and exit 78. The invalid
+1, a double 3.25 and a float -2.5, with sentinel values in x7, x8, x19, x20 and x21; the test checks capture,
+that x8, x20 and x21 appear in their own slots, and exit 78. The invalid
 address verifies that pointer interpretation does not dereference it. Separate
 tests compile Mach-O entry points and reject callable class data/missing evidence.
 This does not establish execution in Darling or successful Messages startup.

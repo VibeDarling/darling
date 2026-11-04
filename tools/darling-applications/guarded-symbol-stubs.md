@@ -9,8 +9,15 @@ Generate sources from a filtered demand scan of an imported guest app:
 python3 tools/darling-applications/guarded-symbol-stubs.py \
   --scan /scratch/scan/apps-filtered.json \
   --output /scratch/guarded-sources \
-  --runtime-root /scratch/committed-image/usr/local/libexec/darling
+  --runtime-root /scratch/committed-image/usr/local/libexec/darling \
+  --runtime-root-is-darling-output
 ```
+
+The tool reads install names from images under `--runtime-root` with
+`llvm-objdump --macho --dylib-id`. AGENTS.md section 1 allows that only on
+Darling's own build output, so the tool refuses to run unless
+`--runtime-root-is-darling-output` is passed. The flag is an attestation, not a
+check: never point the root at a macOS install or a volume copied from one.
 
 The output must be absent. Each generated Objective-C source defines requested
 class/metaclass names and opaque addresses for other unresolved export names.
@@ -26,7 +33,7 @@ the linker's re-export-library option. This preserves existing exports when an
 iOSSupport alias has a distinct canonical implementation. Overwriting an
 existing canonical image is rejected.
 
-Use the shared build lock. Review and commit the generator before staging any
+Review and commit the generator before staging any
 build output into a fresh private prefix. Verify all requested exports with
 `llvm-nm`, then run the real loader path and confirm the explicit refusal rather
 than reporting binding success as API compatibility. Keep runtime/source pins,
@@ -39,6 +46,5 @@ Do not stage these diagnostic images into a shared or installed runtime.
 The generic generation regression uses only authored interfaces:
 
 ```sh
-flock /tmp/agent-locks/darling-heavy-build.lock \
-  python3 tools/darling-applications/test-guarded-symbol-stubs.py
+python3 tools/darling-applications/test-guarded-symbol-stubs.py
 ```

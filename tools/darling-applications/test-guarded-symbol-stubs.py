@@ -26,6 +26,17 @@ class GuardedStubsTest(unittest.TestCase):
             self.assertIn("_write", subprocess.run(["llvm-nm", "-u", str(obj)],
                           check=True, capture_output=True, text=True).stdout)
 
+    def test_generated_image_refuses_execution_from_a_mandatory_constructor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "fixture.m"
+            source.write_text(TOOL["source_for"]("/System/Fixture", ["_FixtureUnknown"]))
+            obj = source.with_suffix(".o")
+            subprocess.run(["clang", "-target", "arm64-apple-macos11", "-c",
+                            str(source), "-o", str(obj)], check=True, capture_output=True)
+            sections = subprocess.run(["llvm-objdump", "--section-headers", str(obj)], check=True,
+                                      capture_output=True, text=True).stdout
+            self.assertIn("__mod_init_func", sections)
+
     def test_invalid_demand_is_rejected(self):
         for name, symbols in [("/System/../Fixture", ["_Valid"]),
                               ("/tmp/Fixture", ["_Valid"]),
@@ -41,11 +52,20 @@ class GuardedStubsTest(unittest.TestCase):
             scan = root / "scan.json"
             scan.write_text(json.dumps([{"missing": {"/System/Fixture": ["_Fixture"]}}]))
             output = root / "output"
-            TOOL["generate"](scan, output, root / "runtime", "arm64")
+            TOOL["generate"](scan, output, root / "runtime", "arm64", True)
             manifest = json.loads((output / "manifest.json").read_text())
             self.assertTrue(manifest["diagnostic_only"])
             with self.assertRaises(ValueError):
-                TOOL["generate"](scan, output, root / "runtime", "arm64")
+                TOOL["generate"](scan, output, root / "runtime", "arm64", True)
+
+    def test_runtime_root_requires_darling_output_attestation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scan = root / "scan.json"
+            scan.write_text(json.dumps([{"missing": {"/System/Fixture": ["_Fixture"]}}]))
+            with self.assertRaisesRegex(ValueError, "darling-output"):
+                TOOL["generate"](scan, root / "output", root / "runtime", "arm64")
+            self.assertFalse((root / "output").exists())
 
 
 if __name__ == "__main__":
