@@ -46,11 +46,11 @@ Two intuitions fail here, both toward wasted work:
 
 **"Blocks the most apps" does not mean "most valuable to fix".** The dylibs appearing in the
 most load commands are frequently Swift overlays recorded by autolinking. Check which symbols are actually imported
-before counting anything: `Audio MIDI Setup`, for instance, lists `libswiftOSLog.dylib` and
+before counting anything: in the historical 2026-09-20 measurement, `Audio MIDI Setup`, lists `libswiftOSLog.dylib` and
 `libswiftSpatial.dylib`, and its OSLog-adjacent undefined symbols are C symbols from
 libSystem such as `__os_log_impl`, `__os_log_default` and `_os_log_type_enabled`.
 
-**Framework size does not predict cost.** `Chess.app` references 8 Objective-C classes from
+**Framework size does not predict cost.** In the same historical measurement, `Chess.app` references 8 Objective-C classes from
 GameKit, a large public framework. `System Information.app` needs 20 Swift symbols from the
 much smaller private `DeviceRegulatoryInfo`.
 
@@ -100,7 +100,7 @@ works from public headers and docs or the importing app's imported-symbol list, 
 class reconstruction of an installed Apple binary. `tools/stub-gen-*` (and `darling-stub-gen`)
 must never be run on a binary from a macOS install.
 
-Sample per-library demand, by bundle: `Combine` 30 bundles, `AppIntents` 28, `UIKit` 16.
+Sample per-library demand, by bundle (historical, 2026-09-20): `Combine` 30 bundles, `AppIntents` 28, `UIKit` 16.
 
 ## Method
 
@@ -144,7 +144,7 @@ strings /tmp/x.core | grep -A2 "Library not loaded"
 main thread (`TID` equals `PID` in `coredumpctl info`). A core with no `Library not loaded`
 string, or whose `TID` differs from its `PID`, died elsewhere.
 
-Measured example: `Terminal.app` aborted with SIGABRT and a 347MB core containing no
+Historical example (2026-09-20): `Terminal.app` aborted with SIGABRT and a 347MB core containing no
 `Library not loaded` payload, on a secondary thread, with frames in the framework address
 range rather than dyld's. It cleared dyld, loaded its frameworks, spawned threads, and aborted
 inside framework code. No stub addresses that.
@@ -157,7 +157,7 @@ TextEdit, Time Machine. Darling's own `Darling Applications.app` also has none, 
 out of the count as a non-Apple bundle. Whatever stops those is not a missing framework.
 
 That list is main-executable-only. Embedded helpers and `.appex` plugins can have missing
-dependencies of their own: `Screenshot.app` is clean in its executable but its
+dependencies of their own; in the historical measurement `Screenshot.app` was clean in its executable but its
 `ScreenshotControls.appex` is missing `AppIntents`, `SwiftUI` and `WidgetKit`.
 
 That covers **direct** dependencies only. A present dependency may itself have missing
@@ -172,6 +172,8 @@ given fails with `EINVAL`, often silently. Compare `sysctl hw.pagesize` inside t
 against `getconf PAGE_SIZE` outside it.
 
 ## What a stub does and does not buy
+
+The app figures below are from the historical 2026-09-20 measurement and are not reproducible with the *Method* tools.
 
 A stub gets `dyld` past one image. Where that is the only missing dependency, the app launches.
 For Apple's own bundled applications it usually is not, because at least one remaining entry
@@ -201,7 +203,7 @@ normal path and "missing" only at the iOSSupport one, among them `Authentication
 site outside `src/external/` passes it, there is no UIKit in the tree, and a populated prefix
 has no `/System/iOSSupport` directory. Catalyst apps need a UIKit substrate; stubs will not
 reach them. Scope that work separately, and do not expect the path wiring alone to make a
-Catalyst app launch: `Clock.app`'s executable has many missing dependencies, of
+Catalyst app launch: the historical measurement found `Clock.app`'s executable has many missing dependencies, of
 which `RecapPerformanceTesting` is one.
 
 ## Reusing existing open-source implementations
