@@ -44,7 +44,12 @@ typedef NS_ENUM(NSInteger, UIImageOrientation) {
 };
 
 NS_ASSUME_NONNULL_BEGIN
-@interface UIImage : NSObject <NSCopying>
+@interface UIImage : NSObject <NSCopying> {
+@private
+    CGImageRef _CGImage;
+    CGFloat _scale;
+    UIImageOrientation _orientation;
+}
 + (nullable UIImage *)imageWithCGImage:(nullable CGImageRef)image;
 + (nullable UIImage *)imageWithCGImage:(nullable CGImageRef)image scale:(CGFloat)scale orientation:(UIImageOrientation)orientation;
 - (nullable instancetype)initWithCGImage:(nullable CGImageRef)image;
