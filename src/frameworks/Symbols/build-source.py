@@ -35,6 +35,7 @@ if args.enable_testing:
 link_command = [args.clang, '-target', args.target, '-fuse-ld=lld', '-nostdlib', '-dynamiclib',
     '-Wl,-syslibroot,' + args.guest_root, '-Wl,-platform_version,macos,' + args.minimum_os + ',' + args.minimum_os,
     '-Wl,-install_name,/System/Library/Frameworks/Symbols.framework/Versions/A/Symbols',
+    '-Wl,-compatibility_version,1.0.0', '-Wl,-current_version,190.4.0',
     '-L' + str(Path(args.guest_root) / 'usr/lib/swift'), '-L' + str(Path(args.guest_root) / 'usr/lib'),
     str(obj), '-lSystem', '-lswiftCore', '-o', str(version / 'Symbols')]
 (output / 'commands.json').write_text(json.dumps([compile_command, link_command], indent=2) + '\n')
