@@ -3,7 +3,7 @@
 # setuid-root process (no root needed): getenvTrusted, dropPrivilegesPermanently, useOriginalIds,
 # restoreRootIds, the g_nonroot/setuid(0) block at the top of main(), and the block after the mount
 # namespace join. Syscalls are replaced by an id-state simulation with injectable failures.
-# usage: [DARLING_C=path/to/darling.c] privilege-drop.sh [scratch-dir]
+# usage: [SIM_IDS=uid:gid] [DARLING_C=path/to/darling.c] privilege-drop.sh [scratch-dir]
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 src=${DARLING_C:-$here/../../src/startup/darling.c}
@@ -27,6 +27,6 @@ j=$(grep -n 'joinNamespace(pidInit, CLONE_NEWNS' "$src" | cut -d: -f1)
 c=$(awk -v s="$j" 'NR>s && /^#endif/ {print NR+1; exit}' "$src")
 d=$(awk -v s="$c" 'NR>s && /strcmp\(argv\[1\], "toolchain"\)/ {print NR-1; exit}' "$src")
 sed -n "${c},${d}p" "$src" > "$out/afterjoin.inc"
-${CC:-cc} -O0 -g -Wall -Wextra -Wno-unused-function -fsanitize=address,undefined -I"$out" \
+${CC:-cc} -O0 -g -Wall -Wextra -Wno-unused-function -fsanitize=address,undefined ${SIM_IDS:+-DUSER_UID=${SIM_IDS%:*} -DUSER_GID=${SIM_IDS#*:}} -I"$out" \
 	-o "$out/test" "$here/privilege-drop.c"
 ASAN_OPTIONS=exitcode=99 "$out/test"

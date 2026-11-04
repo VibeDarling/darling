@@ -10,8 +10,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifndef USER_UID
 #define USER_UID 1000
+#endif
+#ifndef USER_GID
 #define USER_GID 1000
+#endif
 
 static uid_t ru, eu, su;
 static gid_t rg, eg, sg;
@@ -84,6 +88,9 @@ static int sim_setgroups(size_t n, const gid_t* g)
 static int sim_getresuid(uid_t* r, uid_t* e, uid_t* s) { *r = ru; *e = eu; *s = su; return 0; }
 static int sim_getresgid(gid_t* r, gid_t* e, gid_t* s) { *r = rg; *e = eg; *s = sg; return 0; }
 static uid_t sim_geteuid(void) { return eu; }
+static uid_t sim_getuid(void) { return ru; }
+static gid_t sim_getgid(void) { return rg; }
+static gid_t sim_getegid(void) { return eg; }
 static unsigned long sim_getauxval(unsigned long t) { return t == AT_SECURE ? at_secure : 0; }
 static char* sim_getenv(const char* n) { return strcmp(n, "DARLING_NONROOT") == 0 ? (char*) env_nonroot : NULL; }
 
@@ -97,6 +104,9 @@ static char* sim_getenv(const char* n) { return strcmp(n, "DARLING_NONROOT") == 
 #define getresuid sim_getresuid
 #define getresgid sim_getresgid
 #define geteuid sim_geteuid
+#define getuid sim_getuid
+#define getgid sim_getgid
+#define getegid sim_getegid
 #define getauxval sim_getauxval
 #define getenv sim_getenv
 
