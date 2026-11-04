@@ -211,8 +211,13 @@ void* __darling_thread_create(unsigned long stack_size, unsigned long pth_obj_si
 	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
 	args.pth = pth;
-	pthread_create(&nativeLibcThread, &attr, darling_thread_entry, &args);
+	int create_err = pthread_create(&nativeLibcThread, &attr, darling_thread_entry, &args);
 	pthread_attr_destroy(&attr);
+	if (create_err != 0) {
+		// the new thread never runs, so nothing would ever clear `args.pth` below
+		fprintf(stderr, "mldr: pthread_create failed: %s\n", strerror(create_err));
+		return NULL;
+	}
 
 	while (args.pth != NULL)
 		sched_yield();
