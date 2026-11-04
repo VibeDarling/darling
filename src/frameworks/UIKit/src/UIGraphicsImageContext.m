@@ -37,15 +37,15 @@
 #include <math.h>
 #include <stdint.h>
 
-@interface UIBitmapImageContextFrame : NSObject
+@interface UIBitmapImageContextFrame : NSObject {
+    CGContextRef _context;
+    CGFloat _scale;
+}
 @property(nonatomic, readonly) CGContextRef context;
 @property(nonatomic, readonly) CGFloat scale;
 - (instancetype)initWithContext:(CGContextRef)context scale:(CGFloat)scale;
 @end
-@implementation UIBitmapImageContextFrame {
-    CGContextRef _context;
-    CGFloat _scale;
-}
+@implementation UIBitmapImageContextFrame
 - (instancetype)initWithContext:(CGContextRef)context scale:(CGFloat)scale
 {
     if ((self = [super init])) {
