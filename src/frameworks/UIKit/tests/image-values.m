@@ -13,7 +13,7 @@ static const unsigned char pixels[] = {
     10,20,30,128, 50,60,70,64, 80,90,100,0, 110,120,130,255
 };
 static int deallocCount;
-static void countingDealloc(id self, SEL _cmd)
+static void countingDealloc(__unsafe_unretained id self, SEL _cmd)
 {
     deallocCount++;
     struct objc_super super = {self, class_getSuperclass(objc_getClass("CountingImage"))};
