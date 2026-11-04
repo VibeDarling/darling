@@ -35,4 +35,48 @@
 
 FOUNDATION_EXPORT NSString *NSStringFromCGSize(CGSize size);
 
+typedef struct UIEdgeInsets {
+    CGFloat top, left, bottom, right;
+} UIEdgeInsets;
+
+typedef struct UIOffset {
+    CGFloat horizontal, vertical;
+} UIOffset;
+
+FOUNDATION_EXPORT const UIEdgeInsets UIEdgeInsetsZero;
+FOUNDATION_EXPORT const UIOffset UIOffsetZero;
+
+static inline UIEdgeInsets UIEdgeInsetsMake(CGFloat top, CGFloat left, CGFloat bottom, CGFloat right)
+{
+    UIEdgeInsets insets = {top, left, bottom, right};
+    return insets;
+}
+
+static inline UIOffset UIOffsetMake(CGFloat horizontal, CGFloat vertical)
+{
+    UIOffset offset = {horizontal, vertical};
+    return offset;
+}
+
+static inline BOOL UIEdgeInsetsEqualToEdgeInsets(UIEdgeInsets insets1, UIEdgeInsets insets2)
+{
+    return insets1.top == insets2.top && insets1.left == insets2.left &&
+           insets1.bottom == insets2.bottom && insets1.right == insets2.right;
+}
+
+static inline BOOL UIOffsetEqualToOffset(UIOffset offset1, UIOffset offset2)
+{
+    return offset1.horizontal == offset2.horizontal && offset1.vertical == offset2.vertical;
+}
+
+// No clamping: an over-inset rect gets a negative size.
+static inline CGRect UIEdgeInsetsInsetRect(CGRect rect, UIEdgeInsets insets)
+{
+    rect.origin.x += insets.left;
+    rect.origin.y += insets.top;
+    rect.size.width -= insets.left + insets.right;
+    rect.size.height -= insets.top + insets.bottom;
+    return rect;
+}
+
 #endif
