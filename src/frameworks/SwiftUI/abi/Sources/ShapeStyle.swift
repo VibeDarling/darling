@@ -27,11 +27,17 @@ public struct _ShapeStyle_Shape {
     var colorScheme: ColorScheme
     var reduceTransparency: Bool
     var increasedContrast: Bool
+    /// The environment's tint, resolved only when a style asks for it (a tint can be any style).
+    var tint: () -> ResolvedPaint?
     var defaultPaint: ResolvedPaint { colorScheme == .dark ? ResolvedPaint(red: 1, green: 1, blue: 1) : ResolvedPaint() }
     init(_ inputs: _ViewInputs) {
         foreground = inputs.foreground; colorScheme = inputs.environment.colorScheme
         reduceTransparency = inputs.environment.accessibilityReduceTransparency
         increasedContrast = inputs.environment.colorSchemeContrast == .increased
+        tint = {
+            if let tint = inputs.environment.tint { return tint.resolve(inputs) }
+            return inputs.environment.tintColor?.resolve(inputs)
+        }
     }
 }
 public struct _ShapeStyle_ShapeType { var isSupported = false }
@@ -78,6 +84,20 @@ extension ShapeStyle where Self == HierarchicalShapeStyle {
     public static var quaternary: Self { .quaternary }
 }
 extension ShapeStyle where Self == ForegroundStyle { public static var foreground: Self { .init() } }
+
+/// The environment's tint, or the accent color where none is set.
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+public struct TintShapeStyle: ShapeStyle {
+    public init() {}
+    public func _apply(to shape: inout _ShapeStyle_Shape) {
+        if let tint = shape.tint() { shape.result = tint; return }
+        Color.accentColor._apply(to: &shape)
+    }
+    public static func _apply(to type: inout _ShapeStyle_ShapeType) { type.isSupported = true }
+}
+extension ShapeStyle where Self == TintShapeStyle {
+    @_alwaysEmitIntoClient public static var tint: TintShapeStyle { .init() }
+}
 
 @frozen public struct _ForegroundStyleModifier<Style: ShapeStyle>: ViewModifier {
     public var style: Style

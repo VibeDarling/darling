@@ -79,7 +79,23 @@ private func uiColor(_ components: [CGFloat]) -> UIColor {
 }
 
 private let measuringLabel = UILabel()
+/// Text sizes already measured: a layout pass measures the same text at the same width many times
+/// (a stack measures its children before and after dividing its space), and UIKit's measurement
+/// is slow. Keyed by everything measureText reads.
+private var measuredTexts: [String: (CGSize, CGFloat, CGFloat)] = [:]
 private func measureText(_ node: RenderNode, width: CGFloat) -> (CGSize, CGFloat, CGFloat) {
+    var key = node.text + "\u{0}" + String(Double(width))
+    for property in ["font-name", "font-size", "font-weight", "font-design", "font-italic", "font-style", "font-width",
+                     "letter-spacing", "max-lines", "min-lines"] {
+        key += "\u{0}" + (node.properties[property] ?? "")
+    }
+    if let measured = measuredTexts[key] { return measured }
+    let measured = measureTextUncached(node, width: width)
+    if measuredTexts.count > 20000 { measuredTexts.removeAll(keepingCapacity: true) }
+    measuredTexts[key] = measured
+    return measured
+}
+private func measureTextUncached(_ node: RenderNode, width: CGFloat) -> (CGSize, CGFloat, CGFloat) {
     let label = measuringLabel
     label.font = font(for: node)
     let maxLines = Int(number(node, "max-lines") ?? -1)
@@ -103,7 +119,7 @@ private func sizeRange(_ layout: Placed, horizontal: Bool) -> SizeRange {
     switch node.kind {
     case "empty": return SizeRange(low: 0, high: 0)
     case "text": return horizontal ? SizeRange(low: 0, high: ideal) : SizeRange(low: ideal, high: ideal)
-    case "shape", "color", "platform": return SizeRange(low: 0, high: .infinity)
+    case "shape", "color", "platform", "geometry", "position": return SizeRange(low: 0, high: .infinity)
     case "image" where node.properties["image-resize"] != nil: return SizeRange(low: 0, high: .infinity)
     case "spacer":
         let axis = node.properties["axis"] ?? "both"
@@ -112,7 +128,11 @@ private func sizeRange(_ layout: Placed, horizontal: Bool) -> SizeRange {
     case "overlay", "background":
         return layout.children.isEmpty ? SizeRange(low: 0, high: 0)
             : sizeRange(layout.children[node.kind == "background" && layout.children.count > 1 ? 1 : 0], horizontal: horizontal)
-    case "aspect": return layout.children.first.map { sizeRange($0, horizontal: horizontal) } ?? SizeRange(low: 0, high: 0)
+    case "aspect", "offset": return layout.children.first.map { sizeRange($0, horizontal: horizontal) } ?? SizeRange(low: 0, high: 0)
+    case "scroll":
+        // Along the axes it scrolls, a scroll view takes whatever it is given.
+        if (node.properties["axes"] ?? "v").contains(horizontal ? "h" : "v") { return SizeRange(low: 0, high: .infinity) }
+        return layout.children.first.map { sizeRange($0, horizontal: horizontal) } ?? SizeRange(low: ideal, high: ideal)
     case "frame":
         if node.properties[horizontal ? "width" : "height"] != nil { return SizeRange(low: ideal, high: ideal) }
         return layout.children.first.map { sizeRange($0, horizontal: horizontal) } ?? SizeRange(low: ideal, high: ideal)
@@ -151,28 +171,50 @@ private func sizeRange(_ layout: Placed, horizontal: Bool) -> SizeRange {
 private func distribute(_ children: [Placed], available: CGFloat, horizontal: Bool) -> [CGFloat] {
     let ranges = children.map { sizeRange($0, horizontal: horizontal) }
     let minimum = ranges.reduce(0) { $0 + $1.low }
-    let largestMinimum = ranges.map(\.low).max() ?? 0
-    var low: CGFloat = 0, high = max(available, largestMinimum)
-    if available >= minimum {
-        for _ in 0..<48 {
-            let cap = (low + high) / 2
-            let used = ranges.reduce(0) { $0 + min(max(cap, $1.low), $1.high) }
-            if used > available { high = cap } else { low = cap }
-        }
+    if available < minimum { return ranges.map(\.low) }
+    // As in SwiftUI's stacks, the least flexible child is offered its share of the space first,
+    // so that the views that can grow (spacers, frames to infinity) take what the others leave.
+    var sizes = ranges.map(\.low)
+    var remaining = available - minimum
+    var count = ranges.count
+    for index in ranges.indices.sorted(by: { ranges[$0].high - ranges[$0].low < ranges[$1].high - ranges[$1].low }) {
+        let extra = min(remaining / CGFloat(count), ranges[index].high - ranges[index].low)
+        sizes[index] += extra
+        remaining -= extra
+        count -= 1
     }
-    return ranges.map { available < minimum ? $0.low : min(max(high, $0.low), $0.high) }
+    return sizes
 }
 
-/// Measures a node for a proposal; a negative dimension is unspecified.
+/// Layouts already measured in this layout pass, by node (its layoutID) and proposal: stacks
+/// measure each child before and after dividing their space, so nested stacks would otherwise
+/// measure the same views a number of times exponential in their depth.
+private struct MeasureKey: Hashable { let node: Int; let width: CGFloat; let height: CGFloat }
+private var measured: [MeasureKey: Placed] = [:]
 private func measure(_ node: RenderNode, _ width: CGFloat, _ height: CGFloat = -1) -> Placed {
+    guard node.layoutID != 0 else { return measureUncached(node, width, height) }
+    let key = MeasureKey(node: node.layoutID, width: width, height: height)
+    if let placed = measured[key] { return placed }
+    let placed = measureUncached(node, width, height)
+    measured[key] = placed
+    return placed
+}
+/// Gives every node of a tree its own layoutID, for the measurements of one layout pass.
+private func numberForLayout(_ node: inout RenderNode, _ next: inout Int) {
+    next += 1
+    node.layoutID = next
+    for index in node.children.indices { numberForLayout(&node.children[index], &next) }
+}
+/// Measures a node for a proposal; a negative dimension is unspecified.
+private func measureUncached(_ node: RenderNode, _ width: CGFloat, _ height: CGFloat = -1) -> Placed {
     var result = Placed(node: node)
     switch node.kind {
     case "empty":
         return result
     case "shape":
         if let shape = node.shape {
-            let size = shape.sizeForWidth(Double(width), height: Double(height))
-            let w = (size["width"] as? NSNumber)?.doubleValue ?? 0, h = (size["height"] as? NSNumber)?.doubleValue ?? 0
+            let size = shape.size(width: Double(width), height: Double(height))
+            let w = Double(size.width), h = Double(size.height)
             result.size = CGSize(width: w.isFinite ? max(0, w) : 0, height: h.isFinite ? max(0, h) : 0)
         }
         result.firstBaseline = result.size.height; result.lastBaseline = result.size.height
@@ -255,6 +297,48 @@ private func measure(_ node: RenderNode, _ width: CGFloat, _ height: CGFloat = -
         result.size = CGSize(width: max(apple ? 140 : 44, child.size.width + 24), height: max(apple ? 44 : 30, child.size.height + 12))
         child.origin = CGPoint(x: (result.size.width - child.size.width) / 2, y: (result.size.height - child.size.height) / 2)
         result.firstBaseline = child.origin.y + child.firstBaseline; result.lastBaseline = child.origin.y + child.lastBaseline
+        result.children = [child]
+        return result
+    case "layout":
+        guard let layout = node.layout else { return measureStack(node, width, height, kind: "zstack") }
+        // The host measures an unspecified or infinite dimension at the view's ideal size.
+        func dimensions(_ proposal: ProposedViewSize) -> (CGFloat, CGFloat) {
+            (proposal.width.map { $0.isFinite ? max(0, $0) : -1 } ?? -1, proposal.height.map { $0.isFinite ? max(0, $0) : -1 } ?? -1)
+        }
+        let pass = LayoutPass { index, proposal in
+            let (w, h) = dimensions(proposal)
+            return measure(node.children[index], w, h).size
+        }
+        let subviews = pass.subviews(count: node.children.count)
+        let proposal = ProposedViewSize(width: width < 0 ? nil : width, height: height < 0 ? nil : height)
+        result.size = layout.sizeThatFits(proposal, subviews)
+        layout.placeSubviews(CGRect(origin: .zero, size: result.size), proposal, subviews)
+        result.children = node.children.indices.map { index in
+            // As in SwiftUI, a subview the layout does not place is centered.
+            let placement = pass.placements[index]
+                ?? LayoutPlacement(position: CGPoint(x: result.size.width / 2, y: result.size.height / 2), anchor: .center, proposal: .unspecified)
+            let (w, h) = dimensions(placement.proposal)
+            var child = measure(node.children[index], w, h)
+            child.origin = CGPoint(x: placement.position.x - placement.anchor.x * child.size.width,
+                                   y: placement.position.y - placement.anchor.y * child.size.height)
+            return child
+        }
+        result.firstBaseline = result.size.height; result.lastBaseline = result.size.height
+        return result
+    case "offset":
+        guard let first = node.children.first else { return result }
+        var child = measure(first, width, height)
+        result.size = child.size
+        child.origin = CGPoint(x: number(node, "dx") ?? 0, y: number(node, "dy") ?? 0)
+        result.firstBaseline = child.firstBaseline; result.lastBaseline = child.lastBaseline
+        result.children = [child]
+        return result
+    case "position":
+        guard let first = node.children.first else { return result }
+        var child = measure(first, width, height)
+        result.size = CGSize(width: width >= 0 ? width : child.size.width, height: height >= 0 ? height : child.size.height)
+        child.origin = CGPoint(x: (number(node, "x") ?? 0) - child.size.width / 2, y: (number(node, "y") ?? 0) - child.size.height / 2)
+        result.firstBaseline = result.size.height; result.lastBaseline = result.size.height
         result.children = [child]
         return result
     case "fixed-size":
@@ -400,22 +484,28 @@ private func measureStack(_ node: RenderNode, _ width: CGFloat, _ height: CGFloa
     var fillColor: [CGFloat] = [0, 0, 0, 1]
     override func draw(_ rect: CGRect) {
         guard let shape = shape else { return }
-        let description = shape.pathForWidth(Double(bounds.width), height: Double(bounds.height))
-        guard let commands = description["commands"] as? [[Double]] else { return }
         // UIBezierPath rather than CGPath: the CGPath methods are in CoreGraphics' Swift overlay.
         let path = UIBezierPath()
-        func point(_ v: [Double], _ i: Int) -> CGPoint { CGPoint(x: v[i], y: v[i + 1]) }
-        for v in commands {
-            switch Int(v[0]) {
-            case 0 where v.count >= 3: path.move(to: point(v, 1))
-            case 1 where v.count >= 3: path.addLine(to: point(v, 1))
-            case 2 where v.count >= 5: path.addQuadCurve(to: point(v, 3), controlPoint: point(v, 1))
-            case 3 where v.count >= 7: path.addCurve(to: point(v, 5), controlPoint1: point(v, 1), controlPoint2: point(v, 3))
-            case 4: path.close()
-            default: break
+        for element in shape.path(width: Double(bounds.width), height: Double(bounds.height)).elements {
+            switch element {
+            case .move(let p): path.move(to: p)
+            case .line(let p): path.addLine(to: p)
+            case let .quadCurve(p, c): path.addQuadCurve(to: p, controlPoint: c)
+            case let .curve(p, c1, c2): path.addCurve(to: p, controlPoint1: c1, controlPoint2: c2)
+            case .closeSubpath: path.close()
             }
         }
-        path.usesEvenOddFillRule = (description["even-odd"] as? Bool) == true
+        if let stroke = shape.stroke {
+            path.lineWidth = stroke.lineWidth
+            path.lineCapStyle = stroke.lineCap
+            path.lineJoinStyle = stroke.lineJoin
+            path.miterLimit = stroke.miterLimit
+            if !stroke.dash.isEmpty { path.setLineDash(stroke.dash, count: stroke.dash.count, phase: stroke.dashPhase) }
+            uiColor(fillColor).setStroke()
+            path.stroke()
+            return
+        }
+        path.usesEvenOddFillRule = shape.isEOFilled
         uiColor(fillColor).setFill()
         path.fill()
     }
@@ -426,11 +516,15 @@ private func measureStack(_ node: RenderNode, _ width: CGFloat, _ height: CGFloa
     var action = ""
     var enabled = true
     private var armed = false
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) { armed = enabled; alpha = enabled ? 0.4 : alpha }
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if dumpTrees { fputs("SwiftUI: touch began on button \(action) (enabled \(enabled))\n", stderr) }
+        armed = enabled; alpha = enabled ? 0.4 : alpha
+    }
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { armed = false; alpha = 1 }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         let wasArmed = armed
         armed = false; alpha = 1
+        if dumpTrees { fputs("SwiftUI: touch ended on button \(action) (armed \(wasArmed), inside \(touches.first.map { bounds.contains($0.location(in: self)) } ?? false))\n", stderr) }
         guard wasArmed, let touch = touches.first, bounds.contains(touch.location(in: self)) else { return }
         _ = action.withCString { darlingActivateButton($0) }
     }
@@ -450,6 +544,20 @@ private func discard(_ view: UIView) {
     view.removeFromSuperview()
 }
 
+/// The view of a node that only lays out others (a stack, a frame, a spacer, a clear color): as
+/// in SwiftUI, a touch goes through it to whatever is below, unless it lands in one of its children.
+@objc(DarlingSwiftUILayoutView) final class LayoutView: UIView {
+    /// A visible color takes touches itself.
+    var hittable = false
+    // Darling's UIKit hit-tests with AppKit's -hitTest:, a point in the superview's coordinates.
+    private static let viewHitTest = unsafeBitCast(class_getMethodImplementation(UIView.self, NSSelectorFromString("hitTest:")),
+                                                   to: (@convention(c) (AnyObject, Selector, CGPoint) -> Unmanaged<AnyObject>?).self)
+    @objc(hitTest:) func layoutHitTest(_ point: CGPoint) -> AnyObject? {
+        let hit = LayoutView.viewHitTest(self, NSSelectorFromString("hitTest:"), point)?.takeUnretainedValue()
+        return hit === self && !hittable ? nil : hit
+    }
+}
+
 private func makeView(for kind: String) -> UIView {
     switch kind {
     case "text": return UILabel()
@@ -457,7 +565,8 @@ private func makeView(for kind: String) -> UIView {
     case "shape": return ShapeView()
     case "button": return ButtonView()
     case "scroll": return UIScrollView()
-    default: return UIView()
+    case "platform": return UIView()
+    default: return LayoutView()
     }
 }
 
@@ -505,7 +614,9 @@ private func reconcile(_ parent: UIView, _ old: UIView?, _ layout: Placed, _ fra
         shapeView.fillColor = paint(node) ?? [0, 0, 0, 1]
         shapeView.setNeedsDisplay()
     case "color":
-        view.backgroundColor = uiColor(paint(node) ?? [0, 0, 0, 1])
+        let color = paint(node) ?? [0, 0, 0, 1]
+        view.backgroundColor = uiColor(color)
+        (view as? LayoutView)?.hittable = color.count > 3 && color[3] > 0
     case "button":
         let button = view as! ButtonView
         button.action = node.properties["action"] ?? ""
@@ -516,8 +627,9 @@ private func reconcile(_ parent: UIView, _ old: UIView?, _ layout: Placed, _ fra
     default:
         break
     }
-    // A GeometryReader's frame goes back to its graph, which updates if it changed.
-    if node.kind == "geometry", let report = geometryReporters[node.identity] {
+    // A GeometryReader's frame, or that of a view with onGeometryChange, goes back to its graph,
+    // which updates if it changed.
+    if !node.identity.isEmpty, let report = geometryReporters[node.identity] {
         report(view.convert(view.bounds, to: nil))
     }
     // A scroll view's children live in a content view of its own, beside its indicators.
@@ -527,7 +639,7 @@ private func reconcile(_ parent: UIView, _ old: UIView?, _ layout: Placed, _ fra
         if let existing = scrollView.subviews.first(where: { viewKinds[ObjectIdentifier($0)] == "scroll-content" }) {
             container = existing
         } else {
-            container = UIView()
+            container = LayoutView()
             viewKinds[ObjectIdentifier(container)] = "scroll-content"
             scrollView.addSubview(container)
         }
@@ -566,8 +678,22 @@ private func reconcile(_ parent: UIView, _ old: UIView?, _ layout: Placed, _ fra
         super.layoutSubviews()
         render()
     }
+    /// A touch no button took: with tree dumps on, says which views it landed in.
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if dumpTrees, let touch = touches.first {
+            var chain: [String] = [], view = touch.view
+            while let v = view, v !== self { chain.append("\(viewKinds[ObjectIdentifier(v)] ?? String(describing: type(of: v))) \(v.frame)"); view = v.superview }
+            fputs("SwiftUI: unhandled touch at \(touch.location(in: self)): \(chain.joined(separator: " < "))\n", stderr)
+        }
+        super.touchesBegan(touches, with: event)
+    }
     func render() {
-        guard let tree = tree else { return }
+        guard var tree = tree else { return }
+        var next = 0
+        numberForLayout(&tree, &next)
+        let outer = measured
+        measured = [:]
+        defer { measured = outer }
         var area = bounds
         if tree.properties["ignores-safe-area"] != "true", responds(to: NSSelectorFromString("safeAreaInsets")) {
             let insets = safeAreaInsets
@@ -599,7 +725,7 @@ private var hostView: HostView?
 
 /// With DARLING_SWIFTUI_DUMP set, each new tree is written to stderr: a debugging aid for views
 /// that come out empty.
-private let dumpTrees = getenv("DARLING_SWIFTUI_DUMP") != nil
+let dumpTrees = getenv("DARLING_SWIFTUI_DUMP") != nil
 private var lastDump = ""
 private func dump(_ node: RenderNode, _ depth: Int, _ out: inout String) {
     var line = String(repeating: "  ", count: depth) + node.kind
@@ -675,12 +801,14 @@ private var firstEvaluation: (() -> Void)?
         let view = controller.view as! HostView
         hostView = view
         DarlingSwiftUIPhase(38)
+        // The window is key before the first evaluation, whose appearance actions may look for it
+        // (UIApplication.shared.keyWindow), as on iOS.
+        window.makeKeyAndVisible()
+        self.window = window
         DarlingSwiftUIPhase(39)
         firstEvaluation?()
         firstEvaluation = nil
         view.tree = currentTree
-        window.makeKeyAndVisible()
-        self.window = window
         view.setNeedsLayout()
         startTasksCallback?()
         return result

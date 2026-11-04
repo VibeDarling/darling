@@ -6,7 +6,10 @@ func clearButtonActions(_ graph: ViewGraph) {
     buttonActions = buttonActions.filter { $0.value.graph != ObjectIdentifier(graph) }
 }
 func darlingActivateButton(_ identifier: UnsafePointer<CChar>) -> Bool {
-    guard let entry = buttonActions[String(cString: identifier)] else { return false }
+    guard let entry = buttonActions[String(cString: identifier)] else {
+        if getenv("DARLING_SWIFTUI_DUMP") != nil { fputs("SwiftUI: no action for button \(String(cString: identifier))\n", stderr) }
+        return false
+    }
     entry.action()
     return true
 }

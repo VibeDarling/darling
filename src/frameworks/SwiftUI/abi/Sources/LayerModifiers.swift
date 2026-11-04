@@ -24,6 +24,18 @@ func layerOutput(base: _ViewOutputs, decoration: RenderNode, alignment: Alignmen
         children: background ? [decoration, base.renderedNode] : [base.renderedNode, decoration],
         horizontal: Int(alignment.horizontal.key.bits), vertical: Int(alignment.vertical.key.bits)))
 }
+/// A safe area inset: the inset view takes its size at the edge, and the content the rest.
+func insetOutput(base: _ViewOutputs, inset: RenderNode, edge: Edge, spacing: CGFloat?,
+                 alignment: AlignmentKey, inputs: _ViewInputs) -> _ViewOutputs {
+    let vertical = edge == .top || edge == .bottom
+    // The inset keeps its ideal size along the stack; the content fills what is left.
+    var fixed = RenderNode(kind: "fixed-size", children: [inset])
+    fixed.properties[vertical ? "fix-height" : "fix-width"] = "true"
+    let children = edge == .top || edge == .leading ? [fixed, base.renderedNode] : [base.renderedNode, fixed]
+    return _ViewOutputs(node: RenderNode(kind: vertical ? "vstack" : "hstack",
+        identity: inputs.graph?.nodeIdentity(at: inputs.path.child("inset")) ?? "", children: children,
+        spacing: Double(spacing ?? 0), horizontal: vertical ? Int(alignment.bits) : 1, vertical: vertical ? 1 : Int(alignment.bits)))
+}
 @frozen public struct _OverlayModifier<Overlay: View>: ViewModifier {
     public var overlay: Overlay
     public var alignment: Alignment

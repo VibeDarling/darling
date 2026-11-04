@@ -136,3 +136,69 @@ extension Path: Shape {
     public typealias AnimatableData = EmptyAnimatableData
     public func path(in rect: CGRect) -> Path { self }
 }
+
+/// The radii of a rectangle's four corners. The stored corners are physical (left and right); the
+/// leading and trailing spellings are the SDK's, emitted into apps.
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+@frozen public struct RectangleCornerRadii: Equatable, Animatable {
+    @usableFromInline var topLeft: CGFloat
+    @usableFromInline var topRight: CGFloat
+    @usableFromInline var bottomRight: CGFloat
+    @usableFromInline var bottomLeft: CGFloat
+    @_alwaysEmitIntoClient public var topLeading: CGFloat { get { topLeft } set { topLeft = newValue } }
+    @_alwaysEmitIntoClient public var bottomLeading: CGFloat { get { bottomLeft } set { bottomLeft = newValue } }
+    @_alwaysEmitIntoClient public var bottomTrailing: CGFloat { get { bottomRight } set { bottomRight = newValue } }
+    @_alwaysEmitIntoClient public var topTrailing: CGFloat { get { topRight } set { topRight = newValue } }
+    @usableFromInline init(topLeft: CGFloat, topRight: CGFloat, bottomRight: CGFloat, bottomLeft: CGFloat) {
+        self.topLeft = topLeft; self.topRight = topRight; self.bottomRight = bottomRight; self.bottomLeft = bottomLeft
+    }
+    @_alwaysEmitIntoClient public init(topLeading: CGFloat = 0, bottomLeading: CGFloat = 0, bottomTrailing: CGFloat = 0, topTrailing: CGFloat = 0) {
+        self.init(topLeft: topLeading, topRight: topTrailing, bottomRight: bottomTrailing, bottomLeft: bottomLeading)
+    }
+    public typealias AnimatableData = AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<CGFloat, CGFloat>>
+    public var animatableData: AnimatableData {
+        get { AnimatablePair(AnimatablePair(topLeft, topRight), AnimatablePair(bottomRight, bottomLeft)) }
+        set { (topLeft, topRight, bottomRight, bottomLeft) = (newValue.first.first, newValue.first.second, newValue.second.first, newValue.second.second) }
+    }
+}
+
+/// A rectangle whose corners each have their own radius.
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+@frozen public struct UnevenRoundedRectangle: Shape {
+    public var cornerRadii: RectangleCornerRadii
+    public var style: RoundedCornerStyle
+    @inlinable public init(cornerRadii: RectangleCornerRadii, style: RoundedCornerStyle = .continuous) {
+        self.cornerRadii = cornerRadii
+        self.style = style
+    }
+    @_alwaysEmitIntoClient public init(topLeadingRadius: CGFloat = 0, bottomLeadingRadius: CGFloat = 0, bottomTrailingRadius: CGFloat = 0,
+                                       topTrailingRadius: CGFloat = 0, style: RoundedCornerStyle = .continuous) {
+        self.init(cornerRadii: .init(topLeading: topLeadingRadius, bottomLeading: bottomLeadingRadius,
+                                     bottomTrailing: bottomTrailingRadius, topTrailing: topTrailingRadius), style: style)
+    }
+    /// Each corner is a quadratic curve through the rectangle's corner, its radius clamped to half
+    /// the shorter side.
+    public func path(in rect: CGRect) -> Path {
+        let limit = min(rect.width, rect.height) / 2
+        func clamp(_ radius: CGFloat) -> CGFloat { max(0, min(radius, limit)) }
+        let tl = clamp(cornerRadii.topLeft), tr = clamp(cornerRadii.topRight)
+        let br = clamp(cornerRadii.bottomRight), bl = clamp(cornerRadii.bottomLeft)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + tl, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - tr, y: rect.minY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + tr), control: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - br))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX - br, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + bl, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - bl), control: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + tl))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + tl, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
+        path.closeSubpath()
+        return path
+    }
+    public typealias AnimatableData = RectangleCornerRadii.AnimatableData
+    public var animatableData: AnimatableData {
+        get { cornerRadii.animatableData }
+        set { cornerRadii.animatableData = newValue }
+    }
+}

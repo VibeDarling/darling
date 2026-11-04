@@ -204,8 +204,8 @@ extension Angle : Swift.Hashable, Swift.Comparable {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension Angle : Animatable, _VectorMath {
   public var animatableData: Swift.Double {
-    get { _abiUnimplemented("Angle: public var animatableData: Swift.Double {") }
-    set {}
+    get { radians }
+    set { radians = newValue }
   }
   @inlinable public static var zero: Angle {
     get {
@@ -238,12 +238,28 @@ extension _AnimationModifier : Swift.Equatable {
 public struct AnimationTimelineSchedule : TimelineSchedule {
   @usableFromInline internal var _abiTag: Int = 0
   @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(minimumInterval: Swift.Double? = nil, paused: Swift.Bool = false) { self.init(_abiTag: 0); _abiInertValue("AnimationTimelineSchedule") }
-  public func entries(from start: Foundation.Date, mode: TimelineScheduleMode) -> AnimationTimelineSchedule.Entries { _abiUnimplemented("AnimationTimelineSchedule: public func entries(from start: Foundation.Date, mode: TimelineScheduleMode) -> AnimationTimelineSchedule.Entries") }
+  private var minimumInterval: Double? = nil
+  private var paused = false
+  public init(minimumInterval: Swift.Double? = nil, paused: Swift.Bool = false) {
+    self.init(_abiTag: 0); self.minimumInterval = minimumInterval; self.paused = paused
+  }
+  /// A date per frame from `start`, no closer than the minimum interval; just `start` while paused.
+  public func entries(from start: Foundation.Date, mode: TimelineScheduleMode) -> AnimationTimelineSchedule.Entries {
+    var entries = Entries(_abiTag: 0)
+    entries.date = start
+    entries.interval = paused ? nil : max(minimumInterval ?? 1.0 / 60, 1.0 / 60)
+    return entries
+  }
   public struct Entries : Swift.Sequence, Swift.IteratorProtocol {
     @usableFromInline internal var _abiTag: Int = 0
     @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-    public mutating func next() -> Foundation.Date? { _abiUnimplemented("AnimationTimelineSchedule: public mutating func next() -> Foundation.Date?") }
+    fileprivate var date: Date? = nil
+    fileprivate var interval: Double? = nil
+    public mutating func next() -> Foundation.Date? {
+      guard let current = date else { return nil }
+      date = interval.map { current.addingTimeInterval($0) }
+      return current
+    }
     public typealias Element = Foundation.Date
     public typealias Iterator = AnimationTimelineSchedule.Entries
   }
@@ -282,29 +298,7 @@ internal class AnyGradientBox : AnyShapeStyleBox {
   deinit {}
 }
 
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-public struct AsyncImage<Content> : View where Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(url: Foundation.URL?, scale: CoreFoundation.CGFloat = 1) where Content == Image { self.init(_abiTag: 0); _abiInertValue("AsyncImage") }
-  public init(url: Foundation.URL?, scale: CoreFoundation.CGFloat = 1, transaction: Transaction = Transaction(), @ViewBuilder content: @escaping (AsyncImagePhase) -> Content) { self.init(_abiTag: 0); _abiInertValue("AsyncImage") }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("AsyncImage: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
 
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-public enum AsyncImagePhase {
-  case empty
-  case success(Image)
-  case failure(any Swift.Error)
-  public var image: Image? {
-    get { _abiUnimplemented("AsyncImagePhase: public var image: Image? {") }
-  }
-  public var error: (any Swift.Error)? {
-    get { _abiUnimplemented("AsyncImagePhase: public var error: (any Swift.Error)? {") }
-  }
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 @frozen public enum Axis : Swift.Int8, Swift.CaseIterable {
@@ -319,20 +313,22 @@ public enum AsyncImagePhase {
     public typealias ArrayLiteralElement = Axis.Set.Element
     public typealias RawValue = Swift.Int8
   }
-  public init?(rawValue: Swift.Int8) { return nil }
+  public init?(rawValue: Swift.Int8) {
+    switch rawValue { case 0: self = .horizontal; case 1: self = .vertical; default: return nil }
+  }
   public typealias AllCases = [Axis]
   public typealias RawValue = Swift.Int8
   public static var allCases: [Axis] {
-    get { _abiUnimplemented("Axis: public static var allCases: [Axis] {") }
+    get { [.horizontal, .vertical] }
   }
   public var rawValue: Swift.Int8 {
-    get { _abiUnimplemented("Axis: public var rawValue: Swift.Int8 {") }
+    get { switch self { case .horizontal: return 0; default: return 1 } }
   }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension Axis : Swift.CustomStringConvertible {
   public var description: Swift.String {
-    get { _abiUnimplemented("Axis: public var description: Swift.String {") }
+    get { switch self { case .horizontal: return "horizontal"; case .vertical: return "vertical" } }
   }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
@@ -696,14 +692,6 @@ public struct DefaultButtonStyle : PrimitiveButtonStyle {
   
 }
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct DefaultLabelStyle : LabelStyle {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init() { self.init(_abiTag: 0); _abiInertValue("DefaultLabelStyle") }
-  public func makeBody(configuration: DefaultLabelStyle.Configuration) -> some View { _abiUnimplemented("DefaultLabelStyle: public func makeBody(configuration: DefaultLabelStyle.Configuration) -> some View") }
-  
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public struct DefaultListStyle : ListStyle {
@@ -760,36 +748,7 @@ public struct DefaultToggleStyle : ToggleStyle {
   public typealias Body = Swift.Never
 }
 
-@available(iOS 14.0, macOS 11.0, *)
-@available(tvOS, unavailable)
-@available(watchOS, unavailable)
-public struct DisclosureGroup<Label, Content> : View where Label : View, Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(@ViewBuilder content: @escaping () -> Content, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("DisclosureGroup") }
-  public init(isExpanded: Binding<Swift.Bool>, @ViewBuilder content: @escaping () -> Content, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("DisclosureGroup") }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("DisclosureGroup: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 14.0, macOS 11.0, *)
-@available(tvOS, unavailable)
-@available(watchOS, unavailable)
-extension DisclosureGroup where Label == Text {
-  public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: @escaping () -> Content) { self.init(_abiTag: 0); _abiInertValue("DisclosureGroup") }
-  public init(_ titleKey: LocalizedStringKey, isExpanded: Binding<Swift.Bool>, @ViewBuilder content: @escaping () -> Content) { self.init(_abiTag: 0); _abiInertValue("DisclosureGroup") }
-  @_disfavoredOverload public init<S>(_ label: S, @ViewBuilder content: @escaping () -> Content) where S : Swift.StringProtocol { _abiUnimplemented("DisclosureGroup: @_disfavoredOverload public init<S>(_ label: S, @ViewBuilder content: @escaping () -> Content) where S : Swift.StringPro") }
-  @_disfavoredOverload public init<S>(_ label: S, isExpanded: Binding<Swift.Bool>, @ViewBuilder content: @escaping () -> Content) where S : Swift.StringProtocol { _abiUnimplemented("DisclosureGroup: @_disfavoredOverload public init<S>(_ label: S, isExpanded: Binding<Swift.Bool>, @ViewBuilder content: @escaping () -> C") }
-}
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct Divider : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init() { self.init(_abiTag: 0); _abiInertValue("Divider") }
-  public static func _makeView(view: _GraphValue<Divider>, inputs: _ViewInputs) -> _ViewOutputs { _darlingUnsupportedView(Self.self, inputs) }
-  public typealias Body = Swift.Never
-}
 
 @available(iOS 13.0, macOS 10.15, watchOS 6.0, *)
 @available(tvOS, unavailable)
@@ -1036,19 +995,6 @@ public struct ExplicitTimelineSchedule<Entries> : TimelineSchedule where Entries
   public func entries(from startDate: Foundation.Date, mode: TimelineScheduleMode) -> Entries { _abiUnimplemented("ExplicitTimelineSchedule: public func entries(from startDate: Foundation.Date, mode: TimelineScheduleMode) -> Entries") }
 }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct Form<Content> : View where Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(@ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Form") }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("Form: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-extension Form where Content == FormStyleConfiguration.Content {
-  public init(_ configuration: FormStyleConfiguration) { self.init(_abiTag: 0); _abiInertValue("Form") }
-}
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 public struct FormStyleConfiguration {
@@ -1182,12 +1128,12 @@ public struct _GestureOutputs<Value> {
   @frozen public struct Stop : Swift.Equatable {
     public var color: Color
     public var location: CoreFoundation.CGFloat
-    public init(color: Color, location: CoreFoundation.CGFloat) { _abiUnimplemented("Gradient: public init(color: Color, location: CoreFoundation.CGFloat)") }
+    public init(color: Color, location: CoreFoundation.CGFloat) { self.color = color; self.location = location }
     public static func == (a: Gradient.Stop, b: Gradient.Stop) -> Swift.Bool { String(describing: a) == String(describing: b) && _abiTagOf(a) == _abiTagOf(b) }
   }
   public var stops: [Gradient.Stop]
-  public init(stops: [Gradient.Stop]) { _abiUnimplemented("Gradient: public init(stops: [Gradient.Stop])") }
-  public init(colors: [Color]) { _abiUnimplemented("Gradient: public init(colors: [Color])") }
+  public init(stops: [Gradient.Stop]) { self.stops = stops }
+  public init(colors: [Color]) { stops = colors.enumerated().map { Stop(color: $0.element, location: colors.count > 1 ? CGFloat($0.offset) / CGFloat(colors.count - 1) : 0) } }
   public static func == (a: Gradient, b: Gradient) -> Swift.Bool { String(describing: a) == String(describing: b) && _abiTagOf(a) == _abiTagOf(b) }
 }
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
@@ -1221,7 +1167,8 @@ extension Gradient.Stop : Swift.Hashable {
 }
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 extension Gradient : ShapeStyle {
-  public func _apply(to shape: inout _ShapeStyle_Shape) { _abiUnimplemented("Gradient: public func _apply(to shape: inout _ShapeStyle_Shape)") }
+  /// Darling draws a gradient as its first color.
+  public func _apply(to shape: inout _ShapeStyle_Shape) { stops.first?.color._apply(to: &shape) }
 }
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
@@ -1594,7 +1541,11 @@ public struct GridItem {
   public var size: GridItem.Size
   public var spacing: CoreFoundation.CGFloat?
   public var alignment: Alignment?
-  public init(_ size: GridItem.Size = .flexible(), spacing: CoreFoundation.CGFloat? = nil, alignment: Alignment? = nil) { self.init(_abiTag: 0); _abiInertValue("GridItem") }
+  public init(_ size: GridItem.Size = .flexible(), spacing: CoreFoundation.CGFloat? = nil, alignment: Alignment? = nil) {
+    self.size = size
+    self.spacing = spacing
+    self.alignment = alignment
+  }
 }
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
@@ -1681,19 +1632,21 @@ extension _HiddenModifier : Swift.Sendable {}
     public init(rawValue: Swift.Int8) { self.rawValue = rawValue }
     public static let leading: HorizontalEdge.Set = HorizontalEdge.Set(rawValue: 1 << 0)
     public static let trailing: HorizontalEdge.Set = HorizontalEdge.Set(rawValue: 1 << 1)
-    public static let all: HorizontalEdge.Set = HorizontalEdge.Set(rawValue: 1 << 2)
-    public init(_ edge: HorizontalEdge) { _abiUnimplemented("HorizontalEdge: public init(_ edge: HorizontalEdge)") }
+    public static let all: HorizontalEdge.Set = [.leading, .trailing]
+    public init(_ edge: HorizontalEdge) { self.init(rawValue: 1 << edge.rawValue) }
     public typealias ArrayLiteralElement = HorizontalEdge.Set.Element
     public typealias RawValue = Swift.Int8
   }
-  public init?(rawValue: Swift.Int8) { return nil }
+  public init?(rawValue: Swift.Int8) {
+    switch rawValue { case 0: self = .leading; case 1: self = .trailing; default: return nil }
+  }
   public typealias AllCases = [HorizontalEdge]
   public typealias RawValue = Swift.Int8
   public static var allCases: [HorizontalEdge] {
-    get { _abiUnimplemented("HorizontalEdge: public static var allCases: [HorizontalEdge] {") }
+    get { [.leading, .trailing] }
   }
   public var rawValue: Swift.Int8 {
-    get { _abiUnimplemented("HorizontalEdge: public var rawValue: Swift.Int8 {") }
+    get { switch self { case .leading: return 0; default: return 1 } }
   }
 }
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
@@ -1728,14 +1681,6 @@ extension _HueRotationEffect : ViewModifier {}
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension _HueRotationEffect : Swift.Sendable {}
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct IconOnlyLabelStyle : LabelStyle {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init() { self.init(_abiTag: 0); _abiInertValue("IconOnlyLabelStyle") }
-  public func makeBody(configuration: IconOnlyLabelStyle.Configuration) -> some View { _abiUnimplemented("IconOnlyLabelStyle: public func makeBody(configuration: IconOnlyLabelStyle.Configuration) -> some View") }
-  
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public struct _IdentifiedViewProxy {
@@ -1843,7 +1788,12 @@ public struct InsetListStyle : ListStyle {
         self.content = content
         properties = (regions, spacing, edge, alignmentKey)
     }
-  public static func _makeView(modifier: _GraphValue<_InsetViewModifier<Content>>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs { _darlingPassthrough(Self.self, inputs, body) }
+  public static func _makeView(modifier: _GraphValue<_InsetViewModifier<Content>>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    let properties = modifier.value.properties
+    let inset = Content._makeView(view: _GraphValue(value: modifier.value.content), inputs: inputs.child("inset"))
+    return insetOutput(base: body(_Graph(), inputs.child("primary")), inset: inset.renderedNode, edge: properties.edge,
+                       spacing: properties.spacing, alignment: properties.alignmentKey, inputs: inputs)
+  }
   public typealias Body = Swift.Never
 }
 
@@ -1921,55 +1871,7 @@ extension KeyEquivalent : Swift.ExpressibleByExtendedGraphemeClusterLiteral {
   public typealias UnicodeScalarLiteralType = Swift.Character
 }
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct Label<Title, Icon> : View where Title : View, Icon : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(@ViewBuilder title: () -> Title, @ViewBuilder icon: () -> Icon) { self.init(_abiTag: 0); _abiInertValue("Label") }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("Label: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension Label where Title == Text, Icon == Image {
-  public init(_ titleKey: LocalizedStringKey, image name: Swift.String) { self.init(_abiTag: 0); _abiInertValue("Label") }
-  public init(_ titleKey: LocalizedStringKey, systemImage name: Swift.String) { self.init(_abiTag: 0); _abiInertValue("Label") }
-  @_disfavoredOverload public init<S>(_ title: S, image name: Swift.String) where S : Swift.StringProtocol { _abiUnimplemented("Label: @_disfavoredOverload public init<S>(_ title: S, image name: Swift.String) where S : Swift.StringProtocol") }
-  @_disfavoredOverload public init<S>(_ title: S, systemImage name: Swift.String) where S : Swift.StringProtocol { _abiUnimplemented("Label: @_disfavoredOverload public init<S>(_ title: S, systemImage name: Swift.String) where S : Swift.StringProtocol") }
-}
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension Label where Title == LabelStyleConfiguration.Title, Icon == LabelStyleConfiguration.Icon {
-  public init(_ configuration: LabelStyleConfiguration) { self.init(_abiTag: 0); _abiInertValue("Label") }
-}
 
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-public struct LabeledContent<Label, Content> {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-}
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-extension LabeledContent : View where Label : View, Content : View {
-  public init(@ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("LabeledContent") }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("LabeledContent: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-extension LabeledContent where Label == Text, Content : View {
-  public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("LabeledContent") }
-  @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content) where S : Swift.StringProtocol { _abiUnimplemented("LabeledContent: @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content) where S : Swift.StringProtocol") }
-}
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-extension LabeledContent where Label == Text, Content == Text {
-  public init<S>(_ titleKey: LocalizedStringKey, value: S) where S : Swift.StringProtocol { _abiUnimplemented("LabeledContent: public init<S>(_ titleKey: LocalizedStringKey, value: S) where S : Swift.StringProtocol") }
-  @_disfavoredOverload public init<S1, S2>(_ title: S1, value: S2) where S1 : Swift.StringProtocol, S2 : Swift.StringProtocol { _abiUnimplemented("LabeledContent: @_disfavoredOverload public init<S1, S2>(_ title: S1, value: S2) where S1 : Swift.StringProtocol, S2 : Swift.StringProto") }
-  public init<F>(_ titleKey: LocalizedStringKey, value: F.FormatInput, format: F) where F : Foundation.FormatStyle, F.FormatInput : Swift.Equatable, F.FormatOutput == Swift.String { _abiUnimplemented("LabeledContent: public init<F>(_ titleKey: LocalizedStringKey, value: F.FormatInput, format: F) where F : Foundation.FormatStyle, F.Form") }
-  public init<S, F>(_ title: S, value: F.FormatInput, format: F) where S : Swift.StringProtocol, F : Foundation.FormatStyle, F.FormatInput : Swift.Equatable, F.FormatOutput == Swift.String { _abiUnimplemented("LabeledContent: public init<S, F>(_ title: S, value: F.FormatInput, format: F) where S : Swift.StringProtocol, F : Foundation.FormatStyl") }
-}
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-extension LabeledContent where Label == LabeledContentStyleConfiguration.Label, Content == LabeledContentStyleConfiguration.Content {
-  public init(_ configuration: LabeledContentStyleConfiguration) { self.init(_abiTag: 0); _abiInertValue("LabeledContent") }
-}
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 public struct LabeledContentStyleConfiguration {
@@ -2017,31 +1919,6 @@ extension LabelStyle where Self == TitleAndIconLabelStyle {
 extension LabelStyle where Self == DefaultLabelStyle {
 }
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct LabelStyleConfiguration {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public struct Title {
-    @usableFromInline internal var _abiTag: Int = 0
-    @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-    public typealias Body = Swift.Never
-  }
-  public struct Icon {
-    @usableFromInline internal var _abiTag: Int = 0
-    @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-    public typealias Body = Swift.Never
-  }
-  public var title: LabelStyleConfiguration.Title {
-    get { _abiUnimplemented("LabelStyleConfiguration: public var title: LabelStyleConfiguration.Title {") }
-  }
-  public var icon: LabelStyleConfiguration.Icon {
-    get { _abiUnimplemented("LabelStyleConfiguration: public var icon: LabelStyleConfiguration.Icon {") }
-  }
-}
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension LabelStyleConfiguration.Title : View {}
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension LabelStyleConfiguration.Icon : View {}
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 public protocol Layout : Animatable {
@@ -2059,16 +1936,16 @@ public protocol Layout : Animatable {
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 extension Layout {
   public static var layoutProperties: LayoutProperties {
-    get { _abiUnimplemented("Layout: public static var layoutProperties: LayoutProperties {") }
+    get { LayoutProperties(_abiTag: 0) }
   }
-  public func updateCache(_ cache: inout Self.Cache, subviews: Self.Subviews) { _abiUnimplemented("Layout: public func updateCache(_ cache: inout Self.Cache, subviews: Self.Subviews)") }
-  public func explicitAlignment(of guide: HorizontalAlignment, in bounds: CoreFoundation.CGRect, proposal: ProposedViewSize, subviews: Self.Subviews, cache: inout Self.Cache) -> CoreFoundation.CGFloat? { _abiUnimplemented("Layout: public func explicitAlignment(of guide: HorizontalAlignment, in bounds: CoreFoundation.CGRect, proposal: ProposedViewSiz") }
-  public func explicitAlignment(of guide: VerticalAlignment, in bounds: CoreFoundation.CGRect, proposal: ProposedViewSize, subviews: Self.Subviews, cache: inout Self.Cache) -> CoreFoundation.CGFloat? { _abiUnimplemented("Layout: public func explicitAlignment(of guide: VerticalAlignment, in bounds: CoreFoundation.CGRect, proposal: ProposedViewSize,") }
-  public func spacing(subviews: Self.Subviews, cache: inout Self.Cache) -> ViewSpacing { _abiUnimplemented("Layout: public func spacing(subviews: Self.Subviews, cache: inout Self.Cache) -> ViewSpacing") }
+  public func updateCache(_ cache: inout Self.Cache, subviews: Self.Subviews) { cache = makeCache(subviews: subviews) }
+  public func explicitAlignment(of guide: HorizontalAlignment, in bounds: CoreFoundation.CGRect, proposal: ProposedViewSize, subviews: Self.Subviews, cache: inout Self.Cache) -> CoreFoundation.CGFloat? { nil }
+  public func explicitAlignment(of guide: VerticalAlignment, in bounds: CoreFoundation.CGRect, proposal: ProposedViewSize, subviews: Self.Subviews, cache: inout Self.Cache) -> CoreFoundation.CGFloat? { nil }
+  public func spacing(subviews: Self.Subviews, cache: inout Self.Cache) -> ViewSpacing { ViewSpacing(_abiTag: 0) }
 }
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 extension Layout where Self.Cache == () {
-  public func makeCache(subviews: Self.Subviews) -> Self.Cache { _abiUnimplemented("Layout: public func makeCache(subviews: Self.Subviews) -> Self.Cache") }
+  public func makeCache(subviews: Self.Subviews) -> Self.Cache { () }
 }
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 extension Layout {
@@ -2121,7 +1998,9 @@ public struct LayoutProperties {
   @usableFromInline
   internal var layout: L
   @inlinable internal init(_ layout: L) { self.layout = layout }
-  public static func _makeView(root: _GraphValue<_LayoutRoot<L>>, inputs: _ViewInputs, body: (_Graph, _ViewInputs) -> _ViewListOutputs) -> _ViewOutputs { _abiUnimplemented("_LayoutRoot: public static func _makeView(root: _GraphValue<_LayoutRoot<L>>, inputs: _ViewInputs, body: (_Graph, _ViewInputs) -> _Vie") }
+  public static func _makeView(root: _GraphValue<_LayoutRoot<L>>, inputs: _ViewInputs, body: (_Graph, _ViewInputs) -> _ViewListOutputs) -> _ViewOutputs {
+    makeLayoutOutput(root.value, children: body(_Graph(), inputs.child("layout")).view.renderedNode.list, inputs: inputs)
+  }
   public typealias Body = Swift.Never
 }
 
@@ -2129,46 +2008,61 @@ public struct LayoutProperties {
 public struct LayoutSubview : Swift.Equatable {
   @usableFromInline internal var _abiTag: Int = 0
   @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public func _trait<K>(key: K.Type) -> K.Value where K : _ViewTraitKey { _abiUnimplemented("LayoutSubview: public func _trait<K>(key: K.Type) -> K.Value where K : _ViewTraitKey") }
+  internal var pass: LayoutPass? = nil
+  internal var index = 0
+  /// Traits and layout values are not recorded here: every subview has the defaults.
+  public func _trait<K>(key: K.Type) -> K.Value where K : _ViewTraitKey { K.defaultValue }
   public subscript<K>(key: K.Type) -> K.Value where K : LayoutValueKey {
-    get { _abiUnimplemented("LayoutSubview: public subscript<K>(key: K.Type) -> K.Value where K : LayoutValueKey {") }
+    get { K.defaultValue }
   }
   public var priority: Swift.Double {
-    get { _abiUnimplemented("LayoutSubview: public var priority: Swift.Double {") }
+    get { 0 }
   }
-  public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize { _abiUnimplemented("LayoutSubview: public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize") }
-  public func dimensions(in proposal: ProposedViewSize) -> ViewDimensions { _abiUnimplemented("LayoutSubview: public func dimensions(in proposal: ProposedViewSize) -> ViewDimensions") }
+  public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize { pass?.measure(index, proposal) ?? .zero }
+  public func dimensions(in proposal: ProposedViewSize) -> ViewDimensions {
+    var dimensions = ViewDimensions(_abiTag: 0)
+    dimensions.size = sizeThatFits(proposal)
+    return dimensions
+  }
   public var spacing: ViewSpacing {
-    get { _abiUnimplemented("LayoutSubview: public var spacing: ViewSpacing {") }
+    get { ViewSpacing(_abiTag: 0) }
   }
-  public func place(at position: CoreFoundation.CGPoint, anchor: UnitPoint = .topLeading, proposal: ProposedViewSize) { _abiUnimplemented("LayoutSubview: public func place(at position: CoreFoundation.CGPoint, anchor: UnitPoint = .topLeading, proposal: ProposedViewSize)") }
-  public static func == (a: LayoutSubview, b: LayoutSubview) -> Swift.Bool { String(describing: a) == String(describing: b) && _abiTagOf(a) == _abiTagOf(b) }
+  public func place(at position: CoreFoundation.CGPoint, anchor: UnitPoint = .topLeading, proposal: ProposedViewSize) {
+    pass?.placements[index] = LayoutPlacement(position: position, anchor: anchor, proposal: proposal)
+  }
+  public static func == (a: LayoutSubview, b: LayoutSubview) -> Swift.Bool { a.pass === b.pass && a.index == b.index }
 }
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 public struct LayoutSubviews : Swift.Equatable, Swift.RandomAccessCollection {
   @usableFromInline internal var _abiTag: Int = 0
   @usableFromInline internal init(_abiTag: Int) { _abiUnimplemented("a value of this type") }
+  /// The subviews, indexed from `startIndex` as in a slice of the full collection.
+  private var elements: [LayoutSubview] = []
+  private var offset = 0
+  internal init(_ elements: [LayoutSubview], offset: Int = 0) {
+    layoutDirection = .leftToRight; self.elements = elements; self.offset = offset
+  }
   public typealias SubSequence = LayoutSubviews
   public typealias Element = LayoutSubview
   public typealias Index = Swift.Int
   public var layoutDirection: LayoutDirection
   public var startIndex: Swift.Int {
-    get { _abiUnimplemented("LayoutSubviews: public var startIndex: Swift.Int {") }
+    get { offset }
   }
   public var endIndex: Swift.Int {
-    get { _abiUnimplemented("LayoutSubviews: public var endIndex: Swift.Int {") }
+    get { offset + elements.count }
   }
   public subscript(index: Swift.Int) -> LayoutSubviews.Element {
-    get { _abiUnimplemented("LayoutSubviews: public subscript(index: Swift.Int) -> LayoutSubviews.Element {") }
+    get { elements[index - offset] }
   }
   public subscript(bounds: Swift.Range<Swift.Int>) -> LayoutSubviews {
-    get { _abiUnimplemented("LayoutSubviews: public subscript(bounds: Swift.Range<Swift.Int>) -> LayoutSubviews {") }
+    get { LayoutSubviews(Array(elements[(bounds.lowerBound - offset)..<(bounds.upperBound - offset)]), offset: bounds.lowerBound) }
   }
   public subscript<S>(indices: S) -> LayoutSubviews where S : Swift.Sequence, S.Element == Swift.Int {
-    get { _abiUnimplemented("LayoutSubviews: public subscript<S>(indices: S) -> LayoutSubviews where S : Swift.Sequence, S.El") }
+    get { LayoutSubviews(indices.map { elements[$0 - offset] }) }
   }
-  public static func == (lhs: LayoutSubviews, rhs: LayoutSubviews) -> Swift.Bool { String(describing: lhs) == String(describing: rhs) && _abiTagOf(lhs) == _abiTagOf(rhs) }
+  public static func == (lhs: LayoutSubviews, rhs: LayoutSubviews) -> Swift.Bool { lhs.offset == rhs.offset && lhs.elements == rhs.elements }
   public typealias Indices = Swift.Range<LayoutSubviews.Index>
   public typealias Iterator = Swift.IndexingIterator<LayoutSubviews>
 }
@@ -2192,40 +2086,48 @@ public protocol LayoutValueKey {
   static var defaultValue: Self.Value { get }
 }
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct LazyHStack<Content> : View where Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(alignment: VerticalAlignment = .center, spacing: CoreFoundation.CGFloat? = nil, pinnedViews: PinnedScrollableViews = .init(), @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("LazyHStack") }
-  public static func _makeView(view: _GraphValue<LazyHStack<Content>>, inputs: _ViewInputs) -> _ViewOutputs { _darlingUnsupportedView(Self.self, inputs) }
-  public typealias Body = Swift.Never
-}
 
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 public struct LazyVGrid<Content> : View where Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(columns: [GridItem], alignment: HorizontalAlignment = .center, spacing: CoreFoundation.CGFloat? = nil, pinnedViews: PinnedScrollableViews = .init(), @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("LazyVGrid") }
-  public static func _makeView(view: _GraphValue<LazyVGrid<Content>>, inputs: _ViewInputs) -> _ViewOutputs { _darlingUnsupportedView(Self.self, inputs) }
+  private let columns: [GridItem]
+  private let alignment: HorizontalAlignment
+  private let spacing: CoreFoundation.CGFloat?
+  private let content: Content
+  public init(columns: [GridItem], alignment: HorizontalAlignment = .center, spacing: CoreFoundation.CGFloat? = nil, pinnedViews: PinnedScrollableViews = .init(), @ViewBuilder content: () -> Content) {
+    self.columns = columns
+    self.alignment = alignment
+    self.spacing = spacing
+    self.content = content()
+  }
+  /// Lays its views out in rows of `columns.count`, all at once rather than lazily.
+  public static func _makeView(view: _GraphValue<LazyVGrid<Content>>, inputs: _ViewInputs) -> _ViewOutputs {
+    let grid = view.value
+    var childInputs = inputs.child("LazyVGrid")
+    childInputs.stackAxis = "horizontal"
+    let views = Content._makeView(view: _GraphValue(value: grid.content), inputs: childInputs).renderedNode.list
+    let perRow = max(grid.columns.count, 1)
+    let spacing = Double(grid.spacing ?? 8)
+    let columnSpacing = Double(grid.columns.first?.spacing ?? 8)
+    let rows = stride(from: 0, to: views.count, by: perRow).map { start in
+      RenderNode(kind: "hstack", children: Array(views[start..<min(start + perRow, views.count)]),
+                 spacing: columnSpacing, horizontal: 1, vertical: 1)
+    }
+    return _ViewOutputs(node: RenderNode(kind: "vstack", identity: inputs.graph?.nodeIdentity(at: inputs.path.child("lazy-vgrid")) ?? "",
+                                         children: rows, spacing: spacing, horizontal: Int(grid.alignment.key.bits), vertical: 1))
+  }
   public typealias Body = Swift.Never
 }
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct LazyVStack<Content> : View where Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(alignment: HorizontalAlignment = .center, spacing: CoreFoundation.CGFloat? = nil, pinnedViews: PinnedScrollableViews = .init(), @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("LazyVStack") }
-  public static func _makeView(view: _GraphValue<LazyVStack<Content>>, inputs: _ViewInputs) -> _ViewOutputs { _darlingUnsupportedView(Self.self, inputs) }
-  public typealias Body = Swift.Never
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 @frozen public struct LinearGradient : ShapeStyle, View {
   internal var gradient: Gradient
   internal var startPoint: UnitPoint
   internal var endPoint: UnitPoint
-  public init(gradient: Gradient, startPoint: UnitPoint, endPoint: UnitPoint) { _abiUnimplemented("LinearGradient: public init(gradient: Gradient, startPoint: UnitPoint, endPoint: UnitPoint)") }
+  public init(gradient: Gradient, startPoint: UnitPoint, endPoint: UnitPoint) { self.gradient = gradient; self.startPoint = startPoint; self.endPoint = endPoint }
   public typealias Body = _ShapeView<Rectangle, LinearGradient>
+  /// Darling draws a gradient as its first color.
+  public func _apply(to shape: inout _ShapeStyle_Shape) { gradient._apply(to: &shape) }
 }
 
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
@@ -2370,38 +2272,6 @@ extension _MatchedGeometryEffect : ViewModifier {}
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 extension MatchedGeometryProperties : Swift.Sendable {}
 
-@available(iOS 14.0, macOS 11.0, *)
-@available(tvOS, unavailable)
-@available(watchOS, unavailable)
-public struct Menu<Label, Content> : View where Label : View, Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("Menu: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 14.0, macOS 11.0, *)
-@available(tvOS, unavailable)
-@available(watchOS, unavailable)
-extension Menu {
-  public init(@ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("Menu") }
-  public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content) where Label == Text { self.init(_abiTag: 0); _abiInertValue("Menu") }
-  @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content) where Label == Text, S : Swift.StringProtocol { _abiUnimplemented("Menu: @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content) where Label == Text, S : Swift.Stri") }
-}
-@available(iOS 15.0, macOS 12.0, *)
-@available(tvOS, unavailable)
-@available(watchOS, unavailable)
-extension Menu {
-  public init(@ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label, primaryAction: @escaping () -> Swift.Void) { self.init(_abiTag: 0); _abiInertValue("Menu") }
-  public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content, primaryAction: @escaping () -> Swift.Void) where Label == Text { self.init(_abiTag: 0); _abiInertValue("Menu") }
-  @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content, primaryAction: @escaping () -> Swift.Void) where Label == Text, S : Swift.StringProtocol { _abiUnimplemented("Menu: @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content, primaryAction: @escaping () -> Swif") }
-}
-@available(iOS 14.0, macOS 11.0, *)
-@available(tvOS, unavailable)
-@available(watchOS, unavailable)
-extension Menu where Label == MenuStyleConfiguration.Label, Content == MenuStyleConfiguration.Content {
-  public init(_ configuration: MenuStyleConfiguration) { self.init(_abiTag: 0); _abiInertValue("Menu") }
-}
 
 @available(iOS 14.0, macOS 11.0, *)
 @available(tvOS, unavailable)
@@ -2457,29 +2327,6 @@ extension NavigationBarItem.TitleDisplayMode : Swift.Equatable {}
 @available(macOS, unavailable)
 extension NavigationBarItem.TitleDisplayMode : Swift.Hashable {}
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct NavigationLink<Label, Destination> : View where Label : View, Destination : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("NavigationLink: @preconcurrency @MainActor public var body: some View {") }
-  }
-  @available(iOS, introduced: 13.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(macOS, introduced: 10.15, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  public init(destination: Destination, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("NavigationLink") }
-  @available(iOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(value:label:) inside a NavigationStack or NavigationSplitView")
-  @available(macOS, introduced: 10.15, deprecated: 13.0, message: "use NavigationLink(value:label:) inside a NavigationStack or NavigationSplitView")
-  @available(tvOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(value:label:) inside a NavigationStack or NavigationSplitView")
-  @available(watchOS, introduced: 6.0, deprecated: 9.0, message: "use NavigationLink(value:label:) inside a NavigationStack or NavigationSplitView")
-  public init(destination: Destination, isActive: Binding<Swift.Bool>, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("NavigationLink") }
-  @available(iOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(value:label:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(macOS, introduced: 10.15, deprecated: 13.0, message: "use NavigationLink(value:label:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(tvOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(value:label:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(watchOS, introduced: 6.0, deprecated: 9.0, message: "use NavigationLink(value:label:) inside a List within a NavigationStack or NavigationSplitView")
-  public init<V>(destination: Destination, tag: V, selection: Binding<V?>, @ViewBuilder label: () -> Label) where V : Swift.Hashable { _abiUnimplemented("NavigationLink: public init<V>(destination: Destination, tag: V, selection: Binding<V?>, @ViewBuilder label: () -> Label) where V : Swif") }
-}
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 extension NavigationLink where Destination == Swift.Never {
   public init<P>(value: P?, @ViewBuilder label: () -> Label) where P : Swift.Hashable { _abiUnimplemented("NavigationLink: public init<P>(value: P?, @ViewBuilder label: () -> Label) where P : Swift.Hashable") }
@@ -2488,39 +2335,6 @@ extension NavigationLink where Destination == Swift.Never {
   public init<P>(value: P?, @ViewBuilder label: () -> Label) where P : Swift.Decodable, P : Swift.Encodable, P : Swift.Hashable { _abiUnimplemented("NavigationLink: public init<P>(value: P?, @ViewBuilder label: () -> Label) where P : Swift.Decodable, P : Swift.Encodable, P : Swift.Has") }
   public init<P>(_ titleKey: LocalizedStringKey, value: P?) where Label == Text, P : Swift.Decodable, P : Swift.Encodable, P : Swift.Hashable { _abiUnimplemented("NavigationLink: public init<P>(_ titleKey: LocalizedStringKey, value: P?) where Label == Text, P : Swift.Decodable, P : Swift.Encodable,") }
   @_disfavoredOverload public init<S, P>(_ title: S, value: P?) where Label == Text, S : Swift.StringProtocol, P : Swift.Decodable, P : Swift.Encodable, P : Swift.Hashable { _abiUnimplemented("NavigationLink: @_disfavoredOverload public init<S, P>(_ title: S, value: P?) where Label == Text, S : Swift.StringProtocol, P : Swift.D") }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension NavigationLink where Label == Text {
-  @available(iOS, introduced: 13.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(macOS, introduced: 10.15, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  public init(_ titleKey: LocalizedStringKey, destination: Destination) { self.init(_abiTag: 0); _abiInertValue("NavigationLink") }
-  @available(iOS, introduced: 13.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(macOS, introduced: 10.15, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "Pass a closure as the destination")
-  @_disfavoredOverload public init<S>(_ title: S, destination: Destination) where S : Swift.StringProtocol { _abiUnimplemented("NavigationLink: @_disfavoredOverload public init<S>(_ title: S, destination: Destination) where S : Swift.StringProtocol") }
-  @available(iOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  @available(macOS, introduced: 10.15, deprecated: 13.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  @available(tvOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  @available(watchOS, introduced: 6.0, deprecated: 9.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  public init(_ titleKey: LocalizedStringKey, destination: Destination, isActive: Binding<Swift.Bool>) { self.init(_abiTag: 0); _abiInertValue("NavigationLink") }
-  @available(iOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  @available(macOS, introduced: 10.15, deprecated: 13.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  @available(tvOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  @available(watchOS, introduced: 6.0, deprecated: 9.0, message: "use NavigationLink(_:value:) inside a NavigationStack or NavigationSplitView")
-  @_disfavoredOverload public init<S>(_ title: S, destination: Destination, isActive: Binding<Swift.Bool>) where S : Swift.StringProtocol { _abiUnimplemented("NavigationLink: @_disfavoredOverload public init<S>(_ title: S, destination: Destination, isActive: Binding<Swift.Bool>) where S : Swift") }
-  @available(iOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(macOS, introduced: 10.15, deprecated: 13.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(tvOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(watchOS, introduced: 6.0, deprecated: 9.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  public init<V>(_ titleKey: LocalizedStringKey, destination: Destination, tag: V, selection: Binding<V?>) where V : Swift.Hashable { _abiUnimplemented("NavigationLink: public init<V>(_ titleKey: LocalizedStringKey, destination: Destination, tag: V, selection: Binding<V?>) where V : Swift") }
-  @available(iOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(macOS, introduced: 10.15, deprecated: 13.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(tvOS, introduced: 13.0, deprecated: 16.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  @available(watchOS, introduced: 6.0, deprecated: 9.0, message: "use NavigationLink(_:value:) inside a List within a NavigationStack or NavigationSplitView")
-  @_disfavoredOverload public init<S, V>(_ title: S, destination: Destination, tag: V, selection: Binding<V?>) where S : Swift.StringProtocol, V : Swift.Hashable { _abiUnimplemented("NavigationLink: @_disfavoredOverload public init<S, V>(_ title: S, destination: Destination, tag: V, selection: Binding<V?>) where S : S") }
 }
 
 @available(iOS 16.0, tvOS 16.0, watchOS 9.0, *)
@@ -2533,16 +2347,6 @@ public struct NavigationLinkPickerStyle : PickerStyle {
   public static func _makeViewList<SelectionValue>(value: _GraphValue<_PickerValue<NavigationLinkPickerStyle, SelectionValue>>, inputs: _ViewListInputs) -> _ViewListOutputs where SelectionValue : Swift.Hashable { _abiUnimplemented("NavigationLinkPickerStyle: public static func _makeViewList<SelectionValue>(value: _GraphValue<_PickerValue<NavigationLinkPickerStyle, SelectionVal") }
 }
 
-@available(iOS, introduced: 13.0, deprecated: 100000.0, message: "use NavigationStack or NavigationSplitView instead")
-@available(macOS, introduced: 10.15, deprecated: 100000.0, message: "use NavigationStack or NavigationSplitView instead")
-@available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "use NavigationStack or NavigationSplitView instead")
-@available(watchOS, introduced: 7.0, deprecated: 100000.0, message: "use NavigationStack or NavigationSplitView instead")
-public struct NavigationView<Content> : View where Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(@ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("NavigationView") }
-  public typealias Body = Swift.Never
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 @frozen public struct _OffsetEffect : GeometryEffect, Swift.Equatable {
@@ -2550,13 +2354,19 @@ public struct NavigationView<Content> : View where Content : View {
   @inlinable public init(offset: CoreFoundation.CGSize) {
         self.offset = offset
     }
-  public func effectValue(size: CoreFoundation.CGSize) -> ProjectionTransform { _abiUnimplemented("_OffsetEffect: public func effectValue(size: CoreFoundation.CGSize) -> ProjectionTransform") }
+  public func effectValue(size: CoreFoundation.CGSize) -> ProjectionTransform { ProjectionTransform(CGAffineTransform(translationX: offset.width, y: offset.height)) }
   public var animatableData: CoreFoundation.CGSize.AnimatableData {
-    get { _abiUnimplemented("_OffsetEffect: public var animatableData: CoreFoundation.CGSize.AnimatableData {") }
-    set {}
+    get { offset.animatableData }
+    set { offset.animatableData = newValue }
   }
-  public static func _makeView(modifier: _GraphValue<_OffsetEffect>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs { _darlingPassthrough(Self.self, inputs, body) }
-  public static func == (a: _OffsetEffect, b: _OffsetEffect) -> Swift.Bool { String(describing: a) == String(describing: b) && _abiTagOf(a) == _abiTagOf(b) }
+  /// Moves its content's drawing without changing its layout.
+  public static func _makeView(modifier: _GraphValue<_OffsetEffect>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    var node = RenderNode(kind: "offset", children: [body(_Graph(), inputs).renderedNode])
+    node.properties["dx"] = "\(Double(modifier.value.offset.width))"
+    node.properties["dy"] = "\(Double(modifier.value.offset.height))"
+    return _ViewOutputs(node: node)
+  }
+  public static func == (a: _OffsetEffect, b: _OffsetEffect) -> Swift.Bool { a.offset == b.offset }
   public typealias AnimatableData = CoreFoundation.CGSize.AnimatableData
   public typealias Body = Swift.Never
 }
@@ -2675,36 +2485,6 @@ public struct PeriodicTimelineSchedule : TimelineSchedule {
   public func entries(from startDate: Foundation.Date, mode: TimelineScheduleMode) -> PeriodicTimelineSchedule.Entries { _abiUnimplemented("PeriodicTimelineSchedule: public func entries(from startDate: Foundation.Date, mode: TimelineScheduleMode) -> PeriodicTimelineSchedule.Entries") }
 }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct Picker<Label, SelectionValue, Content> : View where Label : View, SelectionValue : Swift.Hashable, Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("Picker: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Picker {
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public init<C>(sources: C, selection: Swift.KeyPath<C.Element, Binding<SelectionValue>>, @ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label) where C : Swift.RandomAccessCollection { _abiUnimplemented("Picker: public init<C>(sources: C, selection: Swift.KeyPath<C.Element, Binding<SelectionValue>>, @ViewBuilder content: () -> Con") }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Picker where Label == Text {
-  public init(_ titleKey: LocalizedStringKey, selection: Binding<SelectionValue>, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Picker") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public init<C>(_ titleKey: LocalizedStringKey, sources: C, selection: Swift.KeyPath<C.Element, Binding<SelectionValue>>, @ViewBuilder content: () -> Content) where C : Swift.RandomAccessCollection { _abiUnimplemented("Picker: public init<C>(_ titleKey: LocalizedStringKey, sources: C, selection: Swift.KeyPath<C.Element, Binding<SelectionValue>>,") }
-  @_disfavoredOverload public init<S>(_ title: S, selection: Binding<SelectionValue>, @ViewBuilder content: () -> Content) where S : Swift.StringProtocol { _abiUnimplemented("Picker: @_disfavoredOverload public init<S>(_ title: S, selection: Binding<SelectionValue>, @ViewBuilder content: () -> Content)") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  @_disfavoredOverload public init<C, S>(_ title: S, sources: C, selection: Swift.KeyPath<C.Element, Binding<SelectionValue>>, @ViewBuilder content: () -> Content) where C : Swift.RandomAccessCollection, S : Swift.StringProtocol { _abiUnimplemented("Picker: @_disfavoredOverload public init<C, S>(_ title: S, sources: C, selection: Swift.KeyPath<C.Element, Binding<SelectionValu") }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Picker {
-  @available(iOS, deprecated: 100000.0, renamed: "Picker(selection:content:label:)")
-  @available(macOS, deprecated: 100000.0, renamed: "Picker(selection:content:label:)")
-  @available(tvOS, deprecated: 100000.0, renamed: "Picker(selection:content:label:)")
-  @available(watchOS, deprecated: 100000.0, renamed: "Picker(selection:content:label:)")
-  public init(selection: Binding<SelectionValue>, label: Label, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Picker") }
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public protocol PickerStyle {
@@ -2785,7 +2565,15 @@ public struct PlainListStyle : ListStyle {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension _PositionLayout : Animatable {}
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension _PositionLayout : ViewModifier {}
+extension _PositionLayout : ViewModifier {
+  /// Takes the space offered, and centers its content on the position.
+  public static func _makeView(modifier: _GraphValue<_PositionLayout>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    var node = RenderNode(kind: "position", children: [body(_Graph(), inputs).renderedNode])
+    node.properties["x"] = "\(Double(modifier.value.position.x))"
+    node.properties["y"] = "\(Double(modifier.value.position.y))"
+    return _ViewOutputs(node: node)
+  }
+}
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension _PositionLayout : Swift.Sendable {}
 
@@ -2869,8 +2657,8 @@ public struct PresentationDetent : Swift.Hashable {
   @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
   public static let medium: PresentationDetent = PresentationDetent(_abiTag: 1)
   public static let large: PresentationDetent = PresentationDetent(_abiTag: 2)
-  public static func fraction(_ fraction: CoreFoundation.CGFloat) -> PresentationDetent { _abiUnimplemented("PresentationDetent: public static func fraction(_ fraction: CoreFoundation.CGFloat) -> PresentationDetent") }
-  public static func height(_ height: CoreFoundation.CGFloat) -> PresentationDetent { _abiUnimplemented("PresentationDetent: public static func height(_ height: CoreFoundation.CGFloat) -> PresentationDetent") }
+  public static func fraction(_ fraction: CoreFoundation.CGFloat) -> PresentationDetent { PresentationDetent(_abiTag: 3) }
+  public static func height(_ height: CoreFoundation.CGFloat) -> PresentationDetent { PresentationDetent(_abiTag: 4) }
   public static func custom<D>(_ type: D.Type) -> PresentationDetent where D : CustomPresentationDetent { _abiUnimplemented("PresentationDetent: public static func custom<D>(_ type: D.Type) -> PresentationDetent where D : CustomPresentationDetent") }
   @dynamicMemberLookup public struct Context {
     @usableFromInline internal var _abiTag: Int = 0
@@ -3105,13 +2893,24 @@ extension _Rotation3DEffect : Swift.Sendable {}
         self.angle = angle
         self.anchor = anchor
     }
-  public func effectValue(size: CoreFoundation.CGSize) -> ProjectionTransform { _abiUnimplemented("_RotationEffect: public func effectValue(size: CoreFoundation.CGSize) -> ProjectionTransform") }
+  public func effectValue(size: CoreFoundation.CGSize) -> ProjectionTransform {
+    let x = size.width * anchor.x, y = size.height * anchor.y
+    let c = CGFloat(cos(angle.radians)), s = CGFloat(sin(angle.radians))
+    return ProjectionTransform(CGAffineTransform(a: c, b: s, c: -s, d: c, tx: x - c * x + s * y, ty: y - s * x - c * y))
+  }
   public typealias AnimatableData = AnimatablePair<Angle.AnimatableData, UnitPoint.AnimatableData>
   public var animatableData: _RotationEffect.AnimatableData {
-    get { _abiUnimplemented("_RotationEffect: public var animatableData: _RotationEffect.AnimatableData {") }
-    set {}
+    get { AnimatablePair(angle.animatableData, anchor.animatableData) }
+    set { angle.animatableData = newValue.first; anchor.animatableData = newValue.second }
   }
-  public static func == (a: _RotationEffect, b: _RotationEffect) -> Swift.Bool { String(describing: a) == String(describing: b) && _abiTagOf(a) == _abiTagOf(b) }
+  /// A shape is drawn turned (Feather's progress ring starts at the top); other content is not yet.
+  public static func _makeView(modifier: _GraphValue<_RotationEffect>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    var node = body(_Graph(), inputs).renderedNode
+    guard node.kind == "shape", let shape = node.shape else { return _darlingPassthrough(_RotationEffect.self, inputs) { _, _ in _ViewOutputs(node: node) } }
+    node.shape = shape.rotated(by: modifier.value.angle.radians, anchor: modifier.value.anchor)
+    return _ViewOutputs(node: node)
+  }
+  public static func == (a: _RotationEffect, b: _RotationEffect) -> Swift.Bool { a.angle.radians == b.angle.radians && a.anchor == b.anchor }
   public typealias Body = Swift.Never
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
@@ -3313,7 +3112,7 @@ public struct SearchFieldPlacement {
   @available(macOS, unavailable)
   @available(tvOS, unavailable)
   @available(watchOS, unavailable)
-  public static func navigationBarDrawer(displayMode: SearchFieldPlacement.NavigationBarDrawerDisplayMode) -> SearchFieldPlacement { _abiUnimplemented("SearchFieldPlacement: public static func navigationBarDrawer(displayMode: SearchFieldPlacement.NavigationBarDrawerDisplayMode) -> SearchFieldP") }
+  public static func navigationBarDrawer(displayMode: SearchFieldPlacement.NavigationBarDrawerDisplayMode) -> SearchFieldPlacement { .navigationBarDrawer }
 }
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 extension SearchFieldPlacement {
@@ -3329,59 +3128,6 @@ extension SearchFieldPlacement {
   }
 }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct Section<Parent, Content, Footer> {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section : View where Parent : View, Content : View, Footer : View {
-  public typealias Body = Swift.Never
-  @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-  public static func _viewListCount(inputs: _ViewListCountInputs) -> Swift.Int? { nil }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section where Parent : View, Content : View, Footer : View {
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section where Parent == EmptyView, Content : View, Footer : View {
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section where Parent : View, Content : View, Footer == EmptyView {
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section where Parent == EmptyView, Content : View, Footer == EmptyView {
-  public init(@ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Section") }
-}
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-extension Section where Parent == Text, Content : View, Footer == EmptyView {
-  public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Section") }
-  @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content) where S : Swift.StringProtocol { _abiUnimplemented("Section: @_disfavoredOverload public init<S>(_ title: S, @ViewBuilder content: () -> Content) where S : Swift.StringProtocol") }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section where Parent : View, Content : View, Footer : View {
-  @available(iOS, deprecated: 100000.0, renamed: "Section(content:header:footer:)")
-  @available(macOS, deprecated: 100000.0, renamed: "Section(content:header:footer:)")
-  @available(tvOS, deprecated: 100000.0, renamed: "Section(content:header:footer:)")
-  @available(watchOS, deprecated: 100000.0, renamed: "Section(content:header:footer:)")
-  public init(header: Parent, footer: Footer, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Section") }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section where Parent == EmptyView, Content : View, Footer : View {
-  @available(iOS, deprecated: 100000.0, renamed: "Section(content:footer:)")
-  @available(macOS, deprecated: 100000.0, renamed: "Section(content:footer:)")
-  @available(tvOS, deprecated: 100000.0, renamed: "Section(content:footer:)")
-  @available(watchOS, deprecated: 100000.0, renamed: "Section(content:footer:)")
-  public init(footer: Footer, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Section") }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Section where Parent : View, Content : View, Footer == EmptyView {
-  @available(iOS, deprecated: 100000.0, renamed: "Section(content:header:)")
-  @available(macOS, deprecated: 100000.0, renamed: "Section(content:header:)")
-  @available(tvOS, deprecated: 100000.0, renamed: "Section(content:header:)")
-  @available(watchOS, deprecated: 100000.0, renamed: "Section(content:header:)")
-  public init(header: Parent, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("Section") }
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 @available(watchOS, unavailable)
@@ -3553,25 +3299,26 @@ extension Slider where ValueLabel == EmptyView {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-@frozen public struct _StrokedShape<S> : Shape where S : Shape {
+@frozen public struct _StrokedShape<S> : Shape, DarlingStrokedShape where S : Shape {
   public var shape: S
   public var style: StrokeStyle
   @inlinable public init(shape: S, style: StrokeStyle) {
         self.shape = shape
         self.style = style
     }
-  public func path(in rect: CoreFoundation.CGRect) -> Path { _abiUnimplemented("_StrokedShape: public func path(in rect: CoreFoundation.CGRect) -> Path") }
+  /// The outline being stroked: the shape view strokes it with `style` rather than filling it.
+  public func path(in rect: CoreFoundation.CGRect) -> Path { shape.path(in: rect) }
   @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
   public static var role: ShapeRole {
-    get { _abiUnimplemented("_StrokedShape: public static var role: ShapeRole {") }
+    get { .stroke }
   }
   public typealias AnimatableData = AnimatablePair<S.AnimatableData, StrokeStyle.AnimatableData>
   public var animatableData: _StrokedShape<S>.AnimatableData {
-    get { _abiUnimplemented("_StrokedShape: public var animatableData: _StrokedShape<S>.AnimatableData {") }
-    set {}
+    get { AnimatablePair(shape.animatableData, style.animatableData) }
+    set { shape.animatableData = newValue.first; style.animatableData = newValue.second }
   }
   @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize { _abiUnimplemented("_StrokedShape: public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize") }
+  public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize { shape.sizeThatFits(proposal) }
   public typealias Body = _ShapeView<_StrokedShape<S>, ForegroundStyle>
 }
 
@@ -3583,15 +3330,21 @@ extension Slider where ValueLabel == EmptyView {
   public var miterLimit: CoreFoundation.CGFloat
   public var dash: [CoreFoundation.CGFloat]
   public var dashPhase: CoreFoundation.CGFloat
-  public init(lineWidth: CoreFoundation.CGFloat = 1, lineCap: CoreGraphics.CGLineCap = .butt, lineJoin: CoreGraphics.CGLineJoin = .miter, miterLimit: CoreFoundation.CGFloat = 10, dash: [CoreFoundation.CGFloat] = [CGFloat](), dashPhase: CoreFoundation.CGFloat = 0) { _abiUnimplemented("StrokeStyle: public init(lineWidth: CoreFoundation.CGFloat = 1, lineCap: CoreGraphics.CGLineCap = .butt, lineJoin: CoreGraphics.CGLin") }
-  public static func == (a: StrokeStyle, b: StrokeStyle) -> Swift.Bool { String(describing: a) == String(describing: b) && _abiTagOf(a) == _abiTagOf(b) }
+  public init(lineWidth: CoreFoundation.CGFloat = 1, lineCap: CoreGraphics.CGLineCap = .butt, lineJoin: CoreGraphics.CGLineJoin = .miter, miterLimit: CoreFoundation.CGFloat = 10, dash: [CoreFoundation.CGFloat] = [CGFloat](), dashPhase: CoreFoundation.CGFloat = 0) {
+    self.lineWidth = lineWidth; self.lineCap = lineCap; self.lineJoin = lineJoin
+    self.miterLimit = miterLimit; self.dash = dash; self.dashPhase = dashPhase
+  }
+  public static func == (a: StrokeStyle, b: StrokeStyle) -> Swift.Bool {
+    a.lineWidth == b.lineWidth && a.lineCap == b.lineCap && a.lineJoin == b.lineJoin
+      && a.miterLimit == b.miterLimit && a.dash == b.dash && a.dashPhase == b.dashPhase
+  }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension StrokeStyle : Animatable {
   public typealias AnimatableData = AnimatablePair<CoreFoundation.CGFloat, AnimatablePair<CoreFoundation.CGFloat, CoreFoundation.CGFloat>>
   public var animatableData: StrokeStyle.AnimatableData {
-    get { _abiUnimplemented("StrokeStyle: public var animatableData: StrokeStyle.AnimatableData {") }
-    set {}
+    get { AnimatablePair(lineWidth, AnimatablePair(miterLimit, dashPhase)) }
+    set { lineWidth = newValue.first; miterLimit = newValue.second.first; dashPhase = newValue.second.second }
   }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
@@ -3668,19 +3421,6 @@ public struct SymbolRenderingMode {
   public static let palette: SymbolRenderingMode = SymbolRenderingMode(_abiTag: 4)
 }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
-public struct TabView<SelectionValue, Content> : View where SelectionValue : Swift.Hashable, Content : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(selection: Binding<SelectionValue>?, @ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("TabView") }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("TabView: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
-extension TabView where SelectionValue == Swift.Int {
-  public init(@ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("TabView") }
-}
 
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 public protocol TabViewStyle {
@@ -3746,52 +3486,7 @@ public struct TextEditor : View {
   }
 }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct TextField<Label> : View where Label : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("TextField: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
 extension TextField where Label == Text {
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public init(_ titleKey: LocalizedStringKey, text: Binding<Swift.String>, axis: Axis) { self.init(_abiTag: 0); _abiInertValue("TextField") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public init(_ titleKey: LocalizedStringKey, text: Binding<Swift.String>, prompt: Text?, axis: Axis) { self.init(_abiTag: 0); _abiInertValue("TextField") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, axis: Axis) where S : Swift.StringProtocol { _abiUnimplemented("TextField: @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, axis: Axis) where S : Swift.StringProtocol") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, prompt: Text?, axis: Axis) where S : Swift.StringProtocol { _abiUnimplemented("TextField: @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, prompt: Text?, axis: Axis) where S : Swift.") }
-}
-extension TextField {
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public init(text: Binding<Swift.String>, prompt: Text? = nil, axis: Axis, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("TextField") }
-}
-extension TextField where Label == Text {
-  @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-  public init(_ titleKey: LocalizedStringKey, text: Binding<Swift.String>, prompt: Text?) { self.init(_abiTag: 0); _abiInertValue("TextField") }
-  @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-  @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, prompt: Text?) where S : Swift.StringProtocol { _abiUnimplemented("TextField: @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, prompt: Text?) where S : Swift.StringProtoc") }
-}
-extension TextField {
-  @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-  public init(text: Binding<Swift.String>, prompt: Text? = nil, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("TextField") }
-}
-extension TextField where Label == Text {
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension TextField where Label == Text {
-  @available(iOS, introduced: 13.0, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  @available(macOS, introduced: 10.15, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  public init(_ titleKey: LocalizedStringKey, text: Binding<Swift.String>, onEditingChanged: @escaping (Swift.Bool) -> Swift.Void, onCommit: @escaping () -> Swift.Void) { self.init(_abiTag: 0); _abiInertValue("TextField") }
-  @available(iOS, introduced: 13.0, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  @available(macOS, introduced: 10.15, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "Renamed TextField.init(_:text:onEditingChanged:). Use View.onSubmit(of:_:) for functionality previously provided by the onCommit parameter. Use FocusState<T> and View.focused(_:equals:) for functionality previously provided by the onEditingChanged parameter.")
-  @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, onEditingChanged: @escaping (Swift.Bool) -> Swift.Void, onCommit: @escaping () -> Swift.Void) where S : Swift.StringProtocol { _abiUnimplemented("TextField: @_disfavoredOverload public init<S>(_ title: S, text: Binding<Swift.String>, onEditingChanged: @escaping (Swift.Bool) ->") }
 }
 extension TextField where Label == Text {
   @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
@@ -3897,16 +3592,20 @@ extension TimelineScheduleMode : Swift.Hashable {}
 public struct TimelineView<Schedule, Content> where Schedule : TimelineSchedule {
   @usableFromInline internal var _abiTag: Int = 0
   @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
+  internal var schedule: Schedule? = nil
+  internal var content: ((Context) -> Content)? = nil
   public struct Context {
     @usableFromInline internal var _abiTag: Int = 0
     @usableFromInline internal init(_abiTag: Int) { _abiUnimplemented("a value of this type") }
+    internal init(date: Date, cadence: Cadence) { self.date = date; self.cadence = cadence }
     public enum Cadence : Swift.Comparable {
       case live
       case seconds
       case minutes
-      public static func == (a: TimelineView<Schedule, Content>.Context.Cadence, b: TimelineView<Schedule, Content>.Context.Cadence) -> Swift.Bool { _abiUnimplemented("TimelineView: public static func == (a: TimelineView<Schedule, Content>.Context.Cadence, b: TimelineView<Schedule, Content>.Context.Ca") }
+      public static func == (a: TimelineView<Schedule, Content>.Context.Cadence, b: TimelineView<Schedule, Content>.Context.Cadence) -> Swift.Bool { a.rank == b.rank }
+      private var rank: Int { switch self { case .live: return 0; case .seconds: return 1; case .minutes: return 2 } }
       public func hash(into hasher: inout Swift.Hasher) { hasher.combine(String(describing: self)); hasher.combine(_abiTagOf(self)) }
-      public static func < (a: TimelineView<Schedule, Content>.Context.Cadence, b: TimelineView<Schedule, Content>.Context.Cadence) -> Swift.Bool { _abiUnimplemented("TimelineView: public static func < (a: TimelineView<Schedule, Content>.Context.Cadence, b: TimelineView<Schedule, Content>.Context.Cad") }
+      public static func < (a: TimelineView<Schedule, Content>.Context.Cadence, b: TimelineView<Schedule, Content>.Context.Cadence) -> Swift.Bool { a.rank < b.rank }
       public var hashValue: Swift.Int {
         get { var h = Hasher(); hash(into: &h); return h.finalize() }
       }
@@ -3922,8 +3621,16 @@ extension TimelineView : View where Content : View {
   @available(macOS, deprecated, introduced: 12.0, message: "Use TimelineViewDefaultContext for the type of the context parameter passed into TimelineView's content closure to resolve this warning. The new version of this initializer, using TimelineViewDefaultContext, improves compilation performance by using an independent generic type signature, which helps avoid unintended cyclical type dependencies.")
   @available(watchOS, deprecated, introduced: 8.0, message: "Use TimelineViewDefaultContext for the type of the context parameter passed into TimelineView's content closure to resolve this warning. The new version of this initializer, using TimelineViewDefaultContext, improves compilation performance by using an independent generic type signature, which helps avoid unintended cyclical type dependencies.")
   @available(tvOS, deprecated, introduced: 15.0, message: "Use TimelineViewDefaultContext for the type of the context parameter passed into TimelineView's content closure to resolve this warning. The new version of this initializer, using TimelineViewDefaultContext, improves compilation performance by using an independent generic type signature, which helps avoid unintended cyclical type dependencies.")
-  @_disfavoredOverload public init(_ schedule: Schedule, @ViewBuilder content: @escaping (TimelineView<Schedule, Content>.Context) -> Content) { self.init(_abiTag: 0); _abiInertValue("TimelineView") }
-  public static func _makeView(view: _GraphValue<TimelineView<Schedule, Content>>, inputs: _ViewInputs) -> _ViewOutputs { _darlingUnsupportedView(Self.self, inputs) }
+  @_disfavoredOverload public init(_ schedule: Schedule, @ViewBuilder content: @escaping (TimelineView<Schedule, Content>.Context) -> Content) {
+    self.init(_abiTag: 0); self.schedule = schedule; self.content = content
+  }
+  public static func _makeView(view: _GraphValue<TimelineView<Schedule, Content>>, inputs: _ViewInputs) -> _ViewOutputs {
+    guard let schedule = view.value.schedule, let content = view.value.content else { return _ViewOutputs(node: RenderNode(kind: "empty")) }
+    let now = Date()
+    let path = inputs.path.child("timeline")
+    if let graph = inputs.graph { scheduleTimelineUpdate(graph, identity: graph.nodeIdentity(at: path), after: now, schedule: schedule) }
+    return Content._makeView(view: _GraphValue(value: content(Context(date: now, cadence: .live))), inputs: inputs.child("timeline"))
+  }
 }
 extension TimelineView where Content : View {
   @available(iOS 16.4, macOS 13.3, watchOS 9.4, tvOS 16.4, *)
@@ -3935,49 +3642,8 @@ extension TimelineView.Context.Cadence : Swift.Hashable {}
 
 // !! TimelineViewDefaultContext: not in the iOS 16.5 interface
 
-@available(iOS 14.5, macOS 11.3, tvOS 14.5, watchOS 7.4, *)
-public struct TitleAndIconLabelStyle : LabelStyle {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init() { self.init(_abiTag: 0); _abiInertValue("TitleAndIconLabelStyle") }
-  public func makeBody(configuration: TitleAndIconLabelStyle.Configuration) -> some View { _abiUnimplemented("TitleAndIconLabelStyle: public func makeBody(configuration: TitleAndIconLabelStyle.Configuration) -> some View") }
-  
-}
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct TitleOnlyLabelStyle : LabelStyle {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init() { self.init(_abiTag: 0); _abiInertValue("TitleOnlyLabelStyle") }
-  public func makeBody(configuration: TitleOnlyLabelStyle.Configuration) -> some View { _abiUnimplemented("TitleOnlyLabelStyle: public func makeBody(configuration: TitleOnlyLabelStyle.Configuration) -> some View") }
-  
-}
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct Toggle<Label> : View where Label : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(isOn: Binding<Swift.Bool>, @ViewBuilder label: () -> Label) { self.init(_abiTag: 0); _abiInertValue("Toggle") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public init<C>(sources: C, isOn: Swift.KeyPath<C.Element, Binding<Swift.Bool>>, @ViewBuilder label: () -> Label) where C : Swift.RandomAccessCollection { _abiUnimplemented("Toggle: public init<C>(sources: C, isOn: Swift.KeyPath<C.Element, Binding<Swift.Bool>>, @ViewBuilder label: () -> Label) where C") }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("Toggle: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Toggle where Label == ToggleStyleConfiguration.Label {
-  @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-  public init(_ configuration: ToggleStyleConfiguration) { self.init(_abiTag: 0); _abiInertValue("Toggle") }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension Toggle where Label == Text {
-  public init(_ titleKey: LocalizedStringKey, isOn: Binding<Swift.Bool>) { self.init(_abiTag: 0); _abiInertValue("Toggle") }
-  @_disfavoredOverload public init<S>(_ title: S, isOn: Binding<Swift.Bool>) where S : Swift.StringProtocol { _abiUnimplemented("Toggle: @_disfavoredOverload public init<S>(_ title: S, isOn: Binding<Swift.Bool>) where S : Swift.StringProtocol") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public init<C>(_ titleKey: LocalizedStringKey, sources: C, isOn: Swift.KeyPath<C.Element, Binding<Swift.Bool>>) where C : Swift.RandomAccessCollection { _abiUnimplemented("Toggle: public init<C>(_ titleKey: LocalizedStringKey, sources: C, isOn: Swift.KeyPath<C.Element, Binding<Swift.Bool>>) where C ") }
-  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  @_disfavoredOverload public init<S, C>(_ title: S, sources: C, isOn: Swift.KeyPath<C.Element, Binding<Swift.Bool>>) where S : Swift.StringProtocol, C : Swift.RandomAccessCollection { _abiUnimplemented("Toggle: @_disfavoredOverload public init<S, C>(_ title: S, sources: C, isOn: Swift.KeyPath<C.Element, Binding<Swift.Bool>>) wher") }
-}
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public protocol ToggleStyle {
@@ -4067,7 +3733,15 @@ public struct ToolbarPlacement {
   @inlinable public init(value: Trait.Value) {
         self.value = value
     }
-  public static func _makeView(modifier: _GraphValue<_TraitWritingModifier<Trait>>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs { _darlingPassthrough(Self.self, inputs, body) }
+  public static func _makeView(modifier: _GraphValue<_TraitWritingModifier<Trait>>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    guard let key = Trait.self as? _DarlingTagTrait.Type else { return _darlingPassthrough(Self.self, inputs, body) }
+    var outputs = body(_Graph(), inputs)
+    if let tag = key._darlingTag(modifier.value.value) {
+      outputs.node.tags.append(tag)
+      outputs.node.keepTraits()
+    }
+    return outputs
+  }
   public static func _makeViewList(modifier: _GraphValue<_TraitWritingModifier<Trait>>, inputs: _ViewListInputs, body: @escaping (_Graph, _ViewListInputs) -> _ViewListOutputs) -> _ViewListOutputs { body(_Graph(), inputs) }
   @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
   public static func _viewListCount(inputs: _ViewListCountInputs, body: (_ViewListCountInputs) -> Swift.Int?) -> Swift.Int? { nil }
@@ -4108,52 +3782,22 @@ internal struct TransitionTraitKey : _ViewTraitKey {
         self.startFraction = startFraction
         self.endFraction = endFraction
     }
-  public func path(in rect: CoreFoundation.CGRect) -> Path { _abiUnimplemented("_TrimmedShape: public func path(in rect: CoreFoundation.CGRect) -> Path") }
+  public func path(in rect: CoreFoundation.CGRect) -> Path { shape.path(in: rect).trimmedPath(from: startFraction, to: endFraction) }
   @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
   public static var role: ShapeRole {
-    get { _abiUnimplemented("_TrimmedShape: public static var role: ShapeRole {") }
+    get { S.role }
   }
   public typealias AnimatableData = AnimatablePair<S.AnimatableData, AnimatablePair<CoreFoundation.CGFloat, CoreFoundation.CGFloat>>
   public var animatableData: _TrimmedShape<S>.AnimatableData {
-    get { _abiUnimplemented("_TrimmedShape: public var animatableData: _TrimmedShape<S>.AnimatableData {") }
-    set {}
+    get { AnimatablePair(shape.animatableData, AnimatablePair(startFraction, endFraction)) }
+    set { shape.animatableData = newValue.first; startFraction = newValue.second.first; endFraction = newValue.second.second }
   }
   @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-  public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize { _abiUnimplemented("_TrimmedShape: public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize") }
+  public func sizeThatFits(_ proposal: ProposedViewSize) -> CoreFoundation.CGSize { shape.sizeThatFits(proposal) }
   public typealias Body = _ShapeView<_TrimmedShape<S>, ForegroundStyle>
 }
 
-@available(iOS 16.0, tvOS 16.0, *)
-@available(macOS, unavailable)
-@available(watchOS, unavailable)
-public struct UIHostingConfiguration<Content, Background> : UIKit.UIContentConfiguration where Content : View, Background : View {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public func background<B>(@ViewBuilder content: () -> B) -> UIHostingConfiguration<Content, B> where B : View { _abiUnimplemented("UIHostingConfiguration: public func background<B>(@ViewBuilder content: () -> B) -> UIHostingConfiguration<Content, B> where B : View") }
-  public func background<S>(_ style: S) -> UIHostingConfiguration<Content, _UIHostingConfigurationBackgroundView<S>> where S : ShapeStyle { _abiUnimplemented("UIHostingConfiguration: public func background<S>(_ style: S) -> UIHostingConfiguration<Content, _UIHostingConfigurationBackgroundView<S>> where") }
-  public func margins(_ edges: Edge.Set = .all, _ length: CoreFoundation.CGFloat) -> UIHostingConfiguration<Content, Background> { _abiUnimplemented("UIHostingConfiguration: public func margins(_ edges: Edge.Set = .all, _ length: CoreFoundation.CGFloat) -> UIHostingConfiguration<Content, Backg") }
-  public func margins(_ edges: Edge.Set = .all, _ insets: EdgeInsets) -> UIHostingConfiguration<Content, Background> { _abiUnimplemented("UIHostingConfiguration: public func margins(_ edges: Edge.Set = .all, _ insets: EdgeInsets) -> UIHostingConfiguration<Content, Background>") }
-  public func minSize(width: CoreFoundation.CGFloat? = nil, height: CoreFoundation.CGFloat? = nil) -> UIHostingConfiguration<Content, Background> { _abiUnimplemented("UIHostingConfiguration: public func minSize(width: CoreFoundation.CGFloat? = nil, height: CoreFoundation.CGFloat? = nil) -> UIHostingConfigurati") }
-  @_Concurrency.MainActor public func makeContentView() -> any UIKit.UIView & UIKit.UIContentView { _abiUnimplemented("UIHostingConfiguration: @_Concurrency.MainActor public func makeContentView() -> any UIKit.UIView & UIKit.UIContentView") }
-  public func updated(for state: any UIKit.UIConfigurationState) -> UIHostingConfiguration<Content, Background> { _abiUnimplemented("UIHostingConfiguration: public func updated(for state: any UIKit.UIConfigurationState) -> UIHostingConfiguration<Content, Background>") }
-}
-@available(iOS 16.0, tvOS 16.0, *)
-@available(macOS, unavailable)
-@available(watchOS, unavailable)
-extension UIHostingConfiguration where Background == EmptyView {
-  public init(@ViewBuilder content: () -> Content) { self.init(_abiTag: 0); _abiInertValue("UIHostingConfiguration") }
-}
 
-@available(iOS 16.0, tvOS 16.0, *)
-@available(macOS, unavailable)
-@available(watchOS, unavailable)
-public struct _UIHostingConfigurationBackgroundView<Style> : View where Style : ShapeStyle {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  @preconcurrency @MainActor public var body: some View {
-    get { _abiUnimplemented("_UIHostingConfigurationBackgroundView: @preconcurrency @MainActor public var body: some View {") }
-  }
-}
 
 @available(iOS 16.0, tvOS 16.0, *)
 @available(macOS, unavailable)
@@ -4214,8 +3858,8 @@ public protocol _UIHostingViewable : AnyObject {
 extension UnitPoint : Animatable {
   public typealias AnimatableData = AnimatablePair<CoreFoundation.CGFloat, CoreFoundation.CGFloat>
   public var animatableData: UnitPoint.AnimatableData {
-    get { _abiUnimplemented("UnitPoint: public var animatableData: UnitPoint.AnimatableData {") }
-    set {}
+    get { AnimatablePair(x, y) }
+    set { x = newValue.first; y = newValue.second }
   }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
@@ -4399,19 +4043,21 @@ extension _VectorMath {
     public init(rawValue: Swift.Int8) { self.rawValue = rawValue }
     public static let top: VerticalEdge.Set = VerticalEdge.Set(rawValue: 1 << 0)
     public static let bottom: VerticalEdge.Set = VerticalEdge.Set(rawValue: 1 << 1)
-    public static let all: VerticalEdge.Set = VerticalEdge.Set(rawValue: 1 << 2)
-    public init(_ e: VerticalEdge) { _abiUnimplemented("VerticalEdge: public init(_ e: VerticalEdge)") }
+    public static let all: VerticalEdge.Set = [.top, .bottom]
+    public init(_ e: VerticalEdge) { self.init(rawValue: 1 << e.rawValue) }
     public typealias ArrayLiteralElement = VerticalEdge.Set.Element
     public typealias RawValue = Swift.Int8
   }
-  public init?(rawValue: Swift.Int8) { return nil }
+  public init?(rawValue: Swift.Int8) {
+    switch rawValue { case 0: self = .top; case 1: self = .bottom; default: return nil }
+  }
   public typealias AllCases = [VerticalEdge]
   public typealias RawValue = Swift.Int8
   public static var allCases: [VerticalEdge] {
-    get { _abiUnimplemented("VerticalEdge: public static var allCases: [VerticalEdge] {") }
+    get { [.top, .bottom] }
   }
   public var rawValue: Swift.Int8 {
-    get { _abiUnimplemented("VerticalEdge: public var rawValue: Swift.Int8 {") }
+    get { switch self { case .top: return 0; default: return 1 } }
   }
 }
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
@@ -4429,23 +4075,26 @@ extension VerticalEdge.Set : Swift.Sendable {}
 public struct ViewDimensions {
   @usableFromInline internal var _abiTag: Int = 0
   @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
+  internal var size: CGSize = .zero
   public var width: CoreFoundation.CGFloat {
-    get { _abiUnimplemented("ViewDimensions: public var width: CoreFoundation.CGFloat {") }
+    get { size.width }
   }
   public var height: CoreFoundation.CGFloat {
-    get { _abiUnimplemented("ViewDimensions: public var height: CoreFoundation.CGFloat {") }
+    get { size.height }
   }
+  /// Where a standard guide falls (leading, center or trailing; baselines at the bottom).
   public subscript(guide: HorizontalAlignment) -> CoreFoundation.CGFloat {
-    get { _abiUnimplemented("ViewDimensions: public subscript(guide: HorizontalAlignment) -> CoreFoundation.CGFloat {") }
+    get { guidePosition(guide.key.bits, size.width) }
   }
   public subscript(guide: VerticalAlignment) -> CoreFoundation.CGFloat {
-    get { _abiUnimplemented("ViewDimensions: public subscript(guide: VerticalAlignment) -> CoreFoundation.CGFloat {") }
+    get { guidePosition(guide.key.bits, size.height) }
   }
+  /// No view here sets an alignment guide of its own.
   public subscript(explicit guide: HorizontalAlignment) -> CoreFoundation.CGFloat? {
-    get { _abiUnimplemented("ViewDimensions: public subscript(explicit guide: HorizontalAlignment) -> CoreFoundation.CGFloat?") }
+    get { nil }
   }
   public subscript(explicit guide: VerticalAlignment) -> CoreFoundation.CGFloat? {
-    get { _abiUnimplemented("ViewDimensions: public subscript(explicit guide: VerticalAlignment) -> CoreFoundation.CGFloat? {") }
+    get { nil }
   }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
@@ -4458,10 +4107,11 @@ public struct ViewSpacing {
   @usableFromInline internal var _abiTag: Int = 0
   @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
   public static let zero: ViewSpacing = ViewSpacing(_abiTag: 1)
-  public init() { self.init(_abiTag: 0); _abiInertValue("ViewSpacing") }
-  public mutating func formUnion(_ other: ViewSpacing, edges: Edge.Set = .all) { _abiUnimplemented("ViewSpacing: public mutating func formUnion(_ other: ViewSpacing, edges: Edge.Set = .all)") }
-  public func union(_ other: ViewSpacing, edges: Edge.Set = .all) -> ViewSpacing { _abiUnimplemented("ViewSpacing: public func union(_ other: ViewSpacing, edges: Edge.Set = .all) -> ViewSpacing") }
-  public func distance(to next: ViewSpacing, along axis: Axis) -> CoreFoundation.CGFloat { _abiUnimplemented("ViewSpacing: public func distance(to next: ViewSpacing, along axis: Axis) -> CoreFoundation.CGFloat") }
+  /// Every view asks for the standard 8 points from its neighbors; ViewSpacing.zero for none.
+  public init() { self.init(_abiTag: 0) }
+  public mutating func formUnion(_ other: ViewSpacing, edges: Edge.Set = .all) { if other._abiTag == 0 { _abiTag = 0 } }
+  public func union(_ other: ViewSpacing, edges: Edge.Set = .all) -> ViewSpacing { var result = self; result.formUnion(other, edges: edges); return result }
+  public func distance(to next: ViewSpacing, along axis: Axis) -> CoreFoundation.CGFloat { _abiTag == 1 && next._abiTag == 1 ? 0 : 8 }
 }
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)

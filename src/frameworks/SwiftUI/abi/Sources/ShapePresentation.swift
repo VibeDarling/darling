@@ -7,24 +7,33 @@ import CoreFoundation
     private let size: (ProposedViewSize) -> CGSize
     private let path: (CGRect) -> Path
     private let fill: FillStyle
-    init<S: Shape>(_ shape: S, fill: FillStyle) { size = shape.sizeThatFits; path = shape.path; self.fill = fill; super.init() }
-    @objc(sizeForWidth:height:) func sizeForWidth(_ width: Double, height: Double) -> NSDictionary {
-        let size = size(ProposedViewSize(width: width < 0 ? nil : CGFloat(width), height: height < 0 ? nil : CGFloat(height)))
-        return ["width": Double(size.width), "height": Double(size.height)]._bridgeToObjectiveC()
+    /// Set where the shape's path is stroked rather than filled.
+    let stroke: StrokeStyle?
+    init<S: Shape>(_ shape: S, fill: FillStyle) {
+        size = shape.sizeThatFits; path = shape.path; self.fill = fill
+        stroke = (shape as? DarlingStrokedShape)?.style
+        super.init()
     }
-    @objc(pathForWidth:height:) func pathForWidth(_ width: Double, height: Double) -> NSDictionary {
-        let path = path(CGRect(x: 0, y: 0, width: width, height: height))
-        let commands: [[Double]] = path.elements.map { element in
-            switch element {
-            case .move(let p): return [0, Double(p.x), Double(p.y)]
-            case .line(let p): return [1, Double(p.x), Double(p.y)]
-            case let .quadCurve(p, c): return [2, Double(c.x), Double(c.y), Double(p.x), Double(p.y)]
-            case let .curve(p, c1, c2): return [3, Double(c1.x), Double(c1.y), Double(c2.x), Double(c2.y), Double(p.x), Double(p.y)]
-            case .closeSubpath: return [4]
-            }
-        }
-        return ["commands": commands, "even-odd": fill.isEOFilled, "antialiased": fill.isAntialiased]._bridgeToObjectiveC()
+    private init(size: @escaping (ProposedViewSize) -> CGSize, path: @escaping (CGRect) -> Path, fill: FillStyle, stroke: StrokeStyle?) {
+        self.size = size; self.path = path; self.fill = fill; self.stroke = stroke
+        super.init()
     }
+    /// The shape turned by radians (clockwise, y pointing down) about anchor, as rotationEffect
+    /// draws it; its layout does not change.
+    func rotated(by radians: Double, anchor: UnitPoint) -> RuntimeShape {
+        let path = self.path
+        return RuntimeShape(size: size, path: { rect in
+            let x = rect.minX + rect.width * anchor.x, y = rect.minY + rect.height * anchor.y
+            let c = CGFloat(cos(radians)), s = CGFloat(sin(radians))
+            return path(rect).applying(CGAffineTransform(a: c, b: s, c: -s, d: c, tx: x - c * x + s * y, ty: y - s * x - c * y))
+        }, fill: fill, stroke: stroke)
+    }
+    /// The size the shape takes when proposed these dimensions; a negative one is unspecified.
+    func size(width: Double, height: Double) -> CGSize {
+        size(ProposedViewSize(width: width < 0 ? nil : CGFloat(width), height: height < 0 ? nil : CGFloat(height)))
+    }
+    func path(width: Double, height: Double) -> Path { path(CGRect(x: 0, y: 0, width: width, height: height)) }
+    var isEOFilled: Bool { fill.isEOFilled }
 }
 func makeShapeOutput<S: Shape, Style: ShapeStyle>(_ shape: S, style: Style, fill: FillStyle, inputs: _ViewInputs, paint: ResolvedPaint? = nil) -> _ViewOutputs {
     var node = RenderNode(kind: "shape", identity: inputs.graph?.nodeIdentity(at: inputs.path.child("shape")) ?? "")

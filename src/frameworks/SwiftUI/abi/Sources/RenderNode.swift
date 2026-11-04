@@ -13,12 +13,24 @@ struct RenderNode {
     var properties: [String: String] = [:]
     var image: UIImage?
     var shape: RuntimeShape?
+    /// The app's Layout, for "layout" nodes.
+    var layout: RuntimeLayout?
     /// The UIKit view of a UIViewRepresentable or UIViewControllerRepresentable ("platform" nodes).
     var platformView: UIView?
     /// What a platform view asks for when proposed a size; nil means it fills the proposal.
     var platformSize: ((CGSize?) -> CGSize?)?
     var textClusters: [Int] = []
     var textRuns: [[String: Any]] = []
+    /// The view's tags (tag(_:)), for the container that selects among its views.
+    var tags: [AnyHashable] = []
+    /// The view's tabItem label, made with the tab bar's inputs.
+    var tabItem: ((_ViewInputs) -> _ViewOutputs)?
+    /// The view's navigationTitle, for the navigation container it is in.
+    var navigationTitle: String?
+    /// The view's toolbar items, for the navigation container it is in.
+    var toolbarItems: [(placement: String, node: RenderNode)] = []
+    /// Which node this is within the tree being laid out (0 outside a layout pass).
+    var layoutID = 0
 
     var list: [RenderNode] {
         if kind == "empty" { return [] }

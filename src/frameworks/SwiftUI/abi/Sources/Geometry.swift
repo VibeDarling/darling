@@ -54,3 +54,34 @@ public struct GeometryProxy {
     return globalFrame
   }
 }
+
+/// What onGeometryChange(for:of:action:) adds: once its content is laid out, `action` gets
+/// `value` of the content's geometry, then again each time that changes.
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+@frozen public struct _GeometryActionModifier<Value>: ViewModifier where Value: Equatable {
+  public var value: (GeometryProxy) -> Value
+  public var action: (Value) -> Swift.Void
+  @inlinable public init(value: @escaping (GeometryProxy) -> Value, action: @escaping (Value) -> Swift.Void) {
+        self.value = value
+        self.action = action
+    }
+  public typealias Body = Swift.Never
+  public static func _makeView(modifier: _GraphValue<_GeometryActionModifier<Value>>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    let path = inputs.path.child("geometry-action")
+    let content = body(_Graph(), inputs).renderedNode
+    guard let graph = inputs.graph else { return _ViewOutputs(node: content) }
+    if let frame = graph.geometry(at: path) {
+      graph.initialOrChangedValue(at: path.child("value"), value: modifier.value.value(GeometryProxy(frame: frame)), action: modifier.value.action)
+    }
+    // A zero offset: a wrapper that lays out exactly as its content, for the host to report.
+    let identity = graph.nodeIdentity(at: path)
+    geometryReporters[identity] = { [weak graph] frame in graph?.reportGeometry(frame, at: path) }
+    return _ViewOutputs(node: RenderNode(kind: "offset", identity: identity, children: [content]))
+  }
+}
+extension View {
+  @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+  @_alwaysEmitIntoClient public func onGeometryChange<T: Equatable>(for type: T.Type, of transform: @escaping (GeometryProxy) -> T, action: @escaping (_ newValue: T) -> Swift.Void) -> some View {
+        modifier(_GeometryActionModifier<T>(value: transform, action: action))
+    }
+}

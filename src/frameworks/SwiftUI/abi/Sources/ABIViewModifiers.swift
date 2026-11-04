@@ -72,12 +72,6 @@ extension View {
     _darlingIgnoredModifier(self, "onDrag")
   }
 }
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension View {
-  public func tabViewStyle<S>(_ style: S) -> some View where S : TabViewStyle {
-    _darlingIgnoredModifier(self, "tabViewStyle")
-  }
-}
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension View {
   public func buttonStyle<S>(_ style: S) -> some View where S : PrimitiveButtonStyle {
@@ -124,6 +118,13 @@ extension View {
         return modifier(
             _AppearanceActionModifier(appear: action, disappear: nil))
     }
+  @inlinable public func onDisappear(perform action: (() -> Swift.Void)? = nil) -> some View {
+        return modifier(
+            _AppearanceActionModifier(appear: nil, disappear: action))
+    }
+  @inlinable public func foregroundColor(_ color: Color?) -> some View {
+        return environment(\.foregroundColor, color)
+    }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 extension View {
@@ -147,12 +148,6 @@ extension View {
   }
   public func unredacted() -> some View {
     _darlingIgnoredModifier(self, "unredacted")
-  }
-}
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-extension View {
-  public func pickerStyle<S>(_ style: S) -> some View where S : PickerStyle {
-    _darlingIgnoredModifier(self, "pickerStyle")
   }
 }
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
@@ -393,12 +388,6 @@ extension View {
     _darlingIgnoredModifier(self, "scrollBounceBehavior")
   }
 }
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
-extension View {
-  public func tabItem<V>(@ViewBuilder _ label: () -> V) -> some View where V : View {
-    _darlingIgnoredModifier(self, "tabItem")
-  }
-}
 @available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
 @available(tvOS, unavailable)
 extension View {
@@ -625,24 +614,6 @@ extension View {
             }
         }
     }
-}
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension View {
-  public func navigationTitle(_ title: Text) -> some View {
-    _darlingIgnoredModifier(self, "navigationTitle")
-  }
-  public func navigationTitle(_ titleKey: LocalizedStringKey) -> some View {
-    _darlingIgnoredModifier(self, "navigationTitle")
-  }
-  @_disfavoredOverload public func navigationTitle<S>(_ title: S) -> some View where S : Swift.StringProtocol {
-    _darlingIgnoredModifier(self, "navigationTitle")
-  }
-}
-extension View {
-  @available(iOS 16.0, macOS 13.0, watchOS 9.0, tvOS 16.0, *)
-  public func navigationTitle(_ title: Binding<Swift.String>) -> some View {
-    _darlingIgnoredModifier(self, "navigationTitle")
-  }
 }
 @available(iOS 14.0, watchOS 8.0, *)
 @available(macOS, unavailable)

@@ -36,8 +36,13 @@ import UIKit
       let output = Content._makeView(view: _GraphValue(value: self.content), inputs: inputs.child("hosted"))
       return _SceneOutputs(text: output.text, accessibility: output.accessibility, node: output.renderedNode)
     }
-    graph.refresh = { [weak self] in self?.update() }
+    graph.refresh = { [weak self] in
+      self?.update()
+      self?.darlingDidRefresh?()
+    }
   }
+  /// Told after the view's own state changed what it shows (a cell's content view re-measures).
+  var darlingDidRefresh: (() -> Void)?
 
   /// Evaluates the graph and shows the result.
   private func update() {
@@ -139,4 +144,119 @@ import UIKit
 }
 
 extension UIHostingController : _UIHostingViewable where Content == AnyView {
+}
+
+// MARK: UIHostingConfiguration
+
+/// SwiftUI content as a UIKit cell's content: its content view hosts the content (padded by the
+/// margins, over the background) in a UIHostingController's view.
+@available(iOS 16.0, tvOS 16.0, *)
+@available(macOS, unavailable)
+@available(watchOS, unavailable)
+public struct UIHostingConfiguration<Content, Background> : UIKit.UIContentConfiguration where Content : View, Background : View {
+  @usableFromInline internal var _abiTag: Int = 0
+  @usableFromInline internal init(_abiTag: Int) { _abiUnimplemented("a value of this type") }
+  fileprivate var content: Content
+  fileprivate var background: Background
+  fileprivate var margins = EdgeInsets(top: 11, leading: 16, bottom: 11, trailing: 16)
+  fileprivate var minWidth: CGFloat?
+  fileprivate var minHeight: CGFloat? = 44
+  fileprivate init(content: Content, background: Background) { self.content = content; self.background = background }
+  public func background<B>(@ViewBuilder content: () -> B) -> UIHostingConfiguration<Content, B> where B : View {
+    var result = UIHostingConfiguration<Content, B>(content: self.content, background: content())
+    result.margins = margins; result.minWidth = minWidth; result.minHeight = minHeight
+    return result
+  }
+  public func background<S>(_ style: S) -> UIHostingConfiguration<Content, _UIHostingConfigurationBackgroundView<S>> where S : ShapeStyle {
+    background { _UIHostingConfigurationBackgroundView(style: style) }
+  }
+  public func margins(_ edges: Edge.Set = .all, _ length: CoreFoundation.CGFloat) -> UIHostingConfiguration<Content, Background> {
+    margins(edges, EdgeInsets(top: length, leading: length, bottom: length, trailing: length))
+  }
+  public func margins(_ edges: Edge.Set = .all, _ insets: EdgeInsets) -> UIHostingConfiguration<Content, Background> {
+    var result = self
+    if edges.contains(.top) { result.margins.top = insets.top }
+    if edges.contains(.leading) { result.margins.leading = insets.leading }
+    if edges.contains(.bottom) { result.margins.bottom = insets.bottom }
+    if edges.contains(.trailing) { result.margins.trailing = insets.trailing }
+    return result
+  }
+  public func minSize(width: CoreFoundation.CGFloat? = nil, height: CoreFoundation.CGFloat? = nil) -> UIHostingConfiguration<Content, Background> {
+    var result = self
+    result.minWidth = width; result.minHeight = height
+    return result
+  }
+  fileprivate var hostedView: AnyView {
+    AnyView(content.padding(margins).frame(minWidth: minWidth, maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+      .background(background))
+  }
+  @_Concurrency.MainActor public func makeContentView() -> any UIKit.UIView & UIKit.UIContentView {
+    HostingContentView(configuration: self)
+  }
+  public func updated(for state: any UIKit.UIConfigurationState) -> UIHostingConfiguration<Content, Background> { self }
+}
+@available(iOS 16.0, tvOS 16.0, *)
+@available(macOS, unavailable)
+@available(watchOS, unavailable)
+extension UIHostingConfiguration where Background == EmptyView {
+  public init(@ViewBuilder content: () -> Content) { self.init(content: content(), background: EmptyView()) }
+}
+
+/// The view a hosting configuration makes: a hosting controller's view, filling it.
+private final class HostingContentView<Content: View, Background: View>: UIView, UIContentView {
+  private let controller: UIHostingController<AnyView>
+  private var hosted: UIHostingConfiguration<Content, Background>
+  init(configuration: UIHostingConfiguration<Content, Background>) {
+    hosted = configuration
+    controller = UIHostingController(rootView: configuration.hostedView)
+    // As on iOS, a cell's content is laid out in all of the cell: a cell under the tab bar
+    // would otherwise squeeze it into what the bar leaves.
+    controller._disableSafeArea = true
+    super.init(frame: .zero)
+    let view = controller.view!
+    view.frame = bounds
+    view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    addSubview(view)
+    controller.darlingDidRefresh = { [weak self] in self?.contentMayHaveResized() }
+  }
+  required init?(coder: NSCoder) { return nil }
+  /// A state change that makes the content need another height tells the cell it is in, which
+  /// tells its table (UIKit's self-sizing cells).
+  private func contentMayHaveResized() {
+    guard bounds.width > 0 else { return }
+    let height = ceil(sizeThatFits(CGSize(width: bounds.width, height: 0)).height)
+    guard abs(height - bounds.height) >= 1 else { return }
+    let changed = NSSelectorFromString("uikitContentSizeChanged")
+    var view = superview
+    while let candidate = view {
+      if candidate.responds(to: changed) { candidate.perform(changed); return }
+      view = candidate.superview
+    }
+  }
+  var configuration: any UIContentConfiguration {
+    get { hosted }
+    set {
+      guard let configuration = newValue as? UIHostingConfiguration<Content, Background> else { return }
+      hosted = configuration
+      controller.rootView = configuration.hostedView
+      // A reused cell is measured right after this: show the new content now, not on the next refresh.
+      controller._render(seconds: 0)
+    }
+  }
+  // UIKit asks with CGFLOAT_MAX (or 0) for a dimension it leaves open.
+  override func sizeThatFits(_ size: CGSize) -> CGSize {
+    func open(_ length: CGFloat) -> CGFloat { length <= 0 || length >= 1e7 ? .infinity : length }
+    return controller.sizeThatFits(in: CGSize(width: open(size.width), height: open(size.height)))
+  }
+}
+
+@available(iOS 16.0, tvOS 16.0, *)
+@available(macOS, unavailable)
+@available(watchOS, unavailable)
+public struct _UIHostingConfigurationBackgroundView<Style> : View where Style : ShapeStyle {
+  @usableFromInline internal var _abiTag: Int = 0
+  @usableFromInline internal init(_abiTag: Int) { _abiUnimplemented("a value of this type") }
+  fileprivate var style: Style
+  fileprivate init(style: Style) { self.style = style }
+  @preconcurrency @MainActor public var body: some View { Rectangle().fill(style) }
 }

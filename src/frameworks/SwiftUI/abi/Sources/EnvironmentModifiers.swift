@@ -55,6 +55,10 @@ public protocol _GraphInputsModifier {
         DarlingSwiftUIPhase(23)
         inputs.environment.write(modifier.value.value, at: modifier.value.keyPath)
         DarlingSwiftUIPhase(24)
+        if modifier.value.keyPath as AnyKeyPath == \EnvironmentValues.foregroundColor as AnyKeyPath,
+           let color = modifier.value.value as? Color? {
+            inputs.foreground = color.map { [$0.resolve(inputs)] } ?? []
+        }
         return body(_Graph(), inputs)
     }
 }

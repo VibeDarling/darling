@@ -33,6 +33,10 @@ extension ShapeStyle where Self: View, Self.Body == _ShapeView<Rectangle, Self> 
 extension _VariadicView.Tree: View where Root: _VariadicView_ViewRoot, Content: View {
     public typealias Body = Never
     public static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
+        if let root = view.value.root as? DarlingLayoutRoot {
+            let content = Content._makeView(view: _GraphValue(value: view.value.content), inputs: inputs.child("layout"))
+            return root.makeOutput(children: content.renderedNode.list, inputs: inputs)
+        }
         _abiUnimplemented("_VariadicView.Tree<\(Root.self)>._makeView")
     }
 }
@@ -72,6 +76,11 @@ extension Transaction {
         get { false }
         set {}
     }
+}
+
+extension Transaction {
+    /// A transaction for `animation`, which Darling's SwiftUI applies without animating.
+    public init(animation: Animation?) { self.init() }
 }
 
 extension Transaction {

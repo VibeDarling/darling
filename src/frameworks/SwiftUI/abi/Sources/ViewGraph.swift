@@ -169,6 +169,11 @@ final class ViewGraph {
         if appeared[path] == nil, let appear = appear { pendingActions.append(appear) }
         appeared[path] = (generation, disappear)
     }
+    /// Queues `action` with `value` the first time it is seen at `path` and whenever it changes.
+    func initialOrChangedValue<Value: Equatable>(at path: ViewPath, value: Value, action: @escaping (Value) -> Void) {
+        if lastValues[path]?.value as? Value != value { pendingActions.append { action(value) } }
+        lastValues[path] = (generation, value)
+    }
     /// Queues `action` with the new value when `value` differs from the previous update's.
     func valueChange<Value: Equatable>(at path: ViewPath, value: Value, action: @escaping (Value) -> Void) {
         if let old = lastValues[path]?.value as? Value, old != value { pendingActions.append { action(value) } }

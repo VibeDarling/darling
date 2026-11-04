@@ -21,7 +21,7 @@ extension Path {
         case .rect(let rect):
             guard rect.width != 0 && rect.height != 0 else { return [] }
             return [.move(to: .init(x: rect.minX, y: rect.minY)), .line(to: .init(x: rect.maxX, y: rect.minY)), .line(to: .init(x: rect.maxX, y: rect.maxY)), .line(to: .init(x: rect.minX, y: rect.maxY)), .closeSubpath]
-        case .ellipse(let rect): return roundedElements(rect, corner: .init(width: abs(rect.width) / 2, height: abs(rect.height) / 2), style: .circular)
+        case .ellipse(let rect): return ellipseElements(rect)
         case .roundedRect(let rounded): return roundedElements(rounded.rect, corner: rounded.corner, style: rounded.style)
         default: fatalError("SwiftUI: stroked/trimmed path expansion is unsupported")
         }
@@ -106,6 +106,18 @@ private func curveBounds(_ p0: CGPoint, _ p1: CGPoint, _ p2: CGPoint, _ p3: CGPo
         return CGPoint(x: u*u*u*p0.x + 3*u*u*t*p1.x + 3*u*t*t*p2.x + t*t*t*p3.x, y: u*u*u*p0.y + 3*u*u*t*p1.y + 3*u*t*t*p2.y + t*t*t*p3.y)
     }
 }
+/// As SwiftUI's: from the rightmost point, clockwise (y pointing down), so a trimmed circle
+/// grows from three o'clock (rotated -90 degrees, from the top).
+private func ellipseElements(_ r: CGRect) -> [Path.Element] {
+    guard r.width != 0 && r.height != 0 else { return [] }
+    let rx = r.width / 2, ry = r.height / 2, cx = r.midX, cy = r.midY
+    let k: CGFloat = 0.5522847498307936
+    return [.move(to: .init(x: cx + rx, y: cy)),
+        .curve(to: .init(x: cx, y: cy + ry), control1: .init(x: cx + rx, y: cy + ry*k), control2: .init(x: cx + rx*k, y: cy + ry)),
+        .curve(to: .init(x: cx - rx, y: cy), control1: .init(x: cx - rx*k, y: cy + ry), control2: .init(x: cx - rx, y: cy + ry*k)),
+        .curve(to: .init(x: cx, y: cy - ry), control1: .init(x: cx - rx, y: cy - ry*k), control2: .init(x: cx - rx*k, y: cy - ry)),
+        .curve(to: .init(x: cx + rx, y: cy), control1: .init(x: cx + rx*k, y: cy - ry), control2: .init(x: cx + rx, y: cy - ry*k)), .closeSubpath]
+}
 private func roundedElements(_ r: CGRect, corner: CGSize, style: RoundedCornerStyle) -> [Path.Element] {
     guard r.width != 0 && r.height != 0 else { return [] }
     let x0 = r.minX, x1 = r.maxX, y0 = r.minY, y1 = r.maxY
@@ -123,3 +135,59 @@ private func roundedElements(_ r: CGRect, corner: CGSize, style: RoundedCornerSt
         .line(to: .init(x: x0, y: y0 + ry)),
         .curve(to: .init(x: x0 + rx, y: y0), control1: .init(x: x0, y: y0 + ry - ry*k), control2: .init(x: x0 + rx - rx*k, y: y0)), .closeSubpath]
 }
+
+extension Path {
+    /// The part of the path between two fractions of its length, as line segments: curves are
+    /// flattened, and a closed subpath runs back to its start.
+    public func trimmedPath(from: CGFloat, to: CGFloat) -> Path {
+        let from = min(max(from, 0), 1), to = min(max(to, 0), 1)
+        guard from < to else { return Path() }
+        if from == 0 && to == 1 { return self }
+        var subpaths: [[CGPoint]] = [], current = CGPoint.zero, start = CGPoint.zero
+        func point(_ t: CGFloat, _ p0: CGPoint, _ c1: CGPoint, _ c2: CGPoint, _ p3: CGPoint) -> CGPoint {
+            let u = 1 - t
+            return CGPoint(x: u * u * u * p0.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p3.x,
+                           y: u * u * u * p0.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p3.y)
+        }
+        func curve(_ c1: CGPoint, _ c2: CGPoint, _ p: CGPoint) {
+            if subpaths.isEmpty { subpaths.append([current]) }
+            for i in 1...32 { subpaths[subpaths.count - 1].append(point(CGFloat(i) / 32, current, c1, c2, p)) }
+            current = p
+        }
+        for element in elements {
+            switch element {
+            case .move(let p): subpaths.append([p]); current = p; start = p
+            case .line(let p):
+                if subpaths.isEmpty { subpaths.append([current]) }
+                subpaths[subpaths.count - 1].append(p); current = p
+            case let .quadCurve(p, c):
+                curve(CGPoint(x: current.x + (c.x - current.x) * 2 / 3, y: current.y + (c.y - current.y) * 2 / 3),
+                      CGPoint(x: p.x + (c.x - p.x) * 2 / 3, y: p.y + (c.y - p.y) * 2 / 3), p)
+            case let .curve(p, c1, c2): curve(c1, c2, p)
+            case .closeSubpath:
+                if !subpaths.isEmpty { subpaths[subpaths.count - 1].append(start) }
+                current = start
+            }
+        }
+        func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat { ((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)).squareRoot() }
+        let total = subpaths.reduce(0) { sum, points in zip(points, points.dropFirst()).reduce(sum) { $0 + distance($1.0, $1.1) } }
+        guard total > 0 else { return Path() }
+        let low = from * total, high = to * total
+        var result = Path(), travelled: CGFloat = 0
+        for points in subpaths {
+            var drawing = false
+            for (a, b) in zip(points, points.dropFirst()) {
+                let length = distance(a, b), end = travelled + length
+                defer { travelled = end }
+                guard length > 0, end > low, travelled < high else { continue }
+                func at(_ d: CGFloat) -> CGPoint { let t = (d - travelled) / length; return CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t) }
+                if !drawing { result.move(to: at(max(low, travelled))); drawing = true }
+                result.addLine(to: at(min(high, end)))
+            }
+        }
+        return result
+    }
+}
+
+/// A shape the shape view strokes rather than fills.
+protocol DarlingStrokedShape { var style: StrokeStyle { get } }

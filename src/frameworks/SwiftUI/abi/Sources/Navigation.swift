@@ -1,3 +1,4 @@
+import Foundation
 public struct NavigationPath: Equatable {
     private var elements: [AnyHashable] = []
     public init() {}
@@ -28,13 +29,12 @@ public struct NavigationStack<Data, Root: View>: View {
     public var body: some View { root }
     public static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
         if let path = view.value.path?.wrappedValue {
-            if let navigation = path as? NavigationPath {
-                precondition(navigation.isEmpty, "SwiftUI: navigation destinations are not implemented")
-            } else if let collection = path as? any Collection {
-                precondition(collection.isEmpty, "SwiftUI: navigation destinations are not implemented")
+            let empty = (path as? NavigationPath)?.isEmpty ?? (path as? any Collection)?.isEmpty ?? true
+            if !empty, reportedModifiers.insert("NavigationStack(path:)").inserted {
+                fputs("SwiftUI: navigation paths are not implemented; the root is shown\n", stderr)
             }
         }
-        return Root._makeView(view: _GraphValue(value: view.value.root), inputs: inputs)
+        return _darlingNavigationContainer(root: AnyView(view.value.root), inputs: inputs)
     }
 }
 @frozen public struct IDView<Content: View, ID: Hashable>: View {

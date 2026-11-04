@@ -114,6 +114,8 @@ private func resolveColor(_ color: UIColor, _ style: Int64, _ contrast: Int64, _
     public static let teal = Self(red: 0.1882, green: 0.6902, blue: 0.7804)
     public static let cyan = Self(red: 0.1961, green: 0.6784, blue: 0.902)
     public static let blue = Self(red: 0, green: 0.4784, blue: 1)
+    /// The system blue: Darling does not read an app's AccentColor asset.
+    public static var accentColor: Color { blue }
     public static let indigo = Self(red: 0.3451, green: 0.3373, blue: 0.8392)
     public static let purple = Self(red: 0.6863, green: 0.3216, blue: 0.8706)
     public static let pink = Self(red: 1, green: 0.1765, blue: 0.3333)
