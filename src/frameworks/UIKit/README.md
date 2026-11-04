@@ -75,3 +75,9 @@ raise NSInvalidArgumentException as conservative local rung 6 policy, without an
 observed Apple error contract. Use `--test-source src/frameworks/UIKit/tests/graphics-context.m`
 for nesting, AppKit/nil restoration, retained lifetime and simultaneous-thread proof.
 This implements context selection, without claiming rendering or image APIs.
+
+`UIGraphicsGetImageFromCurrentImageContext` snapshots are host-order premultiplied
+ARGB, which the PNG wrapper does not support, so `UIImagePNGRepresentation` of such a
+snapshot returns nil. Re-encode through an RGBA8 CGImage first. Scale 0 in
+`UIGraphicsBeginImageContextWithOptions` uses the main screen scale, and fractional pixel
+sizes are rounded up.
