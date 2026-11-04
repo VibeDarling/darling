@@ -2,6 +2,8 @@
 #import <Foundation/NSString.h>
 #import <Foundation/NSException.h>
 #include <dlfcn.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #include <math.h>
 #include <stdio.h>
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
@@ -11,11 +13,20 @@ static const unsigned char pixels[] = {
     10,20,30,128, 50,60,70,64, 80,90,100,0, 110,120,130,255
 };
 static int deallocCount;
-@interface CountingImage : UIImage
-@end
-@implementation CountingImage
-- (void)dealloc { deallocCount++; }
-@end
+static void countingDealloc(id self, SEL _cmd)
+{
+    deallocCount++;
+    struct objc_super super = {self, class_getSuperclass(objc_getClass("CountingImage"))};
+    ((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&super, _cmd);
+}
+static Class makeCountingImageClass(void)
+{
+    Class counting = objc_allocateClassPair(NSClassFromString(@"UIImage"), "CountingImage", 0);
+    if (counting == Nil) return Nil;
+    class_addMethod(counting, sel_registerName("dealloc"), (IMP)countingDealloc, "v@:");
+    objc_registerClassPair(counting);
+    return counting;
+}
 static int raisesInitializer(Class cls, CGImageRef raw, CGFloat scale, UIImageOrientation orientation)
 {
     int before = deallocCount;
@@ -78,7 +89,7 @@ int main(int argc, char **argv)
         CHECK(data != nil && [data length] > 8);
         CHECK([data writeToFile:[NSString stringWithUTF8String:argv[2]] atomically:YES]);
         CHECK([imageClass imageWithCGImage:NULL] == nil);
-        Class counting = NSClassFromString(@"CountingImage");
+        Class counting = makeCountingImageClass();
         CHECK(counting != Nil);
         CGImageRef bad = createImage(kCGImageAlphaLast);
         CHECK(raisesInitializer(counting, bad, 0, UIImageOrientationUp));
