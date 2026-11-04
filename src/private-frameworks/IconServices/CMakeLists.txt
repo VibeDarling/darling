@@ -164,6 +164,7 @@ add_framework(IconServices
 		src/NSBundle+IconServicesAdditions.m
 		src/NSXPCConnection+ISStore.m
 		src/IconServices.m
+		src/IFImage.m
 
 	DEPENDENCIES
 		system
@@ -172,4 +173,6 @@ add_framework(IconServices
 		QuartzCore
 		CoreUI
 		LaunchServices
+		CoreGraphics
+		ImageIO
 )
