@@ -6,8 +6,8 @@ framework for whatever the message names. That works for some frameworks, is unn
 others, and is not achievable at all for a third group. Which case you are in is not visible
 from the error message, the framework's name, or its install path.
 
-This document gives a procedure for telling them apart before spending effort, and records a
-measurement taken on 2026-09-20.
+This document gives a procedure for telling them apart before spending effort, and keeps a
+historical measurement taken on 2026-09-20 (see the note under *Measurement*).
 
 ## Start here
 
@@ -17,7 +17,9 @@ Given an app that aborts, in order:
    framework* below. If the core has no `Library not loaded` payload, stop; a stub is the
    wrong tool.
 2. **List what it actually needs.** `otool -L <binary>` (or `llvm-otool -L`), then check
-   each path against the prefix.
+   each path against the prefix. `otool -L` does not tell you which entries are optional, so
+   treat a listed library as a candidate and the `Library not loaded` line of the abort as the
+   authority on which one actually stopped the app.
 3. **Tier each genuinely-missing library** by what the binary binds from it (next section).
 4. **Act on the tier.** Tier 1: a stub with the correct install name. Tier 2:
    `tools/darling-stub-gen`, fed from public headers and docs or the importing app's
@@ -54,6 +56,12 @@ much smaller private `DeviceRegulatoryInfo`.
 
 ## Measurement, 2026-09-20
 
+Historical. These figures were collected before this document's method was restricted to the
+rung-5 tools listed under *Method*, and they rely on distinctions (strong versus weak
+dependencies, per-slice counts) that those tools do not give. Treat them as an illustration of
+the proportions, not as numbers to reproduce or extend. New measurements must use the *Method*
+below, on guest applications only.
+
 Apps built for macOS 26.6, in a prefix reporting itself as 11.7.4.
 
 Against one populated prefix: **66** application bundles (`/Applications` and
@@ -61,7 +69,7 @@ Against one populated prefix: **66** application bundles (`/Applications` and
 executable plus helpers, XPC services and `.appex` plugins. Per-library counts below are
 bundles.
 
-- **635** distinct install paths missing as strong dependencies, resolving to **600** distinct
+- **635** distinct install paths missing, resolving to **600** distinct
   library names, counting `/System` paths only. Including the 12 missing `/usr/lib` entries
   gives 647 and 612. The 35 difference is the same name requested at two paths, typically the
   normal path and the iOSSupport one.
@@ -96,10 +104,11 @@ Sample per-library demand, by bundle: `Combine` 30 bundles, `AppIntents` 28, `UI
 
 ## Method
 
-Rung-5 demand analysis is the only tool use these steps rely on, and only on a guest
-application (its executable and the code bundled in its own app bundle, including Apple stock
-apps). Apple frameworks, dylibs and anything from a macOS install are never guest binaries,
-and no tool may be pointed at them. The allowed tools are `nm -u`, `llvm-nm -u -m` (both flags
+Rung-5 demand analysis is the only tool use these steps rely on, and AGENTS.md section 1
+limits it to guest applications running inside a Darling prefix: which symbols they import and
+which libraries they load. Anything from a macOS install, including Apple's stock applications
+and their frameworks and dylibs, is not a guest binary, and no tool may be pointed at it. The
+allowed tools are `nm -u`, `llvm-nm -u -m` (both flags
 together) and `otool -L` / `llvm-otool -L`; every other tool in the AGENTS.md "Never" list stays
 banned. Where the docs differ, `AGENTS.md` and the stricter reading apply.
 
@@ -140,8 +149,8 @@ Measured example: `Terminal.app` aborted with SIGABRT and a 347MB core containin
 range rather than dyld's. It cleared dyld, loaded its frameworks, spawned threads, and aborted
 inside framework code. No stub addresses that.
 
-**Does the app have any missing strong dependencies?** Sixteen bundles had none in their main
-executable:
+**Does the app have any missing dependencies?** In the historical measurement, sixteen bundles
+had none in their main executable:
 Apps, Automator, Bluetooth File Exchange, ColorSync Utility, Dictionary, Digital Color Meter,
 Grapher, Image Capture, Mission Control, Screenshot, Script Editor, Siri, Stickies, Terminal,
 TextEdit, Time Machine. Darling's own `Darling Applications.app` also has none, and is left
@@ -168,10 +177,10 @@ A stub gets `dyld` past one image. Where that is the only missing dependency, th
 For Apple's own bundled applications it usually is not, because at least one remaining entry
 is tier 3:
 
-- **Calculator**: 29 strong dependencies, 12 missing. `TextInputUI`, the framework named in
+- **Calculator**: 12 missing dependencies. `TextInputUI`, the framework named in
   its abort, is tier 1 and binds nothing. The other eleven are tier 3, `SwiftUI` alone binding
   955 symbols. Stubbing `TextInputUI` changes the error message, not the outcome.
-- **Chess**: 27 strong dependencies, 3 missing. GameKit is tier 2 and small (8 Objective-C
+- **Chess**: 3 missing dependencies. GameKit is tier 2 and small (8 Objective-C
   classes), but `Combine` (8 Swift symbols) and `GroupActivities` (53) are tier 3. A GameKit
   stub gets Chess past GameKit and into `Combine`.
 
@@ -192,7 +201,7 @@ normal path and "missing" only at the iOSSupport one, among them `Authentication
 site outside `src/external/` passes it, there is no UIKit in the tree, and a populated prefix
 has no `/System/iOSSupport` directory. Catalyst apps need a UIKit substrate; stubs will not
 reach them. Scope that work separately, and do not expect the path wiring alone to make a
-Catalyst app launch: `Clock.app`'s executable has 24 missing strong dependencies, of
+Catalyst app launch: `Clock.app`'s executable has many missing dependencies, of
 which `RecapPerformanceTesting` is one.
 
 ## Reusing existing open-source implementations
