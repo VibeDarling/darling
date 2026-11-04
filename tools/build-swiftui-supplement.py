@@ -12,6 +12,21 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def link_flags(argv):
+    flags = []
+    for arg in argv:
+        flags.extend(part for piece in arg.split(',') for part in piece.split())
+    return flags
+
+
+def lenient_link(argv):
+    flags = link_flags(argv)
+    if '-flat_namespace' in flags:
+        return True
+    return any(flag in ('-undefined', '--undefined') and (i + 1 >= len(flags) or flags[i + 1] != 'error')
+               for i, flag in enumerate(flags))
+
+
 def validate(inputs, runtime, workspace):
     if inputs.get('schema_version') != 1 or inputs.get('architecture') != 'arm64':
         raise ValueError('full SwiftUI integration requires schema 1 and Darwin arm64')
@@ -35,13 +50,15 @@ def validate(inputs, runtime, workspace):
             if workspace not in path.parents:
                 raise ValueError('target output escapes private workspace: ' + str(path))
     for name in contract['link_targets']:
-        argv = targets[name]['argv']
-        if any('dynamic_lookup' in arg or 'undefined suppress' in arg for arg in argv):
+        argv = targets[name].get('argv')
+        if not argv:
+            raise ValueError('link target %s must declare argv' % name)
+        if lenient_link(argv):
             raise ValueError('strict undefined-symbol resolution required')
     installed = []
     for name in contract['install_targets']:
         for output in targets[name]['outputs']:
-            path = Path(output.replace('{workspace}', str(workspace))).resolve()
+            path = Path(output.replace('{workspace}', str(workspace)).replace('{runtime_root}', str(runtime))).resolve()
             if workspace / 'image' not in path.parents:
                 raise ValueError('install output must be under workspace/image')
             installed.append(path)
