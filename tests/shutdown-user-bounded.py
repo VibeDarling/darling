@@ -13,6 +13,9 @@ the launchd from the table. Cases:
              must exit 0 without calling `darling shutdown`
   stops      a launchd that `darling shutdown` stops: must exit 0 after one
              attempt
+  many       seven users, each with a container that `darling shutdown` stops:
+             must exit 0 after shutting down all seven (the attempt bound is
+             per container, not global)
   uninstall  tools/uninstall with a shutdown-user.sh that fails: must exit
              non-zero before removing anything
 """
@@ -48,6 +51,7 @@ done < "$TABLE"
     "su": r'''
 echo "$*" >> "$CALLS"
 if [ "$MODE" = stops ]; then grep -v ' /sbin/launchd$' "$TABLE" > "$TABLE.new"; mv "$TABLE.new" "$TABLE"; fi
+if [ "$MODE" = many ]; then awk -v u="$2" '$3 != u' "$TABLE" > "$TABLE.new"; mv "$TABLE.new" "$TABLE"; fi
 exit 0
 ''',
 }
@@ -57,6 +61,7 @@ CASES = [
     ("stuck", ["4242 Ssl alice /sbin/launchd"], False, None),
     ("unrelated", ["100 S+ bob less src/launchd/src/core.c", "4243 Z alice /sbin/launchd"], True, 0),
     ("stops", ["4244 Ssl alice /sbin/launchd"], True, 1),
+    ("many", [f"{5000 + i} Ssl user{i} /sbin/launchd" for i in range(7)], True, 7),
 ]
 
 failed = False
@@ -92,7 +97,7 @@ with tempfile.TemporaryDirectory(prefix="shutdown-user-") as d:
             problems.append(f"exit status {res.returncode}")
         if want_calls is not None and len(calls) != want_calls:
             problems.append(f"{len(calls)} shutdown attempts, want {want_calls}")
-        if calls and any(c != "--login alice -c darling shutdown" for c in calls):
+        if calls and any(not c.startswith("--login ") or not c.endswith(" -c darling shutdown") for c in calls):
             problems.append(f"unexpected su call {calls[0]!r}")
         if problems:
             print(f"FAIL [{name}]: " + "; ".join(problems))
