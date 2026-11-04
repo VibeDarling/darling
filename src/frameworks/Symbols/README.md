@@ -34,3 +34,27 @@ SDK. Use `-enable-library-evolution` for that module. Run source-built clients
 before considering runtime selection. Integration into the normal build,
 precompiled-application compatibility and actual SwiftUI rendering are unverified;
 no assembly/runtime replacement is authorized by this source candidate alone.
+
+## Explicit Darwin framework recipe
+
+`build-source.py` builds the candidate without installing it. Supply every
+platform/compiler input explicitly; the output must be a new durable directory.
+For example, with paths from your private build:
+
+```sh
+python3 build-source.py --swiftc "$SWIFTC" --clang "$CLANG" \
+  --target arm64-apple-macosx14.0 --minimum-os 14.0 \
+  --module-triple arm64-apple-macos --sdk "$SDK" \
+  --resources "$RESOURCES" --guest-root "$GUEST_ROOT" --output "$OUTPUT"
+```
+
+The output is a canonical `Symbols.framework` with a versioned binary,
+architecture-specific Swift module/interface and normal framework symlinks.
+The install name is
+`/System/Library/Frameworks/Symbols.framework/Versions/A/Symbols`.
+Compiler/link commands and logs remain in the output directory.
+`--enable-testing` is only for the internal configuration regression.
+Compile and link clients against this module and framework together.
+Commit the recipe/source before staging an artifact into an owned runtime.
+Export-name coverage is an interface check; it does not establish witness-table
+compatibility with precompiled Apple clients or functioning symbol rendering.
