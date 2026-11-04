@@ -8,9 +8,11 @@ replaced by stubs that read a fake process table ("pid stat user args" per
 line). su records each `darling shutdown` and, in the "stops" case, removes
 the launchd from the table. Cases:
   stuck      a launchd that `darling shutdown` does not stop (another prefix):
-             must exit non-zero after a bounded number of attempts
-  unrelated  only a host command mentioning launchd and a zombie launchd:
-             must exit 0 without calling `darling shutdown`
+             must exit non-zero after exactly five attempts
+  unrelated  only commands that mention launchd (as an argument, or inside
+             another first word) and a zombie launchd: must exit 0 without
+             calling `darling shutdown`
+Every su call must run under `timeout 15s`.
   stops      a launchd that `darling shutdown` stops: must exit 0 after one
              attempt
   many       seven users, each with a container that `darling shutdown` stops:
@@ -32,7 +34,7 @@ script = os.path.join(root, "tools", "shutdown-user.sh")
 STUBS = {
     "whoami": "echo root\n",
     "sleep": ":\n",
-    "timeout": 'shift\nexec "$@"\n',
+    "timeout": 'echo "$1" >> "$TIMEOUTS"\nshift\nexec "$@"\n',
     # ps -eo pid=,stat=,args=   |   ps -o uname= -p PID
     "ps": r'''
 if [ "$1" = "-eo" ]; then
@@ -57,9 +59,10 @@ exit 0
 }
 
 CASES = [
-    # name, table, expected exit is zero, expected number of shutdown calls (None: any, bounded)
-    ("stuck", ["4242 Ssl alice /sbin/launchd"], False, None),
-    ("unrelated", ["100 S+ bob less src/launchd/src/core.c", "4243 Z alice /sbin/launchd"], True, 0),
+    # name, table, expected exit is zero, expected number of shutdown calls
+    ("stuck", ["4242 Ssl alice /sbin/launchd"], False, 5),
+    ("unrelated", ["100 S+ bob less src/launchd/src/core.c", "4243 Z alice /sbin/launchd",
+                   "101 S root /usr/bin/not-launchd", "102 S root launchdctl list"], True, 0),
     ("stops", ["4244 Ssl alice /sbin/launchd"], True, 1),
     ("many", [f"{5000 + i} Ssl user{i} /sbin/launchd" for i in range(7)], True, 7),
 ]
@@ -79,9 +82,11 @@ with tempfile.TemporaryDirectory(prefix="shutdown-user-") as d:
         calls_path = os.path.join(d, name + ".calls")
         with open(table_path, "w", encoding="utf-8") as f:
             f.write("\n".join(table) + "\n")
+        timeouts_path = os.path.join(d, name + ".timeouts")
         open(calls_path, "w").close()
+        open(timeouts_path, "w").close()
         env = dict(os.environ, PATH=bindir + ":" + os.environ.get("PATH", "/usr/bin:/bin"),
-                   TABLE=table_path, CALLS=calls_path, MODE=name)
+                   TABLE=table_path, CALLS=calls_path, MODE=name, TIMEOUTS=timeouts_path)
         try:
             res = subprocess.run(["/bin/sh", script], env=env, capture_output=True, text=True, timeout=20)
         except subprocess.TimeoutExpired:
@@ -92,7 +97,11 @@ with tempfile.TemporaryDirectory(prefix="shutdown-user-") as d:
             continue
         with open(calls_path, encoding="utf-8") as f:
             calls = f.read().splitlines()
+        with open(timeouts_path, encoding="utf-8") as f:
+            timeouts = f.read().splitlines()
         problems = []
+        if timeouts != ["15s"] * len(calls):
+            problems.append(f"su run under timeouts {timeouts}, want 15s for each of {len(calls)} calls")
         if (res.returncode == 0) != want_ok:
             problems.append(f"exit status {res.returncode}")
         if want_calls is not None and len(calls) != want_calls:
