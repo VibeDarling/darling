@@ -1,7 +1,35 @@
 #import <UIKit/UICollectionViewCompositionalLayout.h>
 #include <dlfcn.h>
+#import <Foundation/NSException.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #include <stdio.h>
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
+
+static int deallocCount;
+static void countingDealloc(__unsafe_unretained id self, SEL _cmd)
+{
+    deallocCount++;
+    struct objc_super super = {self, class_getSuperclass(objc_getClass("CountingLayoutItem"))};
+    ((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&super, _cmd);
+}
+static BOOL raisesAndReleases(Class cls, SEL initializer, id argument)
+{
+    int before = deallocCount;
+    BOOL raised = NO;
+    @autoreleasepool {
+        @try {
+            id object = [cls alloc];
+            if (argument != nil || initializer == @selector(initWithLayoutSize:))
+                (void)((id (*)(id, SEL, id))objc_msgSend)(object, initializer, argument);
+            else
+                (void)((id (*)(id, SEL))objc_msgSend)(object, initializer);
+        } @catch (NSException *exception) {
+            raised = [[exception name] isEqualToString:NSInvalidArgumentException];
+        }
+    }
+    return raised && deallocCount == before + 1;
+}
 
 int main(int argc, char **argv)
 {
@@ -37,7 +65,17 @@ int main(int argc, char **argv)
         CHECK(copy.contentInsets.leading == 2 && copy.edgeSpacing.leading.spacing == 6);
         copy.contentInsets = NSDirectionalEdgeInsetsMake(5, 4, 3, 2);
         CHECK(item.contentInsets.top == 9 && item.edgeSpacing == nil);
-        puts("PASS UIKit layout item size, ownership, insets, spacing and independent copies");
+        Class counting = objc_allocateClassPair(itemClass, "CountingLayoutItem", 0);
+        CHECK(counting != Nil);
+        class_addMethod(counting, sel_registerName("dealloc"), (IMP)countingDealloc, "v@:");
+        objc_registerClassPair(counting);
+        CHECK(raisesAndReleases(counting, @selector(init), nil));
+        CHECK(raisesAndReleases(counting, @selector(initWithLayoutSize:), nil));
+        BOOL factoryRaised = NO;
+        @try { (void)((id (*)(Class, SEL, id))objc_msgSend)(itemClass, @selector(itemWithLayoutSize:), nil); }
+        @catch (NSException *exception) { factoryRaised = [[exception name] isEqualToString:NSInvalidArgumentException]; }
+        CHECK(factoryRaised);
+        puts("PASS UIKit layout item size, ownership, insets, spacing, independent copies, and initializer raises that release self");
     }
     return 0;
 }
