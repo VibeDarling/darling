@@ -13,7 +13,7 @@ Behaviour and where each value comes from:
 |--------|-------|-------|
 | currentDevice | process singleton | docs: "object that represents the current device" |
 | name | same as model ("Mac") | rung 6: docs give a generic, model-like name to callers without the user-assigned-name entitlement (iOS 16+); the hostname would leak the host |
-| systemVersion | host OS version, "major.minor[.patch]" | docs say "current version of the operating system"; format not specified, dotted decimal chosen (rung 6) |
+| systemVersion | the version of the host macOS (not an iOS or Mac Catalyst version), "major.minor" when the patch is 0, otherwise "major.minor.patch" | docs say "current version of the operating system"; format not specified. The host version and the dotted decimal form are rung 6 guesses; an iOS-compatible number is not claimed |
 | model | "Mac" | docs only give "iPhone", "iPod touch" as examples; "Mac" from Chameleon (rung 6) |
 | orientation | UIDeviceOrientationUnknown | no sensor; Chameleon returns Portrait, which would assert a fact nobody measured |
 | isMultitaskingSupported | YES | rung 6: Chameleon; no documented counterexample |
