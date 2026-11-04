@@ -53,3 +53,20 @@ build above), after a normal build:
 ```sh
 llvm-nm -gU <build>/src/frameworks/UIKit/UIKit | rg 'OBJC_CLASS_\$_NSCollectionLayout(Dimension|Size|Spacing|EdgeSpacing)$'
 ```
+
+## UIColor CGColor bridge
+
+`UIColor` keeps its RGBA storage and gains `initWithRed:`, `initWithWhite:`,
+`initWithCGColor:`, `+colorWithCGColor:`, `-CGColor`, `getRed:green:blue:alpha:`,
+`getWhite:alpha:` and `NSCopying` (adapted from the Chameleon UIColor, BSD
+notice retained; clean-room rung 3, Apple public documentation of `UIColor`).
+
+Policy choices (rung 6, Apple behavior not observed): `-CGColor` is created on
+first use as a generic RGB or gray color and is owned by the `UIColor`;
+`getWhite:alpha:` succeeds only for colors made with a white value, while
+`getRed:green:blue:alpha:` always succeeds (gray reads back as equal components);
+`colorWithCGColor:` raises `NSInvalidArgumentException` for NULL and for color
+models other than RGB and monochrome, and does not preserve the source color space.
+
+`tests/color-values.m` takes the guest path of the built UIKit dylib as its only
+argument. It has been syntax-checked only; it has not been run under Darling.
