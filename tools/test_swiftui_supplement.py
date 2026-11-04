@@ -52,7 +52,8 @@ class ContractTests(unittest.TestCase):
                      ['ld', '-undefined', 'warning'], ['ld', '-undefined'],
                      ['clang', '-Wl,-undefined,suppress'], ['clang', '-Wl,-undefined,dynamic_lookup'],
                      ['ld', '-undefined suppress'], ['ld', '-flat_namespace'],
-                     ['clang', '-Wl,-flat_namespace']):
+                     ['clang', '-Wl,-flat_namespace'], ['ld', '-U', '_foo'],
+                     ['clang', '-Wl,-U,_foo']):
             with self.subTest(argv=argv):
                 self.config['targets'][0]['argv'] = argv
                 with self.assertRaisesRegex(ValueError, 'strict'):

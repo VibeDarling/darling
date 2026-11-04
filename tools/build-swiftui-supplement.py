@@ -21,7 +21,7 @@ def link_flags(argv):
 
 def lenient_link(argv):
     flags = link_flags(argv)
-    if '-flat_namespace' in flags:
+    if '-flat_namespace' in flags or '-U' in flags:
         return True
     return any(flag in ('-undefined', '--undefined') and (i + 1 >= len(flags) or flags[i + 1] != 'error')
                for i, flag in enumerate(flags))
