@@ -160,13 +160,17 @@ static void UIRequireFinite(CGFloat value)
 @implementation NSCollectionLayoutItem
 - (instancetype)init
 {
-    [NSException raise:NSInvalidArgumentException format:@"Use a layout factory to create %@", [self class]];
+    Class cls = [self class];
+    self = nil;
+    [NSException raise:NSInvalidArgumentException format:@"Use a layout factory to create %@", cls];
     return nil;
 }
 - (instancetype)initWithLayoutSize:(NSCollectionLayoutSize *)layoutSize
 {
-    if (![layoutSize isKindOfClass:[NSCollectionLayoutSize class]])
+    if (![layoutSize isKindOfClass:[NSCollectionLayoutSize class]]) {
+        self = nil;
         [NSException raise:NSInvalidArgumentException format:@"Layout item requires a layout size"];
+    }
     if ((self = [super init]))
         _layoutSize = [layoutSize copy];
     return self;
