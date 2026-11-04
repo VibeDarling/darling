@@ -16,6 +16,7 @@ add_framework(UIKit
         src/UIColor.m
         src/UIFont.m
         src/UIView.m
+        src/UIAlertController.m
         src/UIViewController.m
         src/UIWindow.m
         src/UILabel.m
