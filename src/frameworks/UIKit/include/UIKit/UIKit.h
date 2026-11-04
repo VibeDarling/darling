@@ -26,6 +26,7 @@
 #import <UIKit/UIColor.h>
 #import <UIKit/UIFont.h>
 #import <UIKit/UIView.h>
+#import <UIKit/UIControl.h>
 #import <UIKit/UIViewController.h>
 #import <UIKit/UIWindow.h>
 #import <UIKit/UILabel.h>
