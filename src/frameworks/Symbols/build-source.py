@@ -2,7 +2,9 @@
 import argparse
 import json
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 
 parser = argparse.ArgumentParser(description='Build the independent Symbols source candidate without installing it.')
 for name in ('swiftc', 'clang', 'sdk', 'resources', 'guest-root', 'target', 'minimum-os', 'module-triple', 'output'):
@@ -21,7 +23,6 @@ if '/' in args.module_triple or args.module_triple in ('.', '..'):
     parser.error('Invalid module triple')
 version = output / 'Symbols.framework/Versions/A'
 modules = version / 'Modules/Symbols.swiftmodule'
-modules.mkdir(parents=True)
 source = Path(__file__).resolve().parent / 'src/Symbols.swift'
 obj = output / 'Symbols.o'
 compile_command = [args.swiftc, '-frontend', '-c', str(source), '-target', args.target,
@@ -38,11 +39,19 @@ link_command = [args.clang, '-target', args.target, '-fuse-ld=lld', '-nostdlib',
     '-Wl,-compatibility_version,1.0.0', '-Wl,-current_version,190.4.0',
     '-L' + str(Path(args.guest_root) / 'usr/lib/swift'), '-L' + str(Path(args.guest_root) / 'usr/lib'),
     str(obj), '-lSystem', '-lswiftCore', '-o', str(version / 'Symbols')]
-(output / 'commands.json').write_text(json.dumps([compile_command, link_command], indent=2) + '\n')
-for index, command in enumerate((compile_command, link_command)):
-    with (output / (str(index) + '.log')).open('w') as log:
-        subprocess.run(command, check=True, stdout=log, stderr=log)
-(version.parent / 'Current').symlink_to('A')
-for name in ('Symbols', 'Modules'):
-    (version.parent.parent / name).symlink_to('Versions/Current/' + name)
+modules.mkdir(parents=True)
+try:
+    (output / 'commands.json').write_text(json.dumps([compile_command, link_command], indent=2) + '\n')
+    for index, command in enumerate((compile_command, link_command)):
+        with (output / (str(index) + '.log')).open('w') as log:
+            subprocess.run(command, check=True, stdout=log, stderr=log)
+    (version.parent / 'Current').symlink_to('A')
+    for name in ('Symbols', 'Modules'):
+        (version.parent.parent / name).symlink_to('Versions/Current/' + name)
+except BaseException as error:
+    # The output directory is created by this run, so it is safe to remove; keep the failing log visible.
+    for log in sorted(output.glob('*.log')):
+        sys.stderr.write('--- ' + log.name + ' ---\n' + log.read_text()[-4000:])
+    shutil.rmtree(output)
+    sys.exit('build failed, removed ' + str(output) + ': ' + str(error))
 print(version.parent.parent)
