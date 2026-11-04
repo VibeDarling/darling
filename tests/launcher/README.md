@@ -28,6 +28,19 @@ path interface. `DARLING_PROFILE=<name>` selects the isolated sibling prefix
 `~/.darling.<name>`; using both selectors or a name containing path separators
 is rejected. The harness does not create or access any prefix.
 
+## Shellspawn socket path
+
+Run without root or any Darling container:
+
+```sh
+sh tests/launcher/shellspawn-sockpath.sh /tmp/darling-shellspawn-sockpath-test
+```
+
+Extracts the path construction of `connectToShellspawn()` from `darling.c` and
+checks that a prefix too long for `sun_path` is refused with an error instead of
+overflowing it. The launcher accepts a `DPREFIX` of up to 255 bytes; `sun_path`
+holds 107.
+
 ## Root-mode /proc
 
 Run without root or any Darling container:

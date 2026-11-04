@@ -2792,8 +2792,13 @@ int connectToShellspawn(void)
 #if USE_LINUX_4_11_HACK
 	addr.sun_path[0] = '\0';
 	
-	strcpy(addr.sun_path, prefix);
-	strcat(addr.sun_path, SHELLSPAWN_SOCKPATH);
+	int pathLen = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s" SHELLSPAWN_SOCKPATH, prefix);
+	if (pathLen < 0 || (size_t) pathLen >= sizeof(addr.sun_path))
+	{
+		fprintf(stderr, "Prefix path is too long for the shellspawn socket (max %zu bytes): %s\n",
+			sizeof(addr.sun_path) - sizeof(SHELLSPAWN_SOCKPATH), prefix);
+		exit(1);
+	}
 #else
 	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s"  SHELLSPAWN_SOCKPATH, prefix);
 #endif
