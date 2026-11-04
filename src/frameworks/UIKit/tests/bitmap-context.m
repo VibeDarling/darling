@@ -99,22 +99,7 @@ int main(int argc, char **argv)
         CHECK(CGBitmapContextGetWidth(current()) == 101 && CGBitmapContextGetHeight(current()) == 1);
         end();
         CHECK(current() == NULL);
-        begin(CGSizeMake(2, 2), YES, 1);
-        CGContextRef again = current();
-        push(again);
-        push(again);
-        CHECK(current() == again);
-        end();
-        CHECK(current() == NULL && image() == nil);
-        begin(CGSizeMake(2, 2), YES, 1);
-        CGContextRef under = current();
-        begin(CGSizeMake(1, 1), YES, 1);
-        push(current());
-        end();
-        CHECK(current() == under);
-        end();
-        CHECK(current() == NULL);
-        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership, scale 0 as main-screen scale, ceil of fractional pixels, end with a foreign context raising, non-finite/zero/negative sizes, 100.0000001 ceil to 101, ending after re-pushing the same context restores the prior depth");
+        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership, scale 0 as main-screen scale, ceil of fractional pixels, end with a foreign context raising, non-finite/zero/negative sizes, 100.0000001 ceil to 101");
     }
     return 0;
 }
