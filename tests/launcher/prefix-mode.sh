@@ -15,4 +15,6 @@ fn() {
 { fn 'void createDir'; fn 'void setupPrefix'; fn 'void checkPrefixOwner'; } > "$out/funcs.inc"
 ${CC:-cc} -O0 -g -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -I"$out" \
 	-o "$out/test" "$here/prefix-mode.c"
-ASAN_OPTIONS=exitcode=99 "$out/test" "$out/work"
+# a fresh work dir per run: a leftover prefix would make setupPrefix() skip the chmod
+work=$(mktemp -d "$out/work.XXXXXX")
+ASAN_OPTIONS=exitcode=99 "$out/test" "$work"
