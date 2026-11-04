@@ -20,62 +20,21 @@
 #ifndef _GraphicsServices_H_
 #define _GraphicsServices_H_
 
-/* iOS GraphicsServices, best effort from class-dumped symbol names and
-   public reverse-engineering. Since iOS 7 events go through BackBoard and
-   IOHIDEvent, so what is left here is the run loop UIApplicationMain sits in
-   and a few process-wide screen facts. */
+/* GraphicsServices exists so that apps which link it load. It exports
+   nothing.
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <stdbool.h>
-#include <stdint.h>
-
-#include <CoreGraphics/CGGeometry.h>
-
-CF_EXTERN_C_BEGIN
-
-typedef struct __GSEvent *GSEventRef;
-typedef void (*GSEventCallBack)(GSEventRef event);
-
-/* The mode GSEventRunModal runs the main run loop in. */
-extern const CFStringRef kGSEventReceiveRunLoopMode;
-
-void GSInitialize(void);
-void GSEventInitialize(Boolean registerPurple);
-
-/* Run the main run loop until GSEventStopModal; pushed modes take over while
-   they are on top of the stack. */
-void GSEventRunModal(Boolean disallowsRestarts);
-void GSEventRun(void);
-void GSEventStopModal(void);
-void GSEventPushRunLoopMode(CFStringRef mode);
-void GSEventPopRunLoopMode(CFStringRef mode);
-
-/* No event source delivers GSEvents any more; the callback is kept so that
-   callers can register one. */
-void GSEventRegisterEventCallBack(GSEventCallBack callback);
-
-/* mach_absolute_time() at the event currently being handled, or now. */
-uint64_t GSCurrentEventTimestamp(void);
-
-Boolean GSEventIsHardwareKeyboardAttached(void);
-void GSEventSetHardwareKeyboardAttached(Boolean attached);
-
-/* Screen facts, in points. Defaults to 1024x768 at scale 1, the same
-   fallback UIScreen uses, until whoever owns the display sets them. */
-void GSSetMainScreenInfo(CGSize size, CGFloat scale, int orientation);
-CGSize GSMainScreenSize(void);
-CGSize GSMainScreenPixelSize(void);
-CGFloat GSMainScreenScaleFactor(void);
-int GSMainScreenOrientation(void);
-
-const char *GSSystemRootDirectory(void);
-
-/* Fonts: a GSFont is a Core Text font (CTFontRef). */
-typedef const struct __GSFont *GSFontRef;
-typedef uint32_t GSFontSymbolicTraits;
-GSFontRef GSFontCreateWithName(const char *name, GSFontSymbolicTraits traits, float size);
-bool GSFontGetUseLegacyFontMetrics(void);
-
-CF_EXTERN_C_END
+   Provenance (rung 5, demand analysis): Cydia's executable lists
+   /System/Library/PrivateFrameworks/GraphicsServices.framework/GraphicsServices
+   among its dylibs (llvm-otool -L) but binds no symbol from it
+   (llvm-nm -u -m), and Cydia's makefile links -framework GraphicsServices.
+   Cydia's source (MobileCydia.mm) looks up one GraphicsServices function
+   with dlsym, and only where kCFCoreFoundationVersionNumber < 800; Darling's
+   Core Foundation is newer, so Cydia takes its other branch. No other guest
+   examined links the framework. VibeDarling issue #460 (an upstream
+   demand scan of macOS stock apps, 2026-09-23) also finds Maps, Clock and
+   News loading this path, Maps importing one symbol from it; that symbol
+   is not implemented here and stays tracked there. A strong bind to a symbol this framework
+   does not export aborts in dyld, which is the intended loud failure: add
+   the symbol then, with its source. */
 
 #endif

@@ -22,11 +22,8 @@ add_framework(GraphicsServices
     VERSION ${FRAMEWORK_VERSION}
 
     SOURCES
-        src/GSEvent.c
-        src/GSFont.c
-        src/GSScreen.c
+        src/GraphicsServices.c
 
     DEPENDENCIES
         system
-        CoreFoundation
 )

@@ -113,10 +113,10 @@ is done except where marked:
 System services, the part of SpringBoard that apps talk to. Their interfaces
 are copied on a best-effort basis from class-dumped headers. With no
 FrontBoard or runningboardd behind them yet, each call does its work in the
-calling process (`tests/ios-board-services.m` covers all three):
+calling process (`tests/ios-board-services.m` covers them):
 
-- GraphicsServices: `GSEventRunModal` and its run loop mode stack, screen
-  info, event timestamps. GSEvents themselves have been dead since iOS 7.
+- GraphicsServices exports nothing. It exists because Cydia links it
+  (`llvm-otool -L`) while binding no symbol from it (`llvm-nm -u -m`).
 - RunningBoardServices: process handles, identifiers and predicates (found
   through `kern.proc.all` and `proc_pidpath`, with the bundle taken from the
   executable's enclosing `.app`), and assertions that are recorded but not

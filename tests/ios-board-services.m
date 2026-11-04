@@ -1,10 +1,9 @@
-/* GraphicsServices, RunningBoardServices and FrontBoardServices: each
+/* RunningBoardServices and FrontBoardServices: each
    framework's main entry points, including launching, finding and
    terminating an installed app by bundle identifier. See
    ios-board-services.md. */
 
 #import <Foundation/Foundation.h>
-#import <GraphicsServices/GraphicsServices.h>
 #import <RunningBoardServices/RunningBoardServices.h>
 #import <FrontBoardServices/FrontBoardServices.h>
 #include <mach-o/dyld.h>
@@ -58,33 +57,6 @@ int main(int argc, char **argv)
 	@autoreleasepool {
 		NSString *sleeperApp = installSleeper();
 		CHECK(sleeperApp != nil, "installed %s", [sleeperApp UTF8String]);
-		/* GraphicsServices */
-		GSInitialize();
-		CGSize size = GSMainScreenSize();
-		CHECK(size.width == 1024 && size.height == 768, "GSMainScreenSize default %gx%g", size.width, size.height);
-		GSSetMainScreenInfo(CGSizeMake(390, 844), 3, 1);
-		CGSize pixels = GSMainScreenPixelSize();
-		CHECK(pixels.width == 1170 && pixels.height == 2532 && GSMainScreenScaleFactor() == 3, "GSMainScreenPixelSize %gx%g @%g", pixels.width, pixels.height, GSMainScreenScaleFactor());
-		uint64_t t0 = GSCurrentEventTimestamp();
-		usleep(1000);
-		CHECK(GSCurrentEventTimestamp() > t0, "GSCurrentEventTimestamp advances");
-
-		__block BOOL ranInPushedMode = NO;
-		CFStringRef mode = CFSTR("TestMode");
-		CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(NULL, CFAbsoluteTimeGetCurrent() + 0.1, 0, 0, 0, ^(CFRunLoopTimerRef t) {
-			NSString *current = CFBridgingRelease(CFRunLoopCopyCurrentMode(CFRunLoopGetMain()));
-			ranInPushedMode = [current isEqualToString:@"TestMode"];
-			GSEventPopRunLoopMode(mode);
-			GSEventStopModal();
-		});
-		CFRunLoopAddTimer(CFRunLoopGetMain(), timer, mode);
-		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-			GSEventPushRunLoopMode(mode);
-		});
-		NSDate *start = [NSDate date];
-		GSEventRunModal(true);
-		CHECK(ranInPushedMode && -[start timeIntervalSinceNow] < 5, "GSEventRunModal ran a pushed mode and returned after GSEventStopModal (%.2fs)", -[start timeIntervalSinceNow]);
-
 		/* RunningBoardServices */
 		RBSProcessHandle *me = [RBSProcessHandle currentProcess];
 		CHECK([me pid] == getpid() && [me isValid] && [[me currentState] isRunning], "RBSProcessHandle currentProcess %s", [[me description] UTF8String]);
