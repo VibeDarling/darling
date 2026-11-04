@@ -157,11 +157,7 @@ static void UIRequireFinite(CGFloat value)
 - (id)copyWithZone:(NSZone *)zone { return self; }
 @end
 
-@implementation NSCollectionLayoutItem {
-    NSCollectionLayoutSize *_layoutSize;
-    NSCollectionLayoutEdgeSpacing *_edgeSpacing;
-    NSDirectionalEdgeInsets _contentInsets;
-}
+@implementation NSCollectionLayoutItem
 - (instancetype)init
 {
     [NSException raise:NSInvalidArgumentException format:@"Use a layout factory to create %@", [self class]];

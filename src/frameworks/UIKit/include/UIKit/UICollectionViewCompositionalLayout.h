@@ -71,7 +71,12 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)new NS_UNAVAILABLE;
 @end
 
-@interface NSCollectionLayoutItem : NSObject <NSCopying>
+@interface NSCollectionLayoutItem : NSObject <NSCopying> {
+@package
+    NSCollectionLayoutSize *_layoutSize;
+    NSCollectionLayoutEdgeSpacing *_edgeSpacing;
+    NSDirectionalEdgeInsets _contentInsets;
+}
 + (instancetype)itemWithLayoutSize:(NSCollectionLayoutSize *)layoutSize;
 @property(nonatomic, readonly) NSCollectionLayoutSize *layoutSize;
 @property(nonatomic, copy, nullable) NSCollectionLayoutEdgeSpacing *edgeSpacing;
