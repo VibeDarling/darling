@@ -47,3 +47,8 @@ rather than substituting an undocumented bitmap format. Successful canonical aut
 PNG pixel proof remains in image-values.m and its recipe; direct bitmap-snapshot PNG
 normalization/encoding is a separate missing capability. No new encoding transform or
 backend edit is implied by this component.
+
+End pop count: `Begin; push(own); End` leaves the bitmap context current, and `pop()`
+then empties the stack. A multi-pop loop in `UIGraphicsEndImageContext` makes this
+fail, because it would also pop the entry the caller pushed. `Begin; push(other); End`
+raises, leaves `other` current, and `pop()` returns to the bitmap context.
