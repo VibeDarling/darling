@@ -3147,7 +3147,7 @@ void showHelp(const char* argv0)
 	fprintf(stderr, "\t%s shutdown\n", argv0);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Environment variables:\n"
-		"DPREFIX - specifies the location of the Darling prefix, defaults to ~/.darling\n"
+		"DPREFIX - specifies the absolute path of the Darling prefix, defaults to ~/.darling\n"
 		"DARLING_PROFILE - selects an isolated named prefix at ~/.darling.<name>\n"
 		"DARLING_OS_VERSION - specifies the advertised macOS version (e.g. 11.7.4, 12.7.4, 26.0)\n");
 }

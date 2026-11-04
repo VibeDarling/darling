@@ -134,7 +134,7 @@ their repositories when building or distributing a runtime.
 
 ### Prefixes
 
-Darling has support for DPREFIXes, which are very similar to WINEPREFIXes. They provide a macOS-like filesystem structure for installed software and its data. The default DPREFIX location is `~/.darling`, but this can be changed by exporting an identically named environment variable. A prefix is automatically created and initialized on first use.
+Darling has support for DPREFIXes, which are very similar to WINEPREFIXes. They provide a macOS-like filesystem structure for installed software and its data. The default DPREFIX location is `~/.darling`, but this can be changed by exporting an identically named environment variable set to an absolute path. A prefix is automatically created and initialized on first use.
 
 Please note that we use `overlayfs` for creating prefixes, and so we cannot support putting prefix on a filesystem like NFS or eCryptfs. In particular, the default prefix location won't work if you have an encrypted home directory.
 
