@@ -2,7 +2,9 @@
 #import <UIKit/UIGraphicsContext.h>
 #import <CoreGraphics/CGBitmapContext.h>
 #import <Foundation/NSException.h>
+#import <Foundation/NSKeyValueCoding.h>
 #include <dlfcn.h>
+#include <math.h>
 #include <stdio.h>
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
 int main(int argc, char **argv)
@@ -56,8 +58,9 @@ int main(int argc, char **argv)
         CHECK(foreign);
         push(foreign);
         CHECK(image() == nil);
-        end();
-        CHECK(current() == foreign);
+        BOOL endRaised = NO;
+        @try { end(); } @catch (NSException *exception) { endRaised = YES; }
+        CHECK(endRaised && current() == foreign);
         pop();
         CHECK(current() == inner);
         end();
@@ -69,11 +72,21 @@ int main(int argc, char **argv)
         CHECK(snapshotBytes != NULL && CFDataGetLength(snapshotBytes) >= 8 * 6 * 4);
         CFRelease(snapshotBytes);
         CGContextRelease(foreign);
+        Class screenClass = NSClassFromString(@"UIScreen");
+        CHECK(screenClass != Nil);
+        CGFloat screenScale = [[[screenClass performSelector:@selector(mainScreen)] valueForKey:@"scale"] doubleValue];
+        CHECK(screenScale > 0);
+        begin(CGSizeMake(3, 2), YES, 0);
+        CHECK(CGBitmapContextGetWidth(current()) == (size_t)ceil(3 * screenScale) && image().scale == screenScale);
+        end();
+        begin(CGSizeMake(1.5, 1), YES, 1);
+        CHECK(CGBitmapContextGetWidth(current()) == 2 && CGBitmapContextGetHeight(current()) == 1);
+        end();
         BOOL rejected = NO;
-        @try { begin(CGSizeMake(1, 1), NO, 0); }
+        @try { begin(CGSizeMake(1, 1), NO, -1); }
         @catch (NSException *exception) { rejected = YES; }
         CHECK(rejected && current() == NULL);
-        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership and scale0 rejection");
+        puts("PASS UIKit bitmap contexts: pixels, scale, opaque/alpha, nested/foreign restoration, snapshot ownership, scale 0 as main-screen scale, ceil of fractional pixels, end with a foreign context raising");
     }
     return 0;
 }

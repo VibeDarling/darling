@@ -1,9 +1,9 @@
 # Bitmap image context baseline and candidate proof
 
 The bounded component preserves the three public function signatures and implements
-explicit-positive-scale offscreen bitmap creation, UIImage snapshots and cleanup.
+offscreen bitmap creation, UIImage snapshots and cleanup.
 It reuses the tested UIGraphics push/pop bridge and CGImage-backed UIImage.
-It does not supply UIScreen, views/windows, drawing helpers or application lifecycle.
+It does not supply views/windows, drawing helpers or application lifecycle.
 
 Provenance rung 3:
 
@@ -13,22 +13,22 @@ Provenance rung 3:
 
 Licensed Chameleon UIGraphics.h/.m at84605ede274bd82b330d72dd6ac41e64eb925fd7
 supplies bitmap creation, CTM and snapshot structure; complete BSD notices retained.
-Its global image stack and main-screen scale fallback are excluded. Existing tracked
+Its global image stack and its own main-screen scale lookup are excluded. Existing tracked
 CoreGraphics CGBitmapContext/CGContext headers and source supply allocation and CGImage
 snapshots, while thread-local retained frames own context and scale lifetimes.
 
-Scale zero is documented to use the main screen scale. No verified UIScreen primitive
-exists in this handoff. It raises an explicit local NSInternalInconsistencyException;
-no scale1 fallback is supplied. Extend only after the separate screen owner provides
-clean main-screen scale proof. Positive finite sizes/scales, integral representable
-pixel dimensions and allocation overflow checks use conservative local rung6 rejection;
-Apple fractional rounding/error behavior is not observed or claimed.
+Scale zero uses `[UIScreen mainScreen].scale`, as documented. Fractional pixel
+sizes are rounded up (ceil), a local rung 6 choice; Apple's exact rounding is not
+observed or claimed. Non-finite or non-positive sizes and scales, unrepresentable
+pixel dimensions and allocation overflow raise NSInvalidArgumentException.
+UIGraphicsEndImageContext does nothing when no image context exists and raises
+NSInternalInconsistencyException when another context was pushed on top.
 
 Authored baseline test bitmap-context.m dynamically looks up the three functions
 against the unchanged d216 UIKit artifact. It must fail missing exports. The same
 executable against a candidate verifies scale2 pixels, exact CTM, opaque/translucent
 formats, partial alpha, nested contexts, foreign context getnil/endno-op, retained
-snapshot bytes after cleanup, nil restoration and explicit scale0 rejection.
+snapshot bytes after cleanup, nil restoration, scale 0 as the main-screen scale, ceil of fractional pixels and the raise on a foreign current context.
 
 Compile serially only in an owner-granted short shared-lock slot:
 

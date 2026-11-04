@@ -29,6 +29,7 @@
 
 #import <UIKit/UIGraphicsImageContext.h>
 #import <UIKit/UIGraphicsContext.h>
+#import <UIKit/UIScreen.h>
 #import <CoreGraphics/CGBitmapContext.h>
 #import <Foundation/NSArray.h>
 #import <Foundation/NSDictionary.h>
@@ -69,16 +70,15 @@ static NSMutableArray *UIBitmapImageStack(void)
 void UIGraphicsBeginImageContextWithOptions(CGSize size, BOOL opaque, CGFloat scale)
 {
     if (scale == 0)
-        [NSException raise:NSInternalInconsistencyException format:@"Main-screen scale is unavailable"];
+        scale = [[UIScreen mainScreen] scale];
     if (!isfinite(scale) || scale < 0 || !isfinite(size.width) || !isfinite(size.height) ||
         size.width <= 0 || size.height <= 0)
         [NSException raise:NSInvalidArgumentException format:@"Bitmap size and scale must be finite and positive"];
-    CGFloat pixelWidth = size.width * scale;
-    CGFloat pixelHeight = size.height * scale;
+    CGFloat pixelWidth = ceil(size.width * scale);
+    CGFloat pixelHeight = ceil(size.height * scale);
     if (!isfinite(pixelWidth) || !isfinite(pixelHeight) || pixelWidth >= (CGFloat)SIZE_MAX ||
-        pixelHeight >= (CGFloat)SIZE_MAX || pixelWidth < 1 || pixelHeight < 1 ||
-        floor(pixelWidth) != pixelWidth || floor(pixelHeight) != pixelHeight)
-        [NSException raise:NSInvalidArgumentException format:@"Bitmap pixel dimensions must be representable integers"];
+        pixelHeight >= (CGFloat)SIZE_MAX || pixelWidth < 1 || pixelHeight < 1)
+        [NSException raise:NSInvalidArgumentException format:@"Bitmap pixel dimensions are not representable"];
     size_t width = (size_t)pixelWidth;
     size_t height = (size_t)pixelHeight;
     if (width > SIZE_MAX / 4 || height > SIZE_MAX / (width * 4))
@@ -126,8 +126,10 @@ void UIGraphicsEndImageContext(void)
 {
     NSMutableArray *stack = UIBitmapImageStack();
     UIBitmapImageContextFrame *frame = [stack lastObject];
-    if (frame == nil || frame.context != UIGraphicsGetCurrentContext())
+    if (frame == nil)
         return;
+    if (frame.context != UIGraphicsGetCurrentContext())
+        [NSException raise:NSInternalInconsistencyException format:@"UIGraphicsEndImageContext called with another context current"];
     UIGraphicsPopContext();
     [stack removeLastObject];
     if ([stack count] == 0)
