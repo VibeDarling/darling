@@ -12,6 +12,10 @@ the launchd from the table. Cases:
   unrelated  only commands that mention launchd (as an argument, or inside
              another first word) and a zombie launchd: must exit 0 without
              calling `darling shutdown`
+  flap       a stuck launchd that returns under a new PID after every
+             shutdown: must still exit 1 after five attempts
+  mixed      the lowest-PID container is stuck, another stops: the other must
+             still be shut down, then exit 1
 Every su call must run under `timeout 15s`.
   stops      a launchd that `darling shutdown` stops: must exit 0 after one
              attempt
@@ -54,17 +58,29 @@ done < "$TABLE"
 echo "$*" >> "$CALLS"
 if [ "$MODE" = stops ]; then grep -v ' /sbin/launchd$' "$TABLE" > "$TABLE.new"; mv "$TABLE.new" "$TABLE"; fi
 if [ "$MODE" = many ]; then awk -v u="$2" '$3 != u' "$TABLE" > "$TABLE.new"; mv "$TABLE.new" "$TABLE"; fi
+if [ "$MODE" = mixed ] && [ "$2" = bob ]; then awk -v u="$2" '$3 != u' "$TABLE" > "$TABLE.new"; mv "$TABLE.new" "$TABLE"; fi
+if [ "$MODE" = flap ]; then
+	n=$(wc -l < "$CALLS")
+	if [ "$n" -gt 50 ]; then : > "$TABLE"; else awk -v n="$n" '{ $1 = 9000 + n } 1' "$TABLE" > "$TABLE.new"; mv "$TABLE.new" "$TABLE"; fi
+fi
 exit 0
 ''',
 }
 
 CASES = [
-    # name, table, expected exit is zero, expected number of shutdown calls
-    ("stuck", ["4242 Ssl alice /sbin/launchd"], False, 5),
+    # name, table, expected exit is zero, expected number of shutdown calls,
+    # users whose shutdown must have been called
+    ("stuck", ["4242 Ssl alice /sbin/launchd"], False, 5, []),
     ("unrelated", ["100 S+ bob less src/launchd/src/core.c", "4243 Z alice /sbin/launchd",
-                   "101 S root /usr/bin/not-launchd", "102 S root launchdctl list"], True, 0),
-    ("stops", ["4244 Ssl alice /sbin/launchd"], True, 1),
-    ("many", [f"{5000 + i} Ssl user{i} /sbin/launchd" for i in range(7)], True, 7),
+                   "101 S root /usr/bin/not-launchd", "102 S root launchdctl list"], True, 0, []),
+    ("stops", ["4244 Ssl alice /sbin/launchd"], True, 1, ["alice"]),
+    ("many", [f"{5000 + i} Ssl user{i} /sbin/launchd" for i in range(7)], True, 7,
+     [f"user{i}" for i in range(7)]),
+    # the stuck launchd reappears under a new PID after every shutdown; the
+    # stub empties the table after 50 calls so a regression cannot run away
+    ("flap", ["4300 Ssl alice /sbin/launchd"], False, 5, []),
+    # the lowest PID is stuck; the other container must still be shut down
+    ("mixed", ["100 Ssl alice /sbin/launchd", "200 Ssl bob /sbin/launchd"], False, 6, ["bob"]),
 ]
 
 failed = False
@@ -77,7 +93,7 @@ with tempfile.TemporaryDirectory(prefix="shutdown-user-") as d:
             f.write("#!/bin/sh\n" + body)
         os.chmod(path, stat.S_IRWXU)
 
-    for name, table, want_ok, want_calls in CASES:
+    for name, table, want_ok, want_calls, want_users in CASES:
         table_path = os.path.join(d, name + ".table")
         calls_path = os.path.join(d, name + ".calls")
         with open(table_path, "w", encoding="utf-8") as f:
@@ -106,6 +122,9 @@ with tempfile.TemporaryDirectory(prefix="shutdown-user-") as d:
             problems.append(f"exit status {res.returncode}")
         if want_calls is not None and len(calls) != want_calls:
             problems.append(f"{len(calls)} shutdown attempts, want {want_calls}")
+        for u in want_users:
+            if f"--login {u} -c darling shutdown" not in calls:
+                problems.append(f"no shutdown call for {u}")
         if calls and any(not c.startswith("--login ") or not c.endswith(" -c darling shutdown") for c in calls):
             problems.append(f"unexpected su call {calls[0]!r}")
         if problems:
