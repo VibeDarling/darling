@@ -42,14 +42,26 @@
 
 #import <UIKit/UIColor.h>
 #import <Foundation/NSException.h>
+#include <math.h>
 #import <AppKit/NSColor.h>
 
 #import "UIKitPrivate.h"
+
+/* NaN and infinite components raise; finite values outside 0...1 are stored unclamped. */
+static void UIColorRequireFinite(CGFloat value)
+{
+	if (!isfinite(value))
+		[NSException raise:NSInvalidArgumentException format:@"UIColor components must be finite"];
+}
 
 @implementation UIColor
 
 + (UIColor *)colorWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha
 {
+	UIColorRequireFinite(red);
+	UIColorRequireFinite(green);
+	UIColorRequireFinite(blue);
+	UIColorRequireFinite(alpha);
 	UIColor *color = [[UIColor alloc] init];
 	color->_red = red;
 	color->_green = green;
@@ -72,6 +84,10 @@
 
 - (instancetype)initWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha
 {
+	if (!isfinite(red) || !isfinite(green) || !isfinite(blue) || !isfinite(alpha)) {
+		self = nil;
+		[NSException raise:NSInvalidArgumentException format:@"UIColor components must be finite"];
+	}
 	if ((self = [self init])) {
 		_red = red;
 		_green = green;
@@ -83,6 +99,10 @@
 
 - (instancetype)initWithWhite:(CGFloat)white alpha:(CGFloat)alpha
 {
+	if (!isfinite(white) || !isfinite(alpha)) {
+		self = nil;
+		[NSException raise:NSInvalidArgumentException format:@"UIColor components must be finite"];
+	}
 	if ((self = [self initWithRed:white green:white blue:white alpha:alpha]))
 		_isGray = YES;
 	return self;
@@ -91,8 +111,10 @@
 /* Only RGB and monochrome colors are representable; other models raise rather than convert silently. */
 - (instancetype)initWithCGColor:(CGColorRef)color
 {
-	if (color == NULL)
+	if (color == NULL) {
+		self = nil;
 		[NSException raise:NSInvalidArgumentException format:@"UIColor requires a CGColor"];
+	}
 	CGColorSpaceModel model = CGColorSpaceGetModel(CGColorGetColorSpace(color));
 	size_t count = CGColorGetNumberOfComponents(color);
 	const CGFloat *c = CGColorGetComponents(color);
@@ -100,6 +122,7 @@
 		return [self initWithRed:c[0] green:c[1] blue:c[2] alpha:c[3]];
 	if (model == kCGColorSpaceModelMonochrome && count == 2)
 		return [self initWithWhite:c[0] alpha:c[1]];
+	self = nil;
 	[NSException raise:NSInvalidArgumentException format:@"UIColor supports only RGB and gray CGColors"];
 	return nil;
 }
@@ -112,9 +135,11 @@
 /* Created on first use and owned by the receiver; callers must retain it to outlive the UIColor. */
 - (CGColorRef)CGColor
 {
-	if (_cgColor == NULL)
-		_cgColor = _isGray ? CGColorCreateGenericGray(_red, _alpha)
-				   : CGColorCreateGenericRGB(_red, _green, _blue, _alpha);
+	@synchronized (self) {
+		if (_cgColor == NULL)
+			_cgColor = _isGray ? CGColorCreateGenericGray(_red, _alpha)
+					   : CGColorCreateGenericRGB(_red, _green, _blue, _alpha);
+	}
 	return _cgColor;
 }
 

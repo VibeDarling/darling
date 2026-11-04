@@ -13,6 +13,7 @@
 #define UIKIT_UIColor_H
 
 #import <Foundation/NSObject.h>
+#import <Foundation/NSObjCRuntime.h>
 #import <CoreGraphics/CGGeometry.h>
 #import <CoreGraphics/CGColor.h>
 
@@ -45,7 +46,7 @@
 @property (nonatomic, readonly) CGFloat blueComponent;
 @property (nonatomic, readonly) CGFloat alphaComponent;
 
-@property (nonatomic, readonly) CGColorRef CGColor;
+@property (nonatomic, readonly) CGColorRef CGColor NS_RETURNS_INNER_POINTER;
 
 - (BOOL)getRed:(CGFloat *)red green:(CGFloat *)green blue:(CGFloat *)blue alpha:(CGFloat *)alpha;
 - (BOOL)getWhite:(CGFloat *)white alpha:(CGFloat *)alpha;

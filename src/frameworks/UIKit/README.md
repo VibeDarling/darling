@@ -67,6 +67,12 @@ first use as a generic RGB or gray color and is owned by the `UIColor`;
 `getRed:green:blue:alpha:` always succeeds (gray reads back as equal components);
 `colorWithCGColor:` raises `NSInvalidArgumentException` for NULL and for color
 models other than RGB and monochrome, and does not preserve the source color space.
+All constructors raise `NSInvalidArgumentException` for NaN and infinite components (and
+release `self` first, so nothing leaks under ARC). Finite components outside 0...1 are stored
+unclamped; Apple's documentation describes clamping to 0...1 for the RGB and white
+initializers, so this is a known difference (rung 6, not observed). `-CGColor` is
+created under `@synchronized(self)`, so concurrent first calls return the same object, and
+the property is marked `NS_RETURNS_INNER_POINTER` because the `UIColor` owns the value.
 
 `tests/color-values.m` takes the guest path of the built UIKit dylib as its only
 argument. It has been syntax-checked only; it has not been run under Darling.
