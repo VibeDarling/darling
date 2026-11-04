@@ -21,7 +21,7 @@ Dir.mktmpdir('elfcalls-stack-') do |dir|
         unsigned char *memory=malloc(16384); assert(memory);
         memset(memory, 0x55, 16384);
         uintptr_t top=(uintptr_t)(memory+16384);
-        struct load_results lr={.mh=0x1234, .stack_top=top, .main_stack_size=16384,
+        struct load_results lr={.mh=0x1234, .stack_top=top,
           .argc=argc, .envc=envc, .argv=av, .envp=ev, .kernfd=7};
         setup_stack64(path,&lr);
         assert(lr.stack_top >= (uintptr_t)memory && lr.stack_top < top);

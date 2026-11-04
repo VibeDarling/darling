@@ -1031,11 +1031,10 @@ static void setup_space(struct load_results* lr, bool is_64_bit) {
 	struct rlimit limit;
 	getrlimit(RLIMIT_STACK, &limit);
 	// allocate a few pages 16 pages if it's less than the limit; otherwise, allocate the limit
-	unsigned long size = PAGE_SIZE * MLDR_MAIN_STACK_PAGES;
+	unsigned long size = PAGE_SIZE * 16;
 	if (limit.rlim_cur != RLIM_INFINITY && limit.rlim_cur < size) {
 		size = limit.rlim_cur;
 	}
-	lr->main_stack_size = size;
 
 	if (compatible_mmap((void*)(lr->stack_top - size), size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE | MAP_GROWSDOWN, -1, 0) == MAP_FAILED) {
 		fprintf(stderr, "Failed to allocate stack of %lu bytes: %d (%s)\n", size, errno, strerror(errno));
