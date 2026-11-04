@@ -27,7 +27,9 @@ int main(void)
 	// a thread port converts to TASK_NULL on the server side
 	mach_task_basic_info_data_t mtbi;
 	count = MACH_TASK_BASIC_INFO_COUNT;
-	expect("task_info on a thread port", task_info(mach_thread_self(), MACH_TASK_BASIC_INFO, (task_info_t)&mtbi, &count), KERN_INVALID_ARGUMENT);
+	mach_port_t thread = mach_thread_self();
+	expect("task_info on a thread port", task_info(thread, MACH_TASK_BASIC_INFO, (task_info_t)&mtbi, &count), KERN_INVALID_ARGUMENT);
+	mach_port_deallocate(mach_task_self(), thread);
 
 	// server still serving requests
 	count = MACH_TASK_BASIC_INFO_COUNT;
