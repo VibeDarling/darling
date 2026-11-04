@@ -1,6 +1,8 @@
 #import <UIKit/UIImage.h>
 #import <Foundation/NSString.h>
+#import <Foundation/NSException.h>
 #include <dlfcn.h>
+#include <math.h>
 #include <stdio.h>
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
 
@@ -8,6 +10,25 @@ static const unsigned char pixels[] = {
     255,0,0,255, 0,255,0,255, 0,0,255,255, 255,255,255,255,
     10,20,30,128, 50,60,70,64, 80,90,100,0, 110,120,130,255
 };
+static int deallocCount;
+@interface CountingImage : UIImage
+@end
+@implementation CountingImage
+- (void)dealloc { deallocCount++; }
+@end
+static int raisesInitializer(Class cls, CGImageRef raw, CGFloat scale, UIImageOrientation orientation)
+{
+    int before = deallocCount;
+    BOOL raised = NO;
+    @autoreleasepool {
+        @try {
+            (void)[[cls alloc] initWithCGImage:raw scale:scale orientation:orientation];
+        } @catch (NSException *exception) {
+            raised = [[exception name] isEqualToString:NSInvalidArgumentException];
+        }
+    }
+    return raised && deallocCount == before + 1;
+}
 static CGImageRef createImage(CGImageAlphaInfo alpha)
 {
     CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, pixels, sizeof(pixels), NULL);
@@ -57,13 +78,26 @@ int main(int argc, char **argv)
         CHECK(data != nil && [data length] > 8);
         CHECK([data writeToFile:[NSString stringWithUTF8String:argv[2]] atomically:YES]);
         CHECK([imageClass imageWithCGImage:NULL] == nil);
+        Class counting = NSClassFromString(@"CountingImage");
+        CHECK(counting != Nil);
+        CGImageRef bad = createImage(kCGImageAlphaLast);
+        CHECK(raisesInitializer(counting, bad, 0, UIImageOrientationUp));
+        CHECK(raisesInitializer(counting, bad, -1, UIImageOrientationUp));
+        CHECK(raisesInitializer(counting, bad, NAN, UIImageOrientationUp));
+        CHECK(raisesInitializer(counting, bad, INFINITY, UIImageOrientationUp));
+        CHECK(raisesInitializer(counting, bad, 1, (UIImageOrientation)8));
+        CHECK(raisesInitializer(counting, bad, 1, (UIImageOrientation)-1));
+        CGImageRelease(bad);
+        int valid = deallocCount;
+        @autoreleasepool { CHECK([[counting alloc] initWithCGImage:copy.CGImage scale:2 orientation:UIImageOrientationUp] != nil); }
+        CHECK(deallocCount == valid + 1);
         CHECK(png(nil) == nil);
         CHECK(png([imageClass imageWithCGImage:copy.CGImage scale:1 orientation:UIImageOrientationRight]) == nil);
         CGImageRef premultiplied = createImage(kCGImageAlphaPremultipliedLast);
         CHECK(premultiplied != NULL);
         CHECK(png([imageClass imageWithCGImage:premultiplied]) == nil);
         CGImageRelease(premultiplied);
-        puts("PASS UIKit UIImage CGImage ownership, size/scale/orientation/copies and synthetic PNG output");
+        puts("PASS UIKit UIImage CGImage ownership, size/scale/orientation/copies, raising initializers released once and synthetic PNG output");
     }
     return 0;
 }
