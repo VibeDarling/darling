@@ -10,7 +10,13 @@ typedef NSString *UISceneSessionRole NS_TYPED_EXTENSIBLE_ENUM;
 
 extern UISceneSessionRole const UIWindowSceneSessionRoleApplication;
 
-@interface UISceneConfiguration : NSObject <NSCopying>
+@interface UISceneConfiguration : NSObject <NSCopying> {
+@private
+    NSString *_name;
+    NSString *_role;
+    Class _sceneClass;
+    Class _delegateClass;
+}
 + (instancetype)configurationWithName:(nullable NSString *)name sessionRole:(UISceneSessionRole)sessionRole;
 - (instancetype)initWithName:(nullable NSString *)name sessionRole:(UISceneSessionRole)sessionRole;
 @property(nonatomic, readonly, nullable) NSString *name;

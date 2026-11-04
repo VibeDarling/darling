@@ -3,10 +3,9 @@
 
 UISceneSessionRole const UIWindowSceneSessionRoleApplication = @"UIWindowSceneSessionRoleApplication";
 
-@implementation UISceneConfiguration {
-    NSString *_name;
-    NSString *_role;
-}
+@implementation UISceneConfiguration
+@synthesize sceneClass = _sceneClass;
+@synthesize delegateClass = _delegateClass;
 - (instancetype)init
 {
     [NSException raise:NSInvalidArgumentException format:@"Use initWithName:sessionRole:"];
