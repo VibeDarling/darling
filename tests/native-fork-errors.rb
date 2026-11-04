@@ -6,8 +6,9 @@ method = source[/^static int native_fork\(void\)\n\{.*?^\}/m] or abort 'native_f
 Dir.mktmpdir('native-fork-errors-') do |dir|
   program = <<~C
     #include <errno.h>
-    #include <assert.h>
     #include <stdio.h>
+    #include <stdlib.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     static int result, error, threads, sockets;
     static int locked;
     static void __mldr_socket_bitmap_prefork(void) { assert(!locked); locked=1; }
@@ -43,7 +44,6 @@ Dir.mktmpdir('native-fork-errors-') do |dir|
   actual = <<~C
     #define _GNU_SOURCE
     #include <errno.h>
-    #include <assert.h>
     #include <stdio.h>
     #include <unistd.h>
     #include <stddef.h>
@@ -52,6 +52,8 @@ Dir.mktmpdir('native-fork-errors-') do |dir|
     #include <sys/syscall.h>
     #include <linux/seccomp.h>
     #include <linux/filter.h>
+    #include <stdlib.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     static int threads, sockets;
     static void __mldr_socket_bitmap_prefork(void) {}
     static void __mldr_socket_bitmap_postfork_parent(void) {}

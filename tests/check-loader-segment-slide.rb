@@ -10,8 +10,9 @@ Dir.mktmpdir('loader-segment-slide-') do |dir|
   File.write("#{dir}/probe.c", <<~C)
     #include <stdint.h>
     #include <string.h>
-    #include <assert.h>
     #include <stdio.h>
+    #include <stdlib.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     struct segment { const char *segname; uintptr_t vmaddr, vmsize; };
     struct results { uintptr_t vm_addr_max; };
     static uintptr_t address(struct segment *seg, uintptr_t slide, int useprot) {

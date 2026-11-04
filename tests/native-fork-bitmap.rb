@@ -11,9 +11,9 @@ Dir.mktmpdir('fork-bitmap-') do |dir|
     #include <stdlib.h>
     #include <unistd.h>
     #include <errno.h>
-    #include <assert.h>
     #include <stdio.h>
     #include <sys/wait.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     #{bitmap}
     static void __mldr_thread_postfork_child(void) {}
     #{method}

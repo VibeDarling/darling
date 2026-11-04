@@ -50,7 +50,7 @@ Dir.mktmpdir('ls-url-') do |dir|
   out, st = Open3.capture2e('clang', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-Wall', "-I#{ls}",
     "#{dir}/probe.c", "#{ls}/LSHostOpenURL.c", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e({ "ASAN_OPTIONS" => "disable_coredump=1" }, "timeout", "60", "#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e("timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'host open URL validation regression' unless st.success?
 end

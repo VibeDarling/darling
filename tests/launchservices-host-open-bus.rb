@@ -8,13 +8,13 @@ root = ARGV.fetch(0, File.expand_path('..', __dir__))
 ls = "#{root}/src/frameworks/CoreServices/src/LaunchServices"
 Dir.mktmpdir('ls-bus-') do |dir|
   File.write("#{dir}/probe.c", <<~'C')
-    #include <assert.h>
     #include <errno.h>
     #include <stdarg.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
     #include "LSHostOpenBus.h"
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
 
     static int bus_new, bus_closed, msg_new, msg_unref, portal_calls, systemd_calls, started;
     static int portal_result, systemd_result;
