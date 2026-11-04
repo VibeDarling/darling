@@ -12,8 +12,6 @@
 #import <SpringBoardServices/SpringBoardServices.h>
 #import <DarlingBoard/DarlingBoard.h>
 #import <Foundation/Foundation.h>
-#include <servers/bootstrap.h>
-#include <dispatch/dispatch.h>
 #include <limits.h>
 #include <string.h>
 
@@ -32,18 +30,15 @@ static NSBundle *SBSBundleForIdentifier(NSString *identifier)
 
 mach_port_t SBSSpringBoardServerPort(void)
 {
-	mach_port_t port = MACH_PORT_NULL;
-	if (bootstrap_look_up(bootstrap_port, "com.apple.springboard.services", &port) != KERN_SUCCESS)
-		return MACH_PORT_NULL;
-	return port;
+	return MACH_PORT_NULL;
 }
 
-NSArray *SBSCopyApplicationDisplayIdentifiers(bool onlyActive, bool debuggable)
+NSArray *SBSCopyApplicationDisplayIdentifiers(bool active, bool debuggable)
 {
 	(void)debuggable;
 	NSMutableArray *identifiers = [[NSMutableArray alloc] init];
 	/* Darling does not track which apps are running here. */
-	if (onlyActive)
+	if (active)
 		return identifiers;
 	@autoreleasepool {
 		for (NSBundle *bundle in DBInstalledApplications())
@@ -120,29 +115,6 @@ NSData *SBSCopyIconImagePNGDataForDisplayIdentifier(NSString *identifier)
 	return data;
 }
 
-NSString *SBSCopyBundlePathForDisplayIdentifier(NSString *identifier)
-{
-	NSString *path = nil;
-	@autoreleasepool {
-		path = [[SBSBundleForIdentifier(identifier) bundlePath] retain];
-	}
-	return path;
-}
-
-NSString *SBSCopyExecutablePathForDisplayIdentifier(NSString *identifier)
-{
-	NSString *path = nil;
-	@autoreleasepool {
-		path = [[SBSBundleForIdentifier(identifier) executablePath] retain];
-	}
-	return path;
-}
-
-NSString *SBSCopyFrontmostApplicationDisplayIdentifier(void)
-{
-	return nil;
-}
-
 int SBBundlePathForDisplayIdentifier(mach_port_t port, const char *identifier, char *path)
 {
 	(void)port;
@@ -157,66 +129,13 @@ int SBBundlePathForDisplayIdentifier(mach_port_t port, const char *identifier, c
 	return result;
 }
 
-int SBSLaunchApplicationWithIdentifierAndLaunchOptions(CFStringRef identifier, CFDictionaryRef options, Boolean suspended)
-{
-	if (identifier == NULL)
-		return 1;
-	__block int result = 0;
-	dispatch_semaphore_t done = dispatch_semaphore_create(0);
-	@autoreleasepool {
-		NSMutableDictionary *dictionary = [NSMutableDictionary dictionaryWithDictionary:(NSDictionary *)options ?: @{}];
-		if (suspended)
-			[dictionary setObject:@YES forKey:DBOpenApplicationOptionSuspended];
-		[[DBApplicationService sharedService] openApplication:(NSString *)identifier
-		                                              options:dictionary
-		                                           completion:^(NSError *error) {
-			result = error != nil ? (int)[error code] ?: 1 : 0;
-			dispatch_semaphore_signal(done);
-		}];
-	}
-	dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC));
-	dispatch_release(done);
-	return result;
-}
-
-int SBSLaunchApplicationWithIdentifier(CFStringRef identifier, Boolean suspended)
-{
-	return SBSLaunchApplicationWithIdentifierAndLaunchOptions(identifier, NULL, suspended);
-}
-
-bool SBSOpenSensitiveURLAndUnlock(CFURLRef url, bool unlock)
-{
-	(void)unlock;
-	if (url == NULL)
-		return false;
-	__block bool opened = false;
-	dispatch_semaphore_t done = dispatch_semaphore_create(0);
-	[[DBApplicationService sharedService] openURL:(NSURL *)url completion:^(NSError *error) {
-		opened = error == nil;
-		dispatch_semaphore_signal(done);
-	}];
-	dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC));
-	dispatch_release(done);
-	return opened;
-}
-
 void SBSSetInterceptsMenuButtonForever(bool intercepts)
 {
 	(void)intercepts;
 }
 
-void SBSSuspendFrontmostApplication(void)
-{
-}
-
-int SBReboot(mach_port_t port)
+void SBReboot(mach_port_t port)
 {
 	(void)port;
-	return 1;
 }
 
-int SBShutDown(mach_port_t port)
-{
-	(void)port;
-	return 1;
-}

@@ -10,12 +10,25 @@
 */
 
 /*
- * SpringBoardServices: the C functions apps (package managers, settings
- * panes, tweaks) use to ask SpringBoard about installed applications and to
- * launch them.  Apple never published this interface; the signatures are the
- * ones jailbreak software has used for years (Cydia's iPhonePrivate.h, the
- * iOS runtime headers).  Darling answers from the installed bundles, as
- * DarlingBoard does, and launches through frontboardd.
+ * SpringBoardServices: the C functions an app uses to ask SpringBoard about
+ * installed applications. Apple never published this interface. Only the
+ * functions a guest app is known to use are here, with the signatures that
+ * app's own source declares; Darling answers from the installed bundles
+ * through DarlingBoard.
+ *
+ * Provenance:
+ * - Rung 5 (demand analysis): llvm-nm -u -m on Cydia's executable binds
+ *   SBSSpringBoardServerPort, SBBundlePathForDisplayIdentifier,
+ *   SBSCopyApplicationDisplayIdentifiers,
+ *   SBSCopyLocalizedApplicationNameForDisplayIdentifier and
+ *   SBSCopyIconImagePathForDisplayIdentifier from SpringBoardServices.
+ * - Cydia's GPL source: iPhonePrivate.h declares those five (the signatures
+ *   below); MobileCydia.mm looks up SBSCopyIconImagePNGDataForDisplayIdentifier,
+ *   SBSSetInterceptsMenuButtonForever and SBReboot with dlsym and casts them
+ *   to the types below, and shows how each result is used: a nonzero
+ *   SBBundlePathForDisplayIdentifier result is failure, the path buffer is
+ *   1024 bytes, the name and icon results are autoreleased by the caller.
+ * Behaviour beyond that is Darling's (see each function).
  */
 
 #ifndef SPRINGBOARDSERVICES_H
@@ -37,34 +50,25 @@ typedef struct objc_object NSString;
 extern "C" {
 #endif
 
-/* A send right to SpringBoard's service port, or MACH_PORT_NULL. */
+/* Darling has no SpringBoard service port: MACH_PORT_NULL, which the
+ * functions below that take a port accept and ignore. */
 mach_port_t SBSSpringBoardServerPort(void);
 
-/* Display identifiers are bundle identifiers.  The arrays and strings are
- * returned retained (the Create rule). */
-NSArray *SBSCopyApplicationDisplayIdentifiers(bool onlyActive, bool debuggable);
+/* Display identifiers are bundle identifiers. The results are returned
+ * retained: the Core Foundation Create rule for "Copy" functions. */
+NSArray *SBSCopyApplicationDisplayIdentifiers(bool active, bool debuggable);
 NSString *SBSCopyLocalizedApplicationNameForDisplayIdentifier(NSString *identifier);
 NSString *SBSCopyIconImagePathForDisplayIdentifier(NSString *identifier);
 NSData *SBSCopyIconImagePNGDataForDisplayIdentifier(NSString *identifier);
-NSString *SBSCopyBundlePathForDisplayIdentifier(NSString *identifier);
-NSString *SBSCopyExecutablePathForDisplayIdentifier(NSString *identifier);
-NSString *SBSCopyFrontmostApplicationDisplayIdentifier(void);
 
-/* Copies the bundle path into path (PATH_MAX bytes); 0 on success. */
+/* Copies the bundle path into path (PATH_MAX, 1024, bytes); 0 on success. */
 int SBBundlePathForDisplayIdentifier(mach_port_t port, const char *identifier, char *path);
 
-/* 0 on success. */
-int SBSLaunchApplicationWithIdentifier(CFStringRef identifier, Boolean suspended);
-int SBSLaunchApplicationWithIdentifierAndLaunchOptions(CFStringRef identifier, CFDictionaryRef options, Boolean suspended);
-bool SBSOpenSensitiveURLAndUnlock(CFURLRef url, bool unlock);
-
-/* Darling's SpringBoard keeps the Home button; these are accepted and ignored. */
+/* Darling's home screen keeps the Home button: accepted and ignored. */
 void SBSSetInterceptsMenuButtonForever(bool intercepts);
-void SBSSuspendFrontmostApplication(void);
 
-/* There is no device to reboot: these return an error (nonzero). */
-int SBReboot(mach_port_t port);
-int SBShutDown(mach_port_t port);
+/* There is no device to reboot: does nothing. */
+void SBReboot(mach_port_t port);
 
 #ifdef __cplusplus
 }
