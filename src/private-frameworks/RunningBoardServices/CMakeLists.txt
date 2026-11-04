@@ -22,12 +22,8 @@ add_framework(RunningBoardServices
     VERSION ${FRAMEWORK_VERSION}
 
     SOURCES
-        src/RBSProcess.m
-        src/RBSAssertion.m
+        src/RunningBoardServices.c
 
     DEPENDENCIES
         system
-        objc
-        Foundation
 )
-target_compile_options(RunningBoardServices PRIVATE -fobjc-arc)

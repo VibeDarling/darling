@@ -22,16 +22,8 @@ add_framework(FrontBoardServices
     VERSION ${FRAMEWORK_VERSION}
 
     SOURCES
-        src/FBSSystemService.m
-        src/FBSSceneSettings.m
-        src/FBSWorkspace.m
-        src/FBSLite.m
+        src/FrontBoardServices.c
 
     DEPENDENCIES
         system
-        objc
-        Foundation
-        RunningBoardServices
 )
-target_compile_options(FrontBoardServices PRIVATE -fobjc-arc)
-target_include_directories(FrontBoardServices PRIVATE ../RunningBoardServices/include)

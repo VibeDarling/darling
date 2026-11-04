@@ -20,7 +20,7 @@
 #ifndef _GraphicsServices_H_
 #define _GraphicsServices_H_
 
-/* GraphicsServices exists so that apps which link it load. It exports
+/* GraphicsServices exists so that apps that link it can load. It exports
    nothing.
 
    Provenance (rung 5, demand analysis): Cydia's executable lists

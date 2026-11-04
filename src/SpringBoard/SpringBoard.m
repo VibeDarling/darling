@@ -21,7 +21,7 @@
    that frontboardd treats it as the system app: it is in front whenever no
    other app is, and it hears about Home button presses. It shows the
    installed apps as pages of icons with a dock, launches them through
-   FrontBoardServices, and on a double press of Home shows the running apps
+   DarlingBoard, and on a double press of Home shows the running apps
    in a switcher, from which they can be brought back or closed.
 
    The layout follows the iPhone home screen: a status bar, a grid of
@@ -30,7 +30,7 @@
    apps' own PNGs when they have them. */
 
 #import <UIKit/UIKit.h>
-#import <FrontBoardServices/FrontBoardServices.h>
+#import <DarlingBoard/DarlingBoard.h>
 #import "SpringBoard.h"
 #include <stdio.h>
 
@@ -730,7 +730,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 		[NSTimer scheduledTimerWithTimeInterval:10 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
 		[NSTimer scheduledTimerWithTimeInterval:2 target:self selector:@selector(updateRunningApplications) userInfo:nil repeats:YES];
 
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(workspaceEvent:) name:FBSWorkspaceEventNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(frontboarddEvent:) name:DBAppConnectionEventNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
 	}
 	return self;
@@ -775,7 +775,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 - (void)reloadApplications
 {
 	NSMutableArray<SBApplication *> *applications = [NSMutableArray array];
-	for (NSBundle *bundle in FBSInstalledApplications()) {
+	for (NSBundle *bundle in DBInstalledApplications()) {
 		NSArray *tags = [bundle infoDictionary][@"SBAppTags"];
 		if ([tags isKindOfClass:[NSArray class]] && [tags containsObject:@"hidden"])
 			continue;
@@ -903,7 +903,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 {
 	NSMutableArray *running = [NSMutableArray array];
 	NSString *me = [[NSBundle mainBundle] bundleIdentifier];
-	for (NSDictionary *process in [[FBSSystemService sharedService] applicationStates])
+	for (NSDictionary *process in [[DBApplicationService sharedService] applicationStates])
 		if (![process[@"bundleIdentifier"] isEqualToString:me])
 			[running addObject:process];
 	return running;
@@ -936,7 +936,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 - (void)openApplication:(SBApplication *)application
 {
 	SBLog(@"opening %@", application.bundleIdentifier);
-	[[FBSSystemService sharedService] openApplication:application.bundleIdentifier options:nil withResult:^(NSError *error) {
+	[[DBApplicationService sharedService] openApplication:application.bundleIdentifier options:nil completion:^(NSError *error) {
 		if (error != nil)
 			SBLog(@"cannot open %@: %@", application.bundleIdentifier, [error localizedFailureReason] ?: error);
 	}];
@@ -984,7 +984,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 - (void)switcher:(SBSwitcherView *)switcher didCloseApplication:(SBApplication *)application
 {
 	SBLog(@"closing %@", application.bundleIdentifier);
-	[[FBSSystemService sharedService] terminateApplication:application.bundleIdentifier forReason:1 andReport:NO withDescription:@"closed in the app switcher" completion:^{
+	[[DBApplicationService sharedService] terminateApplication:application.bundleIdentifier completion:^{
 		dispatch_async(dispatch_get_main_queue(), ^{
 			SBLog(@"closed %@", application.bundleIdentifier);
 			if (self->_switcher != nil)
@@ -1001,7 +1001,7 @@ static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
 
 #pragma mark Events
 
-- (void)workspaceEvent:(NSNotification *)notification
+- (void)frontboarddEvent:(NSNotification *)notification
 {
 	NSDictionary *event = [notification userInfo];
 	if (![event[@"event"] isEqualToString:@"button"] || ![event[@"button"] isEqualToString:@"home"])

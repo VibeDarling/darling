@@ -110,28 +110,31 @@ is done except where marked:
 - Later: UIView backed by CALayer instead of NSView, once QuartzCore can
   composite. Animation and apps that use layers directly need it.
 
-System services, the part of SpringBoard that apps talk to. Their interfaces
-are copied on a best-effort basis from class-dumped headers. With no
-FrontBoard or runningboardd behind them yet, each call does its work in the
-calling process (`tests/ios-board-services.m` covers them):
+System services, the part of SpringBoard that apps talk to. Darling's own
+interface for them is DarlingBoard (`src/private-frameworks/DarlingBoard`),
+whose names are Darling's and not Apple's: no guest app links it, so there is
+nothing to imitate. With no frontboardd running, each call does its work in
+the calling process (`tests/ios-board-services.m` covers this):
 
-- GraphicsServices exports nothing. It exists because Cydia links it
-  (`llvm-otool -L`) while binding no symbol from it (`llvm-nm -u -m`).
-- RunningBoardServices: process handles, identifiers and predicates (found
-  through `kern.proc.all` and `proc_pidpath`, with the bundle taken from the
-  executable's enclosing `.app`), and assertions that are recorded but not
-  enforced.
-- FrontBoardServices: `FBSSystemService` finds an installed app by bundle
-  identifier in `/Applications`, `/var/containers/Bundle/Application/*/` and
+- `DBApplicationService` finds an installed app by bundle identifier in
+  `/Applications`, `/var/containers/Bundle/Application/*/` and
   `~/Applications`, launches it with `posix_spawn`, gives its pid, and
-  terminates it. Scene settings are only value objects so far.
+  terminates it. Running apps are found through `kern.proc.all` and
+  `proc_pidpath`, with the bundle taken from the executable's enclosing
+  `.app`.
+- GraphicsServices, FrontBoardServices and RunningBoardServices export
+  nothing. They exist so that apps that link them load: Cydia links
+  GraphicsServices (`llvm-otool -L`) while binding no symbol from it
+  (`llvm-nm -u -m`), and upstream scans of macOS stock apps (VibeDarling
+  issues #446, #460, #572) find apps loading all three.
 - `frontboardd` (FrontBoard-lite) owns the application lifecycle. It
   launches installed apps, keeps at most one in the foreground, and tells
   each app when it moves between foreground and background or should
-  terminate. FrontBoardServices forwards to it whenever it runs. UIKit
-  checks in with it after `didFinishLaunching` and turns its events into
-  `applicationDidBecomeActive:`, `WillResignActive:`, `DidEnterBackground:`,
-  `WillEnterForeground:` and `WillTerminate:`, plus the notifications.
+  terminate. DarlingBoard forwards to it whenever it runs. UIKit checks
+  in with it (`DBAppConnection`) after `didFinishLaunching` and turns its
+  events into `applicationDidBecomeActive:`, `WillResignActive:`,
+  `DidEnterBackground:`, `WillEnterForeground:` and `WillTerminate:`,
+  plus the notifications.
   `applicationState` follows them, and a backgrounded app's windows go off
   screen. Without frontboardd an app becomes active after launching.
   `tests/ios-frontboard-lite.m` switches two apps on x86_64 and on the Pi:
@@ -152,7 +155,7 @@ calling process (`tests/ios-board-services.m` covers them):
   - it hears each Home button press, and two presses within 400 ms count as
     a double press.
 
-  The home screen shows `FBSInstalledApplications()` as pages of rounded
+  The home screen shows `DBInstalledApplications()` as pages of rounded
   icons with names, laid out 4 columns wide in portrait and 6 in landscape.
   An app's own PNG icon is used if it has one; otherwise a colored monogram.
   Around the grid are a status bar clock, page dots, a dock and a dot under

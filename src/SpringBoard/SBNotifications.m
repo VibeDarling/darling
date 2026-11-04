@@ -27,7 +27,7 @@
    chose goes back to the daemon, which tells the app. */
 
 #import <UIKit/UIKit.h>
-#import <FrontBoardServices/FrontBoardServices.h>
+#import <DarlingBoard/DarlingBoard.h>
 #import <UserNotifications/UserNotifications.h>
 #import <AppKit/NSWindow.h>
 #import <AppKit/NSColor.h>
@@ -190,7 +190,7 @@ static UILabel *SBLabel(CGRect frame, UIFont *font, UIColor *color, NSString *te
 		_isAlert = alert;
 		_buttons = buttons;
 
-		NSBundle *bundle = [[FBSSystemService sharedService] bundleForApplication:_bundleIdentifier];
+		NSBundle *bundle = [[DBApplicationService sharedService] bundleForApplication:_bundleIdentifier];
 		SBApplication *application = bundle != nil ? [SBApplication applicationWithBundle:bundle] : nil;
 		NSString *appName = application.displayName ?: [[_bundleIdentifier componentsSeparatedByString:@"."] lastObject];
 
@@ -444,8 +444,8 @@ static void *SBPresenterThread(void *unused)
 		                 @"action": action, @"notification": notification });
 		if (!launch)
 			return;
-		FBSOpenApplicationOptions *options = foreground ? nil : [FBSOpenApplicationOptions optionsWithDictionary:@{ FBSOpenApplicationOptionKeyActivateSuspended: @YES }];
-		[[FBSSystemService sharedService] openApplication:bundleIdentifier options:options withResult:^(NSError *error) {
+		NSDictionary *options = foreground ? nil : @{ DBOpenApplicationOptionSuspended: @YES };
+		[[DBApplicationService sharedService] openApplication:bundleIdentifier options:options completion:^(NSError *error) {
 			if (error != nil)
 				SBLog(@"cannot open %@: %@", bundleIdentifier, [error localizedFailureReason] ?: error);
 		}];

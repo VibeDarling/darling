@@ -15,7 +15,7 @@
  * launch them.  Apple never published this interface; the signatures are the
  * ones jailbreak software has used for years (Cydia's iPhonePrivate.h, the
  * iOS runtime headers).  Darling answers from the installed bundles, as
- * FrontBoardServices does, and launches through frontboardd.
+ * DarlingBoard does, and launches through frontboardd.
  */
 
 #ifndef SPRINGBOARDSERVICES_H

@@ -42,7 +42,7 @@
 #import <Foundation/Foundation.h>
 #import <UserNotifications/UserNotifications.h>
 #import "UNLite.h"
-#import "FBSLite.h"
+#import "DBWire.h"
 #include <sys/socket.h>
 #include <signal.h>
 #include <errno.h>
@@ -198,12 +198,12 @@ static BOOL UNDSendTo(int fd, NSDictionary *event)
    has checked in is taken to be: it is a plain app on a desktop. */
 static BOOL UNDIsForeground(NSString *bundleIdentifier)
 {
-	NSDictionary *reply = FBSLiteRequest(@{ @"op": @"list" });
+	NSDictionary *reply = DBWireRequest(@{ @"op": @"list" });
 	if (reply == nil)
 		return YES;
 	for (NSDictionary *process in reply[@"processes"])
 		if ([process[@"bundleIdentifier"] isEqual:bundleIdentifier])
-			return [process[@"state"] integerValue] == 1 /* FBSApplicationStateForeground */;
+			return [process[@"state"] integerValue] == 1 /* DBApplicationStateForeground */;
 	return NO;
 }
 

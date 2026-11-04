@@ -76,7 +76,7 @@ add_framework(UIKit
         CoreGraphics
         ImageIO
         QuartzCore
-        FrontBoardServices
+        DarlingBoard
         WebKitLegacy_iOS
         WebCore_iOS
         objc

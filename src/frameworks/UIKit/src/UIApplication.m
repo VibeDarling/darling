@@ -15,7 +15,7 @@
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSWindow.h>
 #import <AppKit/NSEvent.h>
-#import <FrontBoardServices/FrontBoardServices.h>
+#import <DarlingBoard/DarlingBoard.h>
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSProcessInfo.h>
 #import <Foundation/NSThread.h>
@@ -47,8 +47,8 @@ NSString *const UIApplicationWillTerminateNotification = @"UIApplicationWillTerm
 
 /* -[NSApplication run] delivers the AppKit delegate callbacks; UIApplication
  * implements them and forwards to the iOS delegate, which never sees AppKit.
- * frontboardd's lifecycle events arrive through FBSWorkspace. */
-@interface UIApplication () <FBSWorkspaceDelegate>
+ * frontboardd's lifecycle events arrive through DBAppConnection. */
+@interface UIApplication () <DBAppConnectionDelegate>
 - (void)uikitDidFinishLaunching;
 - (void)uikitWillTerminate;
 @end
@@ -123,7 +123,7 @@ static NSUInteger sEventLoops;
 		});
 		if (![event isARepeat])
 			dispatch_async(queue, ^{
-				[[FBSSystemService sharedService] sendHomeButtonPress];
+				[[DBApplicationService sharedService] sendHomeButtonPress];
 			});
 		return;
 	}
@@ -139,7 +139,7 @@ static id<UIApplicationDelegate> sDelegateStorage;
 
 @implementation UIApplication {
 	UIApplicationState _state;
-	FBSWorkspace *_workspace;
+	DBAppConnection *_lifecycle;
 	NSArray<NSWindow *> *_hiddenWindows;
 	BOOL _networkActivityIndicatorVisible;
 	BOOL _statusBarHidden;
@@ -231,24 +231,24 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	_hiddenWindows = hidden;
 }
 
-#pragma mark - FBSWorkspaceDelegate
+#pragma mark - DBAppConnectionDelegate
 
-- (void)workspace:(FBSWorkspace *)workspace didChangeApplicationState:(FBSApplicationState)state
+- (void)appConnection:(DBAppConnection *)connection didChangeApplicationState:(DBApplicationState)state
 {
-	if (state == FBSApplicationStateForeground)
+	if (state == DBApplicationStateForeground)
 		[self ui_becomeActive];
-	else if (state == FBSApplicationStateBackground)
+	else if (state == DBApplicationStateBackground)
 		[self ui_enterBackground];
 }
 
-- (void)workspaceDidRequestTermination:(FBSWorkspace *)workspace
+- (void)appConnectionDidRequestTermination:(DBAppConnection *)connection
 {
 	[NSApp terminate:nil];
 }
 
-- (void)workspaceDidDisconnect:(FBSWorkspace *)workspace
+- (void)appConnectionDidDisconnect:(DBAppConnection *)connection
 {
-	_workspace = nil;
+	_lifecycle = nil;
 	[self ui_becomeActive];
 }
 
@@ -282,8 +282,8 @@ static id<UIApplicationDelegate> sDelegateStorage;
 
 	/* With frontboardd, wait for it to say whether we are in front. */
 	NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier] ?: [[NSProcessInfo processInfo] processName];
-	_workspace = [FBSWorkspace checkInWithBundleIdentifier:bundleIdentifier delegate:self queue:dispatch_get_main_queue()];
-	if (_workspace == nil)
+	_lifecycle = [DBAppConnection checkInWithBundleIdentifier:bundleIdentifier delegate:self queue:dispatch_get_main_queue()];
+	if (_lifecycle == nil)
 		[self ui_becomeActive];
 }
 
@@ -368,7 +368,7 @@ static id<UIApplicationDelegate> sDelegateStorage;
 {
 	if (url == nil)
 		return NO;
-	[[FBSSystemService sharedService] openURL:url application:nil options:nil clientPort:MACH_PORT_NULL withResult:nil];
+	[[DBApplicationService sharedService] openURL:url completion:nil];
 	return YES;
 }
 
@@ -388,14 +388,14 @@ static id<UIApplicationDelegate> sDelegateStorage;
 {
 	if (identifier == nil)
 		return NO;
-	[[FBSSystemService sharedService] openApplication:identifier options:nil withResult:nil];
+	[[DBApplicationService sharedService] openApplication:identifier options:nil completion:nil];
 	return YES;
 }
 
 /* Back to the home screen, as the Home button does. */
 - (void)suspend
 {
-	[[FBSSystemService sharedService] sendHomeButtonPress];
+	[[DBApplicationService sharedService] sendHomeButtonPress];
 }
 
 - (void)suspendReturningToLastApp:(BOOL)returning

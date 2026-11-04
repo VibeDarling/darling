@@ -1,15 +1,13 @@
-/* RunningBoardServices and FrontBoardServices: each
-   framework's main entry points, including launching, finding and
-   terminating an installed app by bundle identifier. See
-   ios-board-services.md. */
+/* DarlingBoard without frontboardd: finding, launching, and terminating
+   an installed app by bundle identifier, and the process lookups behind
+   them. See ios-board-services.md. */
 
 #import <Foundation/Foundation.h>
-#import <RunningBoardServices/RunningBoardServices.h>
-#import <FrontBoardServices/FrontBoardServices.h>
+#import <DarlingBoard/DarlingBoard.h>
 #include <mach-o/dyld.h>
 
-/* The app FBSSystemService launches is this same binary, installed as
-   ~/Applications/Sleeper.app (one of FrontBoardServices' search paths);
+/* The app DBApplicationService launches is this same binary, installed as
+   ~/Applications/Sleeper.app (one of DBApplicationSearchPaths());
    run under that name it just sleeps until terminated. */
 #define SleeperIdentifier @"com.example.sleeper"
 
@@ -39,12 +37,21 @@ static NSError *openApp(NSString *bundleIdentifier)
 {
 	__block NSError *result = nil;
 	dispatch_semaphore_t done = dispatch_semaphore_create(0);
-	[[FBSSystemService sharedService] openApplication:bundleIdentifier options:nil withResult:^(NSError *error) {
+	[[DBApplicationService sharedService] openApplication:bundleIdentifier options:nil completion:^(NSError *error) {
 		result = error;
 		dispatch_semaphore_signal(done);
 	}];
 	dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
 	return result;
+}
+
+static void terminateApp(NSString *bundleIdentifier)
+{
+	dispatch_semaphore_t done = dispatch_semaphore_create(0);
+	[[DBApplicationService sharedService] terminateApplication:bundleIdentifier completion:^{
+		dispatch_semaphore_signal(done);
+	}];
+	dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
 }
 
 int main(int argc, char **argv)
@@ -57,47 +64,30 @@ int main(int argc, char **argv)
 	@autoreleasepool {
 		NSString *sleeperApp = installSleeper();
 		CHECK(sleeperApp != nil, "installed %s", [sleeperApp UTF8String]);
-		/* RunningBoardServices */
-		RBSProcessHandle *me = [RBSProcessHandle currentProcess];
-		CHECK([me pid] == getpid() && [me isValid] && [[me currentState] isRunning], "RBSProcessHandle currentProcess %s", [[me description] UTF8String]);
-		RBSProcessHandle *byPid = [RBSProcessHandle handleForIdentifier:[RBSProcessIdentifier identifierWithPid:getpid()] error:NULL];
-		CHECK([byPid isEqual:me], "handleForIdentifier(own pid) == currentProcess");
-		NSError *error = nil;
-		RBSProcessHandle *none = [RBSProcessHandle handleForIdentifier:[RBSProcessIdentifier identifierWithPid:999999] error:&error];
-		CHECK(none == nil && [error code] == RBSRequestErrorProcessNotFound, "handleForIdentifier(999999) -> %s", [[error localizedFailureReason] UTF8String]);
-		RBSAssertion *assertion = [[RBSAssertion alloc] initWithExplanation:@"test" target:[RBSTarget currentProcess]
-			attributes:@[ [RBSDomainAttribute attributeWithDomain:@"com.apple.common" name:@"BasicAudio"] ]];
-		CHECK([assertion acquireWithError:NULL] && [assertion isValid] && [[RBSAssertion acquiredAssertionsForTarget:[RBSTarget currentProcess]] count] == 1, "RBSAssertion acquired %s", [[assertion description] UTF8String]);
-		[assertion invalidate];
-		CHECK(![assertion isValid] && [[RBSAssertion acquiredAssertionsForTarget:[RBSTarget currentProcess]] count] == 0, "RBSAssertion invalidated");
 
-		/* FrontBoardServices */
-		FBSSystemService *service = [FBSSystemService sharedService];
-		NSInteger reason = -1;
-		CHECK([service canOpenApplication:SleeperIdentifier reason:&reason] && reason == 0, "canOpenApplication(com.example.sleeper) at %s", [[[service bundleForApplication:SleeperIdentifier] bundlePath] UTF8String]);
-		CHECK([service pidForApplication:SleeperIdentifier] == 0, "sleeper not running before open");
-		error = openApp(SleeperIdentifier);
+		/* Processes */
+		CHECK(DBProcessIsAlive(getpid()), "DBProcessIsAlive(own pid)");
+		CHECK(!DBProcessIsAlive(999999), "DBProcessIsAlive(999999) is NO");
+
+		/* Applications, with no frontboardd running */
+		DBApplicationService *service = [DBApplicationService sharedService];
+		CHECK([[service bundleForApplication:SleeperIdentifier] bundlePath] != nil, "bundleForApplication(com.example.sleeper) at %s", [[[service bundleForApplication:SleeperIdentifier] bundlePath] UTF8String]);
+		CHECK([service pidOfApplication:SleeperIdentifier] == 0, "sleeper not running before open");
+		NSError *error = openApp(SleeperIdentifier);
 		CHECK(error == nil, "openApplication(com.example.sleeper) error=%s", [[error description] UTF8String]);
 		pid_t pid = 0;
 		for (int i = 0; i < 400 && pid == 0; i++) { /* a cold first launch on a Pi 4 takes seconds */
 			usleep(50000);
-			pid = [service pidForApplication:SleeperIdentifier];
+			pid = [service pidOfApplication:SleeperIdentifier];
 		}
-		RBSProcessHandle *sleeper = pid ? [RBSProcessHandle handleForIdentifier:[RBSProcessIdentifier identifierWithPid:pid] error:NULL] : nil;
-		CHECK(pid > 0 && [[sleeper currentState] isRunning], "pidForApplication -> %d, %s", pid, [[sleeper description] UTF8String]);
-		CHECK(pid > 0 && openApp(SleeperIdentifier) == nil && [service pidForApplication:SleeperIdentifier] == pid, "second open reuses the running process");
-		[service terminateApplication:SleeperIdentifier forReason:1 andReport:NO withDescription:@"test"];
-		for (int i = 0; i < 100 && [sleeper isValid]; i++)
+		CHECK(pid > 0 && DBProcessIsAlive(pid) && [DBProcessesForApplication(SleeperIdentifier) containsObject:@(pid)], "pidOfApplication -> %d", pid);
+		CHECK(pid > 0 && openApp(SleeperIdentifier) == nil && [service pidOfApplication:SleeperIdentifier] == pid, "second open reuses the running process");
+		terminateApp(SleeperIdentifier);
+		for (int i = 0; i < 100 && DBProcessIsAlive(pid); i++)
 			usleep(50000);
-		CHECK(pid > 0 && ![sleeper isValid] && [service pidForApplication:SleeperIdentifier] == 0, "terminateApplication ended pid %d", pid);
+		CHECK(pid > 0 && !DBProcessIsAlive(pid) && [service pidOfApplication:SleeperIdentifier] == 0, "terminateApplication ended pid %d", pid);
 		error = openApp(@"com.example.missing");
-		CHECK([error code] == FBSOpenApplicationErrorCodeNotFound, "openApplication(missing) -> %s", [[error localizedFailureReason] UTF8String]);
-
-		FBSMutableSceneSettings *settings = [[FBSMutableSceneSettings alloc] init];
-		settings.frame = CGRectMake(0, 0, 390, 844);
-		settings.foreground = YES;
-		FBSSceneSettings *frozen = [settings copy];
-		CHECK([frozen isEqual:settings] && ![frozen isKindOfClass:[FBSMutableSceneSettings class]] && [frozen isForeground], "FBSSceneSettings copy %s", [[frozen description] UTF8String]);
+		CHECK([[error domain] isEqualToString:DBOpenApplicationErrorDomain] && [error code] == DBOpenApplicationErrorNotFound, "openApplication(missing) -> %s", [[error localizedFailureReason] UTF8String]);
 
 		[[NSFileManager defaultManager] removeItemAtPath:sleeperApp error:NULL];
 		printf("%s: %d failure(s)\n", failures ? "FAILED" : "OK", failures);

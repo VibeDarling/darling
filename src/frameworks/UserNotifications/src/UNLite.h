@@ -21,10 +21,10 @@
 #define _UNLITE_H_
 
 /* The wire between UserNotifications and usernotificationsd, which keeps
-   every app's scheduled and delivered notifications and fires them. As with
-   frontboardd (FBSLite.h): one Unix socket, every message a property list
-   dictionary framed by a 4-byte big-endian length, and "op" naming the
-   request.
+   every app's scheduled and delivered notifications and fires them. As
+   with frontboardd (DarlingBoard's DBWire.h): one Unix socket, every
+   message a property list dictionary framed by a 4-byte big-endian length,
+   and "op" naming the request.
 
    Requests (one per connection, answered by one reply; each names its app
    with bundleIdentifier):

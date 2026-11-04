@@ -10,7 +10,7 @@
 */
 
 #import <SpringBoardServices/SpringBoardServices.h>
-#import <FrontBoardServices/FrontBoardServices.h>
+#import <DarlingBoard/DarlingBoard.h>
 #import <Foundation/Foundation.h>
 #include <servers/bootstrap.h>
 #include <dispatch/dispatch.h>
@@ -21,10 +21,10 @@ static NSBundle *SBSBundleForIdentifier(NSString *identifier)
 {
 	if (identifier == nil)
 		return nil;
-	for (NSBundle *bundle in FBSInstalledApplications())
+	for (NSBundle *bundle in DBInstalledApplications())
 		if ([[bundle bundleIdentifier] isEqualToString:identifier])
 			return bundle;
-	NSBundle *system = [NSBundle bundleWithPath:FBSSystemApplicationPath];
+	NSBundle *system = [NSBundle bundleWithPath:DBSystemApplicationPath];
 	if ([[system bundleIdentifier] isEqualToString:identifier])
 		return system;
 	return nil;
@@ -46,7 +46,7 @@ NSArray *SBSCopyApplicationDisplayIdentifiers(bool onlyActive, bool debuggable)
 	if (onlyActive)
 		return identifiers;
 	@autoreleasepool {
-		for (NSBundle *bundle in FBSInstalledApplications())
+		for (NSBundle *bundle in DBInstalledApplications())
 			[identifiers addObject:[bundle bundleIdentifier]];
 	}
 	return identifiers;
@@ -166,10 +166,10 @@ int SBSLaunchApplicationWithIdentifierAndLaunchOptions(CFStringRef identifier, C
 	@autoreleasepool {
 		NSMutableDictionary *dictionary = [NSMutableDictionary dictionaryWithDictionary:(NSDictionary *)options ?: @{}];
 		if (suspended)
-			[dictionary setObject:@YES forKey:FBSOpenApplicationOptionKeyActivateSuspended];
-		[[FBSSystemService sharedService] openApplication:(NSString *)identifier
-		                                         options:[FBSOpenApplicationOptions optionsWithDictionary:dictionary]
-		                                      withResult:^(NSError *error) {
+			[dictionary setObject:@YES forKey:DBOpenApplicationOptionSuspended];
+		[[DBApplicationService sharedService] openApplication:(NSString *)identifier
+		                                              options:dictionary
+		                                           completion:^(NSError *error) {
 			result = error != nil ? (int)[error code] ?: 1 : 0;
 			dispatch_semaphore_signal(done);
 		}];
@@ -191,7 +191,7 @@ bool SBSOpenSensitiveURLAndUnlock(CFURLRef url, bool unlock)
 		return false;
 	__block bool opened = false;
 	dispatch_semaphore_t done = dispatch_semaphore_create(0);
-	[[FBSSystemService sharedService] openURL:(NSURL *)url application:nil options:nil clientPort:MACH_PORT_NULL withResult:^(NSError *error) {
+	[[DBApplicationService sharedService] openURL:(NSURL *)url completion:^(NSError *error) {
 		opened = error == nil;
 		dispatch_semaphore_signal(done);
 	}];

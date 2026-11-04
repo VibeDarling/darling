@@ -1,11 +1,11 @@
 #import <Foundation/Foundation.h>
 #import <objc/message.h>
-#include <mach/port.h>
 #import "LSApplicationProxyPrivate.h"
 
 /* iOS's view of the installed apps (MobileCoreServices). Apps live where
- * FrontBoardServices looks for them; opening one goes through
- * FBSSystemService, found at run time since it sits above this framework. */
+ * DarlingBoard looks for them; opening one goes through Darling's
+ * DBApplicationService, found at run time since it sits above this
+ * framework. */
 
 @interface LSApplicationWorkspace : NSObject
 @end
@@ -76,12 +76,12 @@ NSArray<LSApplicationProxy *> *LSInstalledApplicationProxies(void)
 
 - (BOOL)openApplicationWithBundleID:(NSString *)identifier
 {
-	Class service = NSClassFromString(@"FBSSystemService");
+	Class service = NSClassFromString(@"DBApplicationService");
 	if (service == Nil || ![self applicationIsInstalled:identifier])
 		return NO;
 	id shared = ((id (*)(id, SEL))objc_msgSend)(service, @selector(sharedService));
 	((void (*)(id, SEL, id, id, id))objc_msgSend)(shared,
-		@selector(openApplication:options:withResult:), identifier, nil, nil);
+		@selector(openApplication:options:completion:), identifier, nil, nil);
 	return YES;
 }
 
@@ -89,12 +89,12 @@ NSArray<LSApplicationProxy *> *LSInstalledApplicationProxies(void)
 
 - (BOOL)openURL:(NSURL *)url withOptions:(NSDictionary *)options
 {
-	Class service = NSClassFromString(@"FBSSystemService");
+	Class service = NSClassFromString(@"DBApplicationService");
 	if (service == Nil || url == nil)
 		return NO;
 	id shared = ((id (*)(id, SEL))objc_msgSend)(service, @selector(sharedService));
-	((void (*)(id, SEL, id, id, id, mach_port_t, id))objc_msgSend)(shared,
-		@selector(openURL:application:options:clientPort:withResult:), url, nil, nil, MACH_PORT_NULL, nil);
+	((void (*)(id, SEL, id, id))objc_msgSend)(shared,
+		@selector(openURL:completion:), url, nil);
 	return YES;
 }
 

@@ -5,7 +5,7 @@ add_definitions(-nostdinc)
 add_darling_executable(SpringBoard SpringBoard.m SBNotifications.m)
 target_compile_options(SpringBoard PRIVATE -fobjc-arc)
 target_include_directories(SpringBoard PRIVATE ../frameworks/UserNotifications/src)
-target_link_libraries(SpringBoard UIKit AppKit FrontBoardServices UserNotifications AudioToolbox CoreGraphics Foundation objc)
+target_link_libraries(SpringBoard UIKit AppKit DarlingBoard UserNotifications AudioToolbox CoreGraphics Foundation objc)
 
 # Marked as an iOS app like Terminal (see ../Terminal/set-ios-platform.py):
 # dyld loads iOS tweaks (MobileSubstrate dylibs) only into iOS processes.

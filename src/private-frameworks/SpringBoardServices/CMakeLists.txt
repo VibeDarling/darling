@@ -28,7 +28,7 @@ add_framework(SpringBoardServices
         system
         objc
         Foundation
-        FrontBoardServices
+        DarlingBoard
 )
 # The Copy functions return retained objects, which is plainer without ARC.
-target_include_directories(SpringBoardServices PRIVATE ../FrontBoardServices/include ../RunningBoardServices/include)
+target_include_directories(SpringBoardServices PRIVATE ../DarlingBoard/include)

@@ -5,7 +5,7 @@
    from ios-frontboard-lite-app.m. See ios-frontboard-lite.md. */
 
 #import <Foundation/Foundation.h>
-#import <FrontBoardServices/FrontBoardServices.h>
+#import <DarlingBoard/DarlingBoard.h>
 #include <spawn.h>
 #include <signal.h>
 #include <unistd.h>
@@ -52,22 +52,22 @@ static NSString *joined(NSArray<NSString *> *list)
 	return [list componentsJoinedByString:@","];
 }
 
-static FBSApplicationState stateOf(NSString *bundleIdentifier)
+static DBApplicationState stateOf(NSString *bundleIdentifier)
 {
-	for (NSDictionary *process in [[FBSSystemService sharedService] applicationStates])
+	for (NSDictionary *process in [[DBApplicationService sharedService] applicationStates])
 		if ([process[@"bundleIdentifier"] isEqualToString:bundleIdentifier])
 			return [process[@"state"] integerValue];
-	return FBSApplicationStateUnknown;
+	return DBApplicationStateUnknown;
 }
 
 static NSError *openApp(NSString *bundleIdentifier)
 {
-	NSDictionary *debug = @{ FBSDebugOptionKeyStandardOutPath: logPath(bundleIdentifier) };
+	NSDictionary *debug = @{ DBDebugOptionStandardOutPath: logPath(bundleIdentifier) };
 	__block NSError *result = nil;
 	dispatch_semaphore_t done = dispatch_semaphore_create(0);
-	[[FBSSystemService sharedService] openApplication:bundleIdentifier
-		options:[FBSOpenApplicationOptions optionsWithDictionary:@{ FBSOpenApplicationOptionKeyDebuggingOptions: debug }]
-		withResult:^(NSError *error) {
+	[[DBApplicationService sharedService] openApplication:bundleIdentifier
+		options:@{ DBOpenApplicationOptionDebugging: debug }
+		completion:^(NSError *error) {
 			result = error;
 			dispatch_semaphore_signal(done);
 		}];
@@ -78,7 +78,7 @@ static NSError *openApp(NSString *bundleIdentifier)
 static void terminateApp(NSString *bundleIdentifier)
 {
 	dispatch_semaphore_t done = dispatch_semaphore_create(0);
-	[[FBSSystemService sharedService] terminateApplication:bundleIdentifier forReason:1 andReport:NO withDescription:@"test" completion:^{
+	[[DBApplicationService sharedService] terminateApplication:bundleIdentifier completion:^{
 		dispatch_semaphore_signal(done);
 	}];
 	dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
@@ -117,14 +117,14 @@ int main(int argc, char **argv)
 		NSString *probe = [NSString stringWithUTF8String:argv[1]];
 		CHECK(install(AppA, @"LifecycleA", probe) && install(AppB, @"LifecycleB", probe), "installed LifecycleA.app and LifecycleB.app");
 
-		CHECK([[FBSSystemService sharedService] applicationStates] == nil, "no frontboardd before we start one");
+		CHECK([[DBApplicationService sharedService] applicationStates] == nil, "no frontboardd before we start one");
 		char *daemonArgv[] = { "/usr/libexec/frontboardd", "--no-system-app", NULL };
 		pid_t daemon = 0;
 		CHECK(posix_spawn(&daemon, daemonArgv[0], NULL, NULL, daemonArgv, environ) == 0, "started frontboardd (%d)", daemon);
 		BOOL up = NO;
 		for (int i = 0; i < 200 && !up; i++) {
 			usleep(50000);
-			up = [[FBSSystemService sharedService] applicationStates] != nil;
+			up = [[DBApplicationService sharedService] applicationStates] != nil;
 		}
 		CHECK(up, "frontboardd answers on %s", getenv("FRONTBOARD_SOCKET") ?: "/private/var/run/frontboardd.sock");
 
@@ -132,7 +132,7 @@ int main(int argc, char **argv)
 		CHECK(error == nil, "open A: %s", [[error description] UTF8String]);
 		NSArray *a = @[ @"didFinishLaunching", @"didBecomeActive" ];
 		CHECK(waitFor(AppA, a, 60), "A launched and active: %s", [joined(callbacks(AppA)) UTF8String]);
-		CHECK(stateOf(AppA) == FBSApplicationStateForeground, "A is in the foreground");
+		CHECK(stateOf(AppA) == DBApplicationStateForeground, "A is in the foreground");
 		pause_("A in front");
 
 		error = openApp(AppB);
@@ -141,22 +141,22 @@ int main(int argc, char **argv)
 		CHECK(waitFor(AppB, b, 60), "B launched and active: %s", [joined(callbacks(AppB)) UTF8String]);
 		a = [a arrayByAddingObjectsFromArray:@[ @"willResignActive", @"didEnterBackground" ]];
 		CHECK(waitFor(AppA, a, 20), "A went to the background: %s", [joined(callbacks(AppA)) UTF8String]);
-		CHECK(stateOf(AppA) == FBSApplicationStateBackground && stateOf(AppB) == FBSApplicationStateForeground, "B in front, A behind");
-		pid_t pidA = [[FBSSystemService sharedService] pidForApplication:AppA];
+		CHECK(stateOf(AppA) == DBApplicationStateBackground && stateOf(AppB) == DBApplicationStateForeground, "B in front, A behind");
+		pid_t pidA = [[DBApplicationService sharedService] pidOfApplication:AppA];
 		pause_("B in front");
 
 		error = openApp(AppA);
-		CHECK(error == nil && [[FBSSystemService sharedService] pidForApplication:AppA] == pidA, "open A again reuses pid %d", pidA);
+		CHECK(error == nil && [[DBApplicationService sharedService] pidOfApplication:AppA] == pidA, "open A again reuses pid %d", pidA);
 		a = [a arrayByAddingObjectsFromArray:@[ @"willEnterForeground", @"didBecomeActive" ]];
 		CHECK(waitFor(AppA, a, 20), "A came back: %s", [joined(callbacks(AppA)) UTF8String]);
 		b = [b arrayByAddingObjectsFromArray:@[ @"willResignActive", @"didEnterBackground" ]];
 		CHECK(waitFor(AppB, b, 20), "B went to the background: %s", [joined(callbacks(AppB)) UTF8String]);
 		pause_("A in front again");
 
-		CHECK([[FBSSystemService sharedService] backgroundForegroundApplication], "home");
+		CHECK([[DBApplicationService sharedService] backgroundForegroundApplication], "home");
 		a = [a arrayByAddingObjectsFromArray:@[ @"willResignActive", @"didEnterBackground" ]];
 		CHECK(waitFor(AppA, a, 20), "home sent A to the background: %s", [joined(callbacks(AppA)) UTF8String]);
-		CHECK(stateOf(AppA) == FBSApplicationStateBackground && stateOf(AppB) == FBSApplicationStateBackground, "nothing in front");
+		CHECK(stateOf(AppA) == DBApplicationStateBackground && stateOf(AppB) == DBApplicationStateBackground, "nothing in front");
 
 		terminateApp(AppA);
 		terminateApp(AppB);
@@ -164,11 +164,11 @@ int main(int argc, char **argv)
 		b = [b arrayByAddingObject:@"willTerminate"];
 		CHECK(waitFor(AppA, a, 5), "A terminated: %s", [joined(callbacks(AppA)) UTF8String]);
 		CHECK(waitFor(AppB, b, 5), "B terminated: %s", [joined(callbacks(AppB)) UTF8String]);
-		CHECK([[[FBSSystemService sharedService] applicationStates] count] == 0
-			&& [[FBSSystemService sharedService] pidForApplication:AppA] == 0, "frontboardd knows no apps any more");
+		CHECK([[[DBApplicationService sharedService] applicationStates] count] == 0
+			&& [[DBApplicationService sharedService] pidOfApplication:AppA] == 0, "frontboardd knows no apps any more");
 
 		error = openApp(@"org.darlinghq.lifecycle.missing");
-		CHECK([error code] == FBSOpenApplicationErrorCodeNotFound, "missing app: %s", [[error localizedFailureReason] UTF8String]);
+		CHECK([error code] == DBOpenApplicationErrorNotFound, "missing app: %s", [[error localizedFailureReason] UTF8String]);
 
 		kill(daemon, SIGTERM);
 		waitpid(daemon, NULL, 0);

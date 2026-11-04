@@ -25,12 +25,11 @@
    SpringBoard.app) is what the user sees when no other app is in front:
    frontboardd launches it at startup, relaunches it if it dies, brings it
    back for the Home button and tells it about each press. The protocol
-   is in FrontBoardServices' FBSLite.h. */
+   is in DarlingBoard's DBWire.h. */
 
 #import <Foundation/Foundation.h>
-#import <FrontBoardServices/FrontBoardServices.h>
-#import <RunningBoardServices/RunningBoardServices.h>
-#import "FBSLite.h"
+#import <DarlingBoard/DarlingBoard.h>
+#import "DBWire.h"
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -56,7 +55,7 @@ static uint64_t sSystemAppLaunched;
 @interface FBDProcess : NSObject
 @property (nonatomic, copy) NSString *bundleIdentifier;
 @property (nonatomic) pid_t pid;
-@property (nonatomic) FBSApplicationState state;
+@property (nonatomic) DBApplicationState state;
 @property (nonatomic) int eventFD;
 @property (nonatomic, strong) NSMutableArray<void (^)(void)> *exitHandlers;
 @end
@@ -90,11 +89,11 @@ static void FBDLog(NSString *format, ...)
 	fprintf(stderr, "frontboardd: %s\n", [line UTF8String]);
 }
 
-static NSString *FBDStateName(FBSApplicationState state)
+static NSString *FBDStateName(DBApplicationState state)
 {
 	switch (state) {
-		case FBSApplicationStateForeground: return @"foreground";
-		case FBSApplicationStateBackground: return @"background";
+		case DBApplicationStateForeground: return @"foreground";
+		case DBApplicationStateBackground: return @"background";
 		default: return @"unknown";
 	}
 }
@@ -120,7 +119,7 @@ static FBDProcess *FBDSystemProcess(void)
 static BOOL FBDHasForegroundApp(void)
 {
 	for (FBDProcess *process in sProcesses)
-		if (!FBDIsSystem(process) && process.state == FBSApplicationStateForeground)
+		if (!FBDIsSystem(process) && process.state == DBApplicationStateForeground)
 			return YES;
 	return NO;
 }
@@ -136,10 +135,10 @@ static FBDProcess *FBDProcessWithPid(pid_t pid)
 static void FBDSendState(FBDProcess *process)
 {
 	if (process.eventFD >= 0)
-		FBSLiteSend(process.eventFD, @{ @"event": @"state", @"state": @(process.state) });
+		DBWireSend(process.eventFD, @{ @"event": @"state", @"state": @(process.state) });
 }
 
-static void FBDSetState(FBDProcess *process, FBSApplicationState state)
+static void FBDSetState(FBDProcess *process, DBApplicationState state)
 {
 	if (process.state == state)
 		return;
@@ -152,20 +151,20 @@ static void FBDSetState(FBDProcess *process, FBSApplicationState state)
 static void FBDBringToForeground(FBDProcess *process)
 {
 	for (FBDProcess *other in sProcesses)
-		if (other != process && other.state == FBSApplicationStateForeground)
-			FBDSetState(other, FBSApplicationStateBackground);
-	FBDSetState(process, FBSApplicationStateForeground);
+		if (other != process && other.state == DBApplicationStateForeground)
+			FBDSetState(other, DBApplicationStateBackground);
+	FBDSetState(process, DBApplicationStateForeground);
 }
 
 /* Home: no app in front, so the system app is. */
 static void FBDGoHome(void)
 {
 	for (FBDProcess *process in sProcesses)
-		if (!FBDIsSystem(process) && process.state == FBSApplicationStateForeground)
-			FBDSetState(process, FBSApplicationStateBackground);
+		if (!FBDIsSystem(process) && process.state == DBApplicationStateForeground)
+			FBDSetState(process, DBApplicationStateBackground);
 	FBDProcess *system = FBDSystemProcess();
 	if (system != nil)
-		FBDSetState(system, FBSApplicationStateForeground);
+		FBDSetState(system, DBApplicationStateForeground);
 }
 
 static void FBDLaunchSystemApp(void);
@@ -180,7 +179,7 @@ static void FBDRemove(FBDProcess *process, int status)
 		FBDLog(@"%@ (%d) exited with status %d", process.bundleIdentifier, process.pid, WEXITSTATUS(status));
 	else
 		FBDLog(@"%@ (%d) exited", process.bundleIdentifier, process.pid);
-	BOOL wasForeground = process.state == FBSApplicationStateForeground;
+	BOOL wasForeground = process.state == DBApplicationStateForeground;
 	[sProcesses removeObject:process];
 	if (FBDIsSystem(process)) {
 		if (clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - sSystemAppLaunched >= FBDSystemAppStableTime)
@@ -223,24 +222,24 @@ static void FBDDetach(void (^work)(void))
 
 static BOOL FBDIsAlive(pid_t pid)
 {
-	return [[RBSProcessHandle handleForIdentifier:[RBSProcessIdentifier identifierWithPid:pid] error:NULL] isValid];
+	return DBProcessIsAlive(pid);
 }
 
-static NSDictionary *FBDError(FBSOpenApplicationErrorCode code, NSString *reason)
+static NSDictionary *FBDError(DBOpenApplicationError code, NSString *reason)
 {
 	return @{ @"error": reason, @"code": @(code) };
 }
 
 static FBDProcess *FBDLaunch(NSString *bundleIdentifier, NSDictionary *options, NSDictionary **error)
 {
-	NSBundle *bundle = [[FBSSystemService sharedService] bundleForApplication:bundleIdentifier];
+	NSBundle *bundle = [[DBApplicationService sharedService] bundleForApplication:bundleIdentifier];
 	if (bundle == nil) {
-		*error = FBDError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"Application \"%@\" is not installed", bundleIdentifier]);
+		*error = FBDError(DBOpenApplicationErrorNotFound, [NSString stringWithFormat:@"Application \"%@\" is not installed", bundleIdentifier]);
 		return nil;
 	}
 
 	pid_t pid;
-	NSError *spawnError = FBSLiteSpawnApplication(bundle, options, &pid);
+	NSError *spawnError = DBSpawnApplication(bundle, options, &pid);
 	if (spawnError != nil) {
 		*error = FBDError([spawnError code], [spawnError localizedFailureReason] ?: [spawnError description]);
 		return nil;
@@ -249,7 +248,7 @@ static FBDProcess *FBDLaunch(NSString *bundleIdentifier, NSDictionary *options, 
 	FBDProcess *process = [[FBDProcess alloc] init];
 	process.bundleIdentifier = bundleIdentifier;
 	process.pid = pid;
-	process.state = FBSApplicationStateBackground;
+	process.state = DBApplicationStateBackground;
 	[sProcesses addObject:process];
 	FBDLog(@"launched %@ (%d)", bundleIdentifier, pid);
 
@@ -269,7 +268,7 @@ static void FBDOpen(NSDictionary *request, void (^reply)(NSDictionary *))
 {
 	NSString *bundleIdentifier = request[@"bundleIdentifier"];
 	NSDictionary *options = request[@"options"];
-	BOOL suspended = [options[FBSOpenApplicationOptionKeyActivateSuspended] boolValue];
+	BOOL suspended = [options[DBOpenApplicationOptionSuspended] boolValue];
 
 	FBDProcess *process = FBDProcessWithBundleIdentifier(bundleIdentifier);
 	if (process != nil) {
@@ -297,7 +296,7 @@ static void FBDOpenURL(NSDictionary *request, void (^reply)(NSDictionary *))
 	NSString *url = request[@"url"];
 	NSString *scheme = [[[NSURL URLWithString:url] scheme] lowercaseString];
 	if (![scheme isEqualToString:@"itms-services"]) {
-		reply(FBDError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"No app is registered to open %@", url]));
+		reply(FBDError(DBOpenApplicationErrorNotFound, [NSString stringWithFormat:@"No app is registered to open %@", url]));
 		return;
 	}
 	char *argv[] = { "/usr/libexec/installd", (char *)[url UTF8String], NULL };
@@ -305,7 +304,7 @@ static void FBDOpenURL(NSDictionary *request, void (^reply)(NSDictionary *))
 	pid_t pid;
 	int rc = posix_spawn(&pid, argv[0], NULL, NULL, argv, environ);
 	if (rc != 0) {
-		reply(FBDError(FBSOpenApplicationErrorCodeNotFound, [NSString stringWithFormat:@"Cannot start installd: %s", strerror(rc)]));
+		reply(FBDError(DBOpenApplicationErrorNotFound, [NSString stringWithFormat:@"Cannot start installd: %s", strerror(rc)]));
 		return;
 	}
 	FBDLog(@"started installd (%d) for %@", pid, url);
@@ -324,7 +323,7 @@ static void FBDLaunchSystemApp(void)
 {
 	if (!sLaunchSystemApp || FBDSystemProcess() != nil)
 		return;
-	if ([[FBSSystemService sharedService] bundleForApplication:sSystemBundleIdentifier] == nil)
+	if ([[DBApplicationService sharedService] bundleForApplication:sSystemBundleIdentifier] == nil)
 		return;
 	NSDictionary *error = nil;
 	sSystemAppLaunched = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
@@ -332,7 +331,7 @@ static void FBDLaunchSystemApp(void)
 	if (process == nil)
 		FBDLog(@"cannot launch the system app %@: %@", sSystemBundleIdentifier, error[@"error"]);
 	else if (!FBDHasForegroundApp())
-		FBDSetState(process, FBSApplicationStateForeground);
+		FBDSetState(process, DBApplicationStateForeground);
 }
 
 /* Daemons that belong with the home screen: usernotificationsd, which
@@ -404,7 +403,7 @@ static void FBDHomeButton(void)
 	FBDGoHome();
 	FBDProcess *system = FBDSystemProcess();
 	if (system.eventFD >= 0)
-		FBSLiteSend(system.eventFD, @{ @"event": @"button", @"button": @"home", @"count": @(count) });
+		DBWireSend(system.eventFD, @{ @"event": @"button", @"button": @"home", @"count": @(count) });
 }
 
 static void FBDTerminate(NSDictionary *request, void (^reply)(NSDictionary *))
@@ -418,7 +417,7 @@ static void FBDTerminate(NSDictionary *request, void (^reply)(NSDictionary *))
 		reply(@{});
 	}];
 	if (process.eventFD >= 0) {
-		FBSLiteSend(process.eventFD, @{ @"event": @"terminate" });
+		DBWireSend(process.eventFD, @{ @"event": @"terminate" });
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, FBDTerminationGrace), sQueue, ^{
 			if ([sProcesses containsObject:process]) {
 				FBDLog(@"%@ (%d) did not exit; killing it", process.bundleIdentifier, process.pid);
@@ -440,12 +439,12 @@ static void FBDCheckIn(NSDictionary *request, int fd)
 		process = [[FBDProcess alloc] init];
 		process.bundleIdentifier = request[@"bundleIdentifier"];
 		process.pid = pid;
-		process.state = FBSApplicationStateBackground;
+		process.state = DBApplicationStateBackground;
 		[sProcesses addObject:process];
 		if (!FBDIsSystem(process))
 			FBDBringToForeground(process);
 		else if (!FBDHasForegroundApp())
-			FBDSetState(process, FBSApplicationStateForeground);
+			FBDSetState(process, DBApplicationStateForeground);
 	}
 	FBDLog(@"%@ (%d) checked in, %@", process.bundleIdentifier, pid, FBDStateName(process.state));
 	process.eventFD = fd;
@@ -464,7 +463,7 @@ static NSArray<NSDictionary *> *FBDList(void)
 static void FBDServe(int fd)
 {
 	@autoreleasepool {
-		NSDictionary *request = FBSLiteReceive(fd);
+		NSDictionary *request = DBWireReceive(fd);
 		NSString *op = request[@"op"];
 		if (op == nil) {
 			close(fd);
@@ -478,7 +477,7 @@ static void FBDServe(int fd)
 				process = FBDProcessWithPid([request[@"pid"] intValue]);
 			});
 			/* The app sends nothing more; EOF means it is gone. */
-			while (FBSLiteReceive(fd) != nil)
+			while (DBWireReceive(fd) != nil)
 				;
 			dispatch_sync(sQueue, ^{
 				if (process.eventFD == fd)
@@ -516,10 +515,10 @@ static void FBDServe(int fd)
 			} else if ([op isEqualToString:@"list"])
 				reply(@{ @"processes": FBDList() });
 			else
-				reply(@{ @"error": [NSString stringWithFormat:@"unknown request \"%@\"", op], @"code": @(FBSOpenApplicationErrorCodeInvalidRequest) });
+				reply(@{ @"error": [NSString stringWithFormat:@"unknown request \"%@\"", op], @"code": @(DBOpenApplicationErrorInvalidRequest) });
 		});
 		dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
-		FBSLiteSend(fd, response);
+		DBWireSend(fd, response);
 		close(fd);
 	}
 }
@@ -530,7 +529,7 @@ int main(int argc, char **argv)
 		signal(SIGPIPE, SIG_IGN);
 		sQueue = dispatch_queue_create("frontboardd", DISPATCH_QUEUE_SERIAL);
 		sProcesses = [NSMutableArray array];
-		sSystemBundleIdentifier = [[FBSSystemService sharedService] systemApplicationBundleIdentifier];
+		sSystemBundleIdentifier = DBSystemApplicationBundleIdentifier;
 		for (int i = 1; i < argc; i++) {
 			if (strcmp(argv[i], "--no-system-app") == 0)
 				sLaunchSystemApp = NO;
@@ -540,12 +539,12 @@ int main(int argc, char **argv)
 			}
 		}
 
-		int listener = FBSLiteListen();
+		int listener = DBWireListen();
 		if (listener < 0) {
-			FBDLog(@"cannot listen on %@: %s", FBSLiteSocketPath(), strerror(errno));
+			FBDLog(@"cannot listen on %@: %s", DBWireSocketPath(), strerror(errno));
 			return 1;
 		}
-		FBDLog(@"listening on %@", FBSLiteSocketPath());
+		FBDLog(@"listening on %@", DBWireSocketPath());
 		dispatch_async(sQueue, ^{
 			if (sLaunchSystemApp) {
 				FBDLaunchDaemon(@"/usr/libexec/usernotificationsd");
