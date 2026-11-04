@@ -89,14 +89,21 @@ against an installed tree with the flags in `cmake/swift_ios.cmake` plus
 
 ## CPU requirement (the runtime, not this module)
 
-`src/external/swift/libswiftCore.dylib` is swift.org's macOS build, whose
-arm64 slice targets Apple M1 and uses ARMv8.1 LSE atomics (`casp`, `cas`,
-`ldadd`...; about 330 of them, e.g. in `MetadataAllocator::Allocate`). On an
-ARMv8.0 core (Cortex-A72 / Pi 4, Exynos 9810) any Swift program dies with
-SIGILL at its first metadata allocation. SwiftUI and the app are built for
-`apple-a7` and have none. Running on such CPUs needs a libswiftCore built
-for an ARMv8.0 baseline (e.g. from the 6.3.3 sources for `arm64-apple-ios`).
-Tested in QEMU with `-cpu max`.
+When clang is given no `-mcpu` for `arm64-apple-macosx`, it targets `apple-m1`, a CPU with the
+Armv8.1-A LSE atomics and the RCpc loads. An Armv8.0-A core such as the Raspberry Pi 4's
+Cortex-A72 implements neither, which `clang --print-enabled-extensions` shows for each CPU.
+Unmodified Swift programs died with `SIGILL` on a Cortex-A72 under Darling.
+
+`src/external/swift/runtime/build.sh` rebuilds the arm64 Swift runtime libraries from Swift's open
+source with `-mcpu=apple-a7` (Armv8.0-A) and `-moutline-atomics`. Each atomic operation then
+calls one of compiler-rt's helpers, which uses LSE only when the CPU has it. With those libraries
+the same programs run.
+
+This module is built for `arm64-apple-ios`, and for that triple clang's default CPU is already
+`apple-a7` (`clang -target arm64-apple-ios16.0 -### -c x.c`). swiftc takes its target CPU from its
+Clang importer, so this module needs no flag of its own. The runtime it links is what matters.
+`src/external/swift/runtime/README.md` has the details, including the one runtime library the
+script does not rebuild yet (`libswiftRuntime`).
 
 ## Debugging
 
