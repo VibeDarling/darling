@@ -24,7 +24,7 @@ cc -Wall -Wextra -Werror -O2 tests/launcher/profile-prefix.c -o /tmp/darling-pro
 ```
 
 This tests the launcher's pure prefix selector. `DPREFIX` remains the explicit
-path interface. `DARLING_PROFILE=<name>` selects the isolated sibling prefix
+path interface and must be absolute; an empty or relative value is rejected. `DARLING_PROFILE=<name>` selects the isolated sibling prefix
 `~/.darling.<name>`; using both selectors or a name containing path separators
 is rejected. The harness does not create or access any prefix.
 
