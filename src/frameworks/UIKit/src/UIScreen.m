@@ -27,25 +27,33 @@
 {
 	static NSMutableArray<UIScreen *> *others;
 	UIScreen *main = [self mainScreen];
-	NSScreen *mainNative = [NSScreen mainScreen];
+	/* Cocotron's X11 backend builds fresh NSScreen objects when its screen list is
+	 * rebuilt or unavailable, so pointer identity is not stable: key on the display ID. */
+	CGDirectDisplayID mainID = [[NSScreen mainScreen] cgDirectDisplayID];
 	NSMutableArray<UIScreen *> *result = [NSMutableArray arrayWithObject:main];
 
 	@synchronized(self) {
 		NSMutableArray<UIScreen *> *current = [NSMutableArray array];
 		for (NSScreen *native in [NSScreen screens]) {
-			if (native == mainNative)
+			CGDirectDisplayID displayID = [native cgDirectDisplayID];
+			if (displayID == mainID)
+				continue;
+			BOOL listed = NO;
+			for (UIScreen *candidate in current)
+				if ([candidate->_uiNativeScreen cgDirectDisplayID] == displayID)
+					listed = YES;
+			if (listed)
 				continue;
 			UIScreen *known = nil;
 			for (UIScreen *candidate in others) {
-				if (candidate->_uiNativeScreen == native) {
+				if ([candidate->_uiNativeScreen cgDirectDisplayID] == displayID) {
 					known = candidate;
 					break;
 				}
 			}
-			if (known == nil) {
+			if (known == nil)
 				known = [[UIScreen alloc] init];
-				known->_uiNativeScreen = native;
-			}
+			known->_uiNativeScreen = native;
 			[current addObject:known];
 		}
 		others = current;
