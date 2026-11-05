@@ -1971,7 +1971,7 @@ int main(int argc, char ** argv)
 	// permissions at all. The container runs without any namespace
 	// isolation: the prefix is a plain directory and /proc is the real
 	// (shared) procfs, exposed to the container via a symlink.
-	g_nonroot = (getenv("DARLING_NONROOT") != NULL || geteuid() != 0);
+	g_nonroot = (getenvTrusted("DARLING_NONROOT") != NULL || geteuid() != 0);
 	if (g_nonroot)
 	{
 		g_rootless = true;
@@ -1992,8 +1992,11 @@ int main(int argc, char ** argv)
 	}
 	else
 	{
-		setuid(0);
-		setgid(0);
+		if (setuid(0) != 0 || setgid(0) != 0)
+		{
+			fprintf(stderr, "Failed to acquire root ids: %s\n", strerror(errno));
+			return 1;
+		}
 		g_rootless = (geteuid() != 0);
 	}
 
@@ -2297,7 +2300,12 @@ int main(int argc, char ** argv)
 		joinNamespace(pidInit, CLONE_NEWNS, "mnt");
 #endif
 
-	useOriginalIds();
+	// Nothing below needs root: the client only talks to the shellspawn socket.
+	if (!g_nonroot && !dropPrivilegesPermanently(g_originalUid, g_originalGid))
+	{
+		fprintf(stderr, "Failed to drop privileges.\n");
+		return 1;
+	}
 
 	if (strcmp(argv[1], "toolchain") == 0)
 	{
