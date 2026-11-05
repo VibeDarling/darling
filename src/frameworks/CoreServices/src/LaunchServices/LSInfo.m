@@ -110,7 +110,7 @@ CFArrayRef LSCopyApplicationURLsForBundleIdentifier(CFStringRef inBundleIdentifi
 {
 	if (!inBundleIdentifier)
 	{
-		if (*outError)
+		if (outError)
 			*outError = CFErrorCreate(NULL, kCFErrorDomainOSStatus, paramErr, NULL);
 		return NULL;
 	}
@@ -120,7 +120,7 @@ CFArrayRef LSCopyApplicationURLsForBundleIdentifier(CFStringRef inBundleIdentifi
 
 	if (dq == nil)
 	{
-		if (*outError)
+		if (outError)
 			*outError = CFErrorCreate(NULL, kCFErrorDomainOSStatus, fnfErr, NULL);
 		return NULL;
 	}
@@ -142,7 +142,7 @@ CFArrayRef LSCopyApplicationURLsForBundleIdentifier(CFStringRef inBundleIdentifi
 		}
 		else
 		{
-			if (*outError)
+			if (outError)
 				*outError = CFErrorCreate(NULL, kCFErrorDomainOSStatus, kLSApplicationNotFoundErr, NULL);
 			retval = NULL;
 		}
@@ -251,7 +251,7 @@ CFURLRef LSCopyDefaultApplicationURLForContentType(CFStringRef inContentType, LS
 
 	if (dq == nil)
 	{
-		if (*outError)
+		if (outError)
 			*outError = CFErrorCreate(NULL, kCFErrorDomainOSStatus, fnfErr, NULL);
 		return NULL;
 	}
@@ -279,7 +279,7 @@ CFURLRef LSCopyDefaultApplicationURLForContentType(CFStringRef inContentType, LS
 		}
 		else
 		{
-			if (*outError)
+			if (outError)
 				*outError = CFErrorCreate(NULL, kCFErrorDomainOSStatus, kLSApplicationNotFoundErr, NULL);
 			retval = NULL;
 		}
