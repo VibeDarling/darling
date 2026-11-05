@@ -24,11 +24,16 @@ typedef NS_ENUM(NSInteger, UIApplicationState) {
 	UIApplicationStateBackground,
 };
 
-@interface UIApplication : UIResponder
+@interface UIApplication : UIResponder {
+@package
+	UIApplicationState _uiApplicationState;
+}
 
 + (UIApplication *)sharedApplication;
 
 @property (nonatomic, assign) id<UIApplicationDelegate> delegate;
+/* Inactive until AppKit reports the application active, then follows
+ * activation and deactivation.  Background is never reported. */
 @property (nonatomic, readonly) UIApplicationState applicationState;
 
 /* Drain the main run loop, as -[NSApplication run] does. */

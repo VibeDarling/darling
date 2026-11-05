@@ -43,9 +43,17 @@ static id<UIApplicationDelegate> sDelegateStorage;
 	return sSharedApplication;
 }
 
+- (instancetype)init
+{
+	self = [super init];
+	if (self != nil)
+		_uiApplicationState = UIApplicationStateInactive;
+	return self;
+}
+
 - (UIApplicationState)applicationState
 {
-	return UIApplicationStateActive;
+	return _uiApplicationState;
 }
 
 - (void)run
@@ -54,6 +62,23 @@ static id<UIApplicationDelegate> sDelegateStorage;
 }
 
 #pragma mark - NSApplicationDelegate
+
+- (void)applicationWillFinishLaunching:(NSNotification *)notification
+{
+	id<UIApplicationDelegate> delegate = [self delegate];
+	if ([delegate respondsToSelector:@selector(application:willFinishLaunchingWithOptions:)])
+		[delegate application:self willFinishLaunchingWithOptions:nil];
+}
+
+- (void)applicationDidBecomeActive:(NSNotification *)notification
+{
+	_uiApplicationState = UIApplicationStateActive;
+}
+
+- (void)applicationDidResignActive:(NSNotification *)notification
+{
+	_uiApplicationState = UIApplicationStateInactive;
+}
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
