@@ -132,3 +132,18 @@ temporary directory, and runs three cases. A live darlingserver with a missing
 or invalid `.init.pid` and a failed server inspection must both refuse with
 exit 1 and no unlink, setup, spawn or pid write. A verified absence of a server
 must proceed with setup. The script fails if the branch's shape changes.
+
+## Shellspawn accept loop
+
+Run without root or any Darling container:
+
+```sh
+python3 tests/launcher/test-shellspawn-accept.py src/shellspawn/shellspawn.c --run
+```
+
+The script extracts `listenForConnections()` from the given source, compiles it
+with mocked `accept`, `usleep`, `perror` and `fork` in a temporary directory, and
+runs scripted accept results. `EINTR`, `EAGAIN` and `ECONNABORTED` retry without
+sleeping. `EMFILE`, `ENFILE`, `ENOBUFS` and `ENOMEM` sleep on every retry but log
+once per streak, and a successful accept resets the streak. `EINVAL` and
+`ENOTSOCK` log once and return -1. The script fails if the function's shape changes.
