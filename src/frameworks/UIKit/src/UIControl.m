@@ -22,6 +22,17 @@
 @implementation DarlingUIControlAction
 @end
 
+// A registration whose weak target has been released can never be delivered, so
+// it must not merge a later registration or keep reporting its events.
+static void DarlingUIControlPruneDead(NSMutableArray *actions)
+{
+	for (NSInteger i = (NSInteger)[actions count] - 1; i >= 0; i--) {
+		DarlingUIControlAction *entry = [actions objectAtIndex:i];
+		if (!entry->chain && entry->target == nil)
+			[actions removeObjectAtIndex:i];
+	}
+}
+
 @implementation UIControl
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -70,9 +81,11 @@
 	// (the page only says that 0 does not stop delivery to an existing registration).
 	if (controlEvents == 0)
 		return;
+	DarlingUIControlPruneDead(_uiActions);
 	// Rung 3: calling again with the same target and action is safe; the events accumulate.
+	// A nil target is the responder chain and only merges with another chain entry.
 	for (DarlingUIControlAction *entry in _uiActions) {
-		if (entry->target == target && entry->action == action) {
+		if (entry->chain == (target == nil) && entry->target == target && entry->action == action) {
 			entry->events |= controlEvents;
 			return;
 		}
@@ -101,6 +114,7 @@
 
 - (NSSet *)allTargets
 {
+	DarlingUIControlPruneDead(_uiActions);
 	NSMutableSet *targets = [[NSMutableSet alloc] init];
 	for (DarlingUIControlAction *entry in _uiActions) {
 		id target = entry->target;
@@ -114,6 +128,7 @@
 
 - (UIControlEvents)allControlEvents
 {
+	DarlingUIControlPruneDead(_uiActions);
 	UIControlEvents all = 0;
 	for (DarlingUIControlAction *entry in _uiActions)
 		all |= entry->events;
