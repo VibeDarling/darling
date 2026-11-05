@@ -29,7 +29,6 @@ Dir.mktmpdir('gestalt-') do |dir|
   File.write("#{dir}/CoreFoundation/CFBase.h", "#include <stdint.h>\n")
   File.write("#{dir}/MacTypes.h", "#include <stdint.h>\ntypedef int32_t OSStatus;\n")
   File.write("#{dir}/probe.cpp", <<~CPP)
-    #include <assert.h>
     #include <stdint.h>
     #include <stdio.h>
     #include <stdlib.h>
@@ -37,6 +36,7 @@ Dir.mktmpdir('gestalt-') do |dir|
     #include <sys/sysctl.h>
     #include <CarbonCore/MacErrors.h>
     #include <CarbonCore/Gestalt.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     static const char *product = "#{product}";
     static int bycall;
     extern "C" int sysctl(int *name, unsigned n, void *buf, size_t *len, void *nw, size_t nl) {
@@ -90,7 +90,7 @@ Dir.mktmpdir('gestalt-') do |dir|
     "-I#{root}/src/frameworks/CoreServices/include", "#{dir}/probe.cpp",
     "#{root}/src/frameworks/CoreServices/src/CarbonCore/Gestalt.cpp", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e("timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'gestalt system version regression' unless st.success?
 end

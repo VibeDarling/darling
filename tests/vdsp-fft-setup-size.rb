@@ -10,9 +10,10 @@ vdsp = "#{root}/src/frameworks/Accelerate/vecLib/vDSP"
 Dir.mktmpdir('vdsp-fftsize-') do |dir|
   File.write("#{dir}/size32.h", "#include <stdint.h>\n#undef SIZE_MAX\n#define SIZE_MAX 0xFFFFFFFFu\n")
   File.write("#{dir}/probe.c", <<~C)
-    #include <assert.h>
     #include <stdio.h>
     #include <vDSP/vDSP.h>
+    #include <stdlib.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     int main(void) {
       assert(vDSP_create_fftsetup(31, kFFTRadix2) == NULL);   /* above the Log2n limit */
       assert(vDSP_create_fftsetup(30, kFFTRadix2) == NULL);   /* 2^32 bytes: overflow guard */
@@ -26,7 +27,7 @@ Dir.mktmpdir('vdsp-fftsize-') do |dir|
   out, st = Open3.capture2e('clang', '-O2', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w',
     '-include', "#{dir}/size32.h", "-I#{vdsp}/include", "#{dir}/probe.c", "#{vdsp}/src/fft.c", '-lm', '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e("timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'vDSP fft setup size guard missing' unless st.success?
 end

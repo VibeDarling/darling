@@ -8,11 +8,11 @@ root = ARGV.fetch(0, File.expand_path('..', __dir__))
 vdsp = "#{root}/src/frameworks/Accelerate/vecLib/vDSP"
 Dir.mktmpdir('vdsp-fft-') do |dir|
   File.write("#{dir}/probe.c", <<~C)
-    #include <assert.h>
     #include <math.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <vDSP/vDSP.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     static void check(unsigned log2n, int stride, unsigned seed) {
       size_t n = (size_t)1 << log2n, h = n / 2;
       double *x = malloc(n * sizeof(double));
@@ -49,7 +49,7 @@ Dir.mktmpdir('vdsp-fft-') do |dir|
   out, st = Open3.capture2e('clang', '-O2', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w',
     "-I#{vdsp}/include", "#{dir}/probe.c", "#{vdsp}/src/fft.c", '-lm', '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e("timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'vDSP fft reference mismatch' unless st.success?
 end

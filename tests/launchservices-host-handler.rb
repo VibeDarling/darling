@@ -42,7 +42,6 @@ Dir.mktmpdir('ls-handler-') do |dir|
   H
   File.write("#{dir}/CarbonCore/MacErrors.h", "enum { paramErr = -50, noErr = 0 };\n")
   File.write("#{dir}/probe.c", <<~'C')
-    #include <assert.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
@@ -50,6 +49,7 @@ Dir.mktmpdir('ls-handler-') do |dir|
     #include <LaunchServices/LaunchServices.h>
     #include <CarbonCore/MacErrors.h>
     #include "LSHostOpen.h"
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     struct elf_calls *_elfcalls;
     static const char *present;           /* the xdg-open path that exists on the fake host, or NULL */
     static int bus_calls, bus_result;
@@ -171,7 +171,7 @@ Dir.mktmpdir('ls-handler-') do |dir|
     "-I#{dir}", "-I#{ls}", "-I#{root}/src/startup/mldr/elfcalls", "#{dir}/probe.c", "#{ls}/LSHostOpen.c", "#{ls}/LSHostOpenBus.c", "#{ls}/LSHostOpenURL.c", '-o', "#{dir}/probe")
   abort out unless st.success?
   %w[handler open nosystemd nolibc nosymbol noelfcalls].each do |mode|
-    out, st = Open3.capture2e("#{dir}/probe", mode, rlimit_core: 0)
+    out, st = Open3.capture2e("timeout", "60", "#{dir}/probe", mode, rlimit_core: 0)
     puts "#{mode}: #{out.lines.last}"
     abort "host handler regression (#{mode})" unless st.success?
   end

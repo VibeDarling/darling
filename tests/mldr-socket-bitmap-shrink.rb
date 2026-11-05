@@ -12,7 +12,6 @@ funcs = loader[/static int socket_bitmap_get.*?^static void socket_bitmap_put.*?
 Dir.mktmpdir('bitmap-shrink-') do |dir|
   File.write("#{dir}/probe.c", <<~C)
     #define _GNU_SOURCE
-    #include <assert.h>
     #include <pthread.h>
     #include <stdbool.h>
     #include <stddef.h>
@@ -20,6 +19,7 @@ Dir.mktmpdir('bitmap-shrink-') do |dir|
     #include <stdio.h>
     #include <stdlib.h>
     #include <sys/resource.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     #{types}
     #{funcs}
     static int slot[64];
@@ -45,7 +45,7 @@ Dir.mktmpdir('bitmap-shrink-') do |dir|
   C
   out, status = Open3.capture2e('clang', '-pthread', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w', "#{dir}/probe.c", '-o', "#{dir}/probe")
   abort out unless status.success?
-  out, status = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, status = Open3.capture2e("timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'socket bitmap shrink regression' unless status.success?
 end

@@ -10,13 +10,13 @@ accel_src = "#{root}/src/frameworks/Accelerate/src/Accelerate.c"
 
 Dir.mktmpdir('vimage-scale-') do |dir|
   File.write("#{dir}/probe.c", <<~C)
-    #include <assert.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
     #include <math.h>
     #include <limits.h>
     #include <Accelerate/Accelerate.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
 
     static void test_parameter_validation(void) {
       vImage_Buffer src, dest;

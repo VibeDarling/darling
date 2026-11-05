@@ -20,11 +20,11 @@ Dir.mktmpdir('uckey-') do |dir|
   Dir.mkdir("#{dir}/CoreFoundation")
   File.write("#{dir}/CoreFoundation/CFBase.h", "#include <stdint.h>\n")
   File.write("#{dir}/probe.cpp", <<~CPP)
-    #include <assert.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
     #include <CarbonCore/UnicodeUtilities.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     #{fn}
     int main() {
       /* layout: header | modifier map | key-to-char index | two 4-key tables */
@@ -55,7 +55,7 @@ Dir.mktmpdir('uckey-') do |dir|
   out, st = Open3.capture2e('clang++', '-std=c++17', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined', '-w',
     "-I#{dir}", "-I#{root}/src/frameworks/CoreServices/include", "#{dir}/probe.cpp", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e("timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'UCKeyTranslate modifier regression' unless st.success?
 end

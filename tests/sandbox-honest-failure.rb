@@ -11,11 +11,11 @@ Dir.mktmpdir('sandbox-') do |dir|
   Dir.mkdir("#{dir}/mach")
   File.write("#{dir}/mach/message.h", "typedef struct { unsigned int val[8]; } audit_token_t;\n")
   File.write("#{dir}/probe.c", <<~'C')
-    #include <assert.h>
     #include <stdint.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
+    #define assert(c) do { if (!(c)) { puts("assertion failed: " #c); fflush(stdout); exit(1); } } while (0)
     /* the two libraries declare overlapping names; declare only what is used */
     int sandbox_init(const char *, uint64_t, char **);
     int sandbox_init_with_parameters(const char *, uint64_t, const char *const[], char **);
@@ -60,7 +60,7 @@ Dir.mktmpdir('sandbox-') do |dir|
     "-I#{dir}", "-I#{root}/src/libsandbox/include", "#{dir}/probe.c", "#{root}/src/libsandbox/src/sandbox.c",
     "#{root}/src/sandbox/sandbox.c", '-I' + "#{root}/src/sandbox", '-o', "#{dir}/probe")
   abort out unless st.success?
-  out, st = Open3.capture2e("#{dir}/probe", rlimit_core: 0)
+  out, st = Open3.capture2e("timeout", "60", "#{dir}/probe", rlimit_core: 0)
   puts out
   abort 'sandbox honest failure regression' unless st.success?
 end
