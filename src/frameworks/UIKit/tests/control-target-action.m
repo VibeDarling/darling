@@ -13,6 +13,7 @@
 - (void)changedWithSender:(id)sender forEvent:(id)event;
 @end
 @implementation Recorder
+@synthesize log = _log;
 - (instancetype)init { self = [super init]; _log = [NSMutableArray array]; return self; }
 - (void)tapped { [_log addObject:@"tapped"]; }
 - (void)tappedWithSender:(id)sender { [_log addObject:[NSString stringWithFormat:@"sender:%d", sender != nil]]; }
@@ -109,6 +110,21 @@ int main(int argc, char **argv)
             [control addTarget:temp action:@selector(tapped) forControlEvents:UIControlEventTouchDown];
         }
         CHECK(weakTarget == nil);
+        // The dead registration no longer reports its events or targets.
+        CHECK(control.allControlEvents == 0 && control.allTargets.count == 0);
+
+        // A dead weak target must not absorb a later nil-target (responder chain) registration
+        // for the same action: that one is a chain entry, not a merge into the stale record.
+        @autoreleasepool {
+            Recorder *temp = [[Recorder alloc] init];
+            [control addTarget:temp action:@selector(tapped) forControlEvents:UIControlEventTouchDown];
+        }
+        [control addTarget:nil action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
+        CHECK(control.allControlEvents == UIControlEventTouchUpInside);
+        CHECK([control.allTargets isEqualToSet:[NSSet setWithObject:[NSNull null]]]);
+        // A live target and a nil target with the same action stay separate entries.
+        [control addTarget:one action:@selector(tapped) forControlEvents:UIControlEventTouchDown];
+        CHECK(control.allTargets.count == 2);
         [control removeTarget:nil action:NULL forControlEvents:UIControlEventAllEvents];
 
         // Registering zero events records nothing (rung 6).
