@@ -6,8 +6,8 @@ framework for whatever the message names. That works for some frameworks, is unn
 others, and is not achievable at all for a third group. Which case you are in is not visible
 from the error message, the framework's name, or its install path.
 
-This document gives a procedure for telling them apart before spending effort, and records a
-measurement taken on 2026-09-20.
+This document gives a procedure for telling them apart before spending effort, and keeps a
+historical measurement taken on 2026-09-20 (see the note under *Measurement*).
 
 ## Start here
 
@@ -16,11 +16,14 @@ Given an app that aborts, in order:
 1. **Confirm a missing framework is what stops it.** See *Not every abort is a missing
    framework* below. If the core has no `Library not loaded` payload, stop; a stub is the
    wrong tool.
-2. **List what it actually needs.** `llvm-objdump --macho --dylibs-used <binary>`, then check
-   each path against the prefix. Ignore anything under `LC_LOAD_WEAK_DYLIB`.
+2. **List what it actually needs.** `otool -L <binary>` (or `llvm-otool -L`), then check
+   each path against the prefix. `otool -L` does not tell you which entries are optional, so
+   treat a listed library as a candidate and the `Library not loaded` line of the abort as the
+   authority on which one actually stopped the app.
 3. **Tier each genuinely-missing library** by what the binary binds from it (next section).
 4. **Act on the tier.** Tier 1: a stub with the correct install name. Tier 2:
-   `tools/darling-stub-gen`, subject to the `class-dump` dependency noted below. Tier 3: file an issue rather than a PR, unless you intend to
+   `tools/darling-stub-gen`, fed from public headers and docs or the importing app's
+   imported-symbol list (see *Method*). Tier 3: file an issue rather than a PR, unless you intend to
    implement Swift ABI records by hand.
 5. **Check the next blocker before promising anything.** Clearing one image usually reveals
    the next. Say which one in the PR.
@@ -30,28 +33,34 @@ Given an app that aborts, in order:
 | Tier | Condition | What it needs |
 |---|---|---|
 | 1 | Linked, but nothing binds from it | A stub with the correct install name |
-| 2 | C / Objective-C symbols bound | `tools/darling-stub-gen`, which needs `class-dump` |
+| 2 | C / Objective-C symbols bound | `tools/darling-stub-gen`, from public headers and docs or the importing app's imported symbols |
 | 3 | Any Swift symbol bound, even alongside C/ObjC | Swift ABI records; no existing tooling helps |
 
 Tier 3 is the hard one, and not because of volume. Satisfying a Swift import means emitting
 nominal type descriptors, metadata accessors, protocol conformance records and async function
-pointers whose layouts match the closed-source build. `class-dump` cannot see Swift types at
-all, so `darling-stub-gen` produces a near-empty stub that still fails to link.
+pointers whose layouts match the closed-source build. The C / Objective-C
+symbol list used for tier 2 does not describe Swift types, so `darling-stub-gen` produces a
+near-empty stub that still fails to link.
 
 Two intuitions fail here, both toward wasted work:
 
 **"Blocks the most apps" does not mean "most valuable to fix".** The dylibs appearing in the
-most load commands are frequently Swift overlays recorded by autolinking and listed under
-`LC_LOAD_WEAK_DYLIB`, which `dyld` tolerates when absent. Check the load command before
-counting anything: `Audio MIDI Setup`, for instance, lists `libswiftOSLog.dylib` and
-`libswiftSpatial.dylib` as weak, and its OSLog-adjacent undefined symbols are C symbols from
+most load commands are frequently Swift overlays recorded by autolinking. Check which symbols are actually imported
+before counting anything: in the historical 2026-09-20 measurement, `Audio MIDI Setup`, lists `libswiftOSLog.dylib` and
+`libswiftSpatial.dylib`, and its OSLog-adjacent undefined symbols are C symbols from
 libSystem such as `__os_log_impl`, `__os_log_default` and `_os_log_type_enabled`.
 
-**Framework size does not predict cost.** `Chess.app` references 8 Objective-C classes from
+**Framework size does not predict cost.** In the same historical measurement, `Chess.app` references 8 Objective-C classes from
 GameKit, a large public framework. `System Information.app` needs 20 Swift symbols from the
 much smaller private `DeviceRegulatoryInfo`.
 
 ## Measurement, 2026-09-20
+
+Historical. These figures were collected before this document's method was restricted to the
+rung-5 tools listed under *Method*, and they rely on distinctions (strong versus weak
+dependencies, per-slice counts) that those tools do not give. Treat them as an illustration of
+the proportions, not as numbers to reproduce or extend. New measurements must use the *Method*
+below, on guest applications only.
 
 Apps built for macOS 26.6, in a prefix reporting itself as 11.7.4.
 
@@ -60,7 +69,7 @@ Against one populated prefix: **66** application bundles (`/Applications` and
 executable plus helpers, XPC services and `.appex` plugins. Per-library counts below are
 bundles.
 
-- **635** distinct install paths missing as strong dependencies, resolving to **600** distinct
+- **635** distinct install paths missing, resolving to **600** distinct
   library names, counting `/System` paths only. Including the 12 missing `/usr/lib` entries
   gives 647 and 612. The 35 difference is the same name requested at two paths, typically the
   normal path and the iOSSupport one.
@@ -87,32 +96,32 @@ what the tiering argument rests on; the by-symbol comparison is a direction, not
 measurement.
 
 "Binds only C/ObjC" means tractable in principle, not generatable today: `darling-stub-gen`
-shells out to `class-dump` to enumerate Objective-C classes, and `class-dump` is a macOS tool
-with no Linux package. Obtaining or replacing it gates the whole 307.
+works from public headers and docs or the importing app's imported-symbol list, not from a
+class reconstruction of an installed Apple binary. `tools/stub-gen-*` (and `darling-stub-gen`)
+must never be run on a binary from a macOS install.
 
-Sample per-library demand, by bundle: `Combine` 30 bundles, `AppIntents` 28, `UIKit` 16.
+Sample per-library demand, by bundle (historical, 2026-09-20): `Combine` 30 bundles, `AppIntents` 28, `UIKit` 16.
 
 ## Method
 
-Symbol-to-library attribution is exact rather than heuristic: the chained-fixups load command
-records a `lib_ordinal` per imported symbol.
+Rung-5 demand analysis is the only tool use these steps rely on, and AGENTS.md section 1
+limits it to guest applications running inside a Darling prefix: which symbols they import and
+which libraries they load. Anything from a macOS install, including Apple's stock applications
+and their frameworks and dylibs, is not a guest binary, and no tool may be pointed at it. The
+allowed tools are `nm -u`, `llvm-nm -u -m` (both flags
+together) and `otool -L` / `llvm-otool -L`; every other tool in the AGENTS.md "Never" list stays
+banned. Where the docs differ, `AGENTS.md` and the stricter reading apply.
 
 ```sh
-# Libraries a binary loads, and whether each load is weak.
-llvm-objdump --macho --dylibs-used <binary>
-llvm-objdump --macho --all-headers <binary>     # LC_LOAD_DYLIB vs LC_LOAD_WEAK_DYLIB
+# Libraries a binary loads.
+otool -L <binary>          # or llvm-otool -L
 
-# Exact per-symbol attribution, with weak_import status.
-# Pick the slice: arm64e on Apple Silicon, x86_64 otherwise.
-# llvm-objdump --macho --universal-headers <binary> lists them.
-llvm-objdump --macho --arch=arm64e --chained-fixups <binary>
+# Imported (undefined) symbols.
+nm -u <binary>             # or: llvm-nm -u -m <binary>
 ```
 
-For binaries without `LC_DYLD_CHAINED_FIXUPS` (older or Intel builds), the same ordinals are
-in the bind opcodes: `llvm-objdump --macho --bind --lazy-bind <binary>`.
-
 Count per slice. These bundles are fat (x86_64 plus arm64e) with equal import counts in
-each, so tools that do not take an `--arch` report every symbol twice. `llvm-nm -u` without
+each, so tools that do not take an `--arch` report every symbol twice. `llvm-nm -u -m` without
 `--arch` is the common way to double a count by accident.
 
 Do not attribute symbols by matching a module name against the undefined-symbol list. That
@@ -135,20 +144,20 @@ strings /tmp/x.core | grep -A2 "Library not loaded"
 main thread (`TID` equals `PID` in `coredumpctl info`). A core with no `Library not loaded`
 string, or whose `TID` differs from its `PID`, died elsewhere.
 
-Measured example: `Terminal.app` aborted with SIGABRT and a 347MB core containing no
+Historical example (2026-09-20): `Terminal.app` aborted with SIGABRT and a 347MB core containing no
 `Library not loaded` payload, on a secondary thread, with frames in the framework address
 range rather than dyld's. It cleared dyld, loaded its frameworks, spawned threads, and aborted
 inside framework code. No stub addresses that.
 
-**Does the app have any missing strong dependencies?** Sixteen bundles had none in their main
-executable:
+**Does the app have any missing dependencies?** In the historical measurement, sixteen bundles
+had none in their main executable:
 Apps, Automator, Bluetooth File Exchange, ColorSync Utility, Dictionary, Digital Color Meter,
 Grapher, Image Capture, Mission Control, Screenshot, Script Editor, Siri, Stickies, Terminal,
 TextEdit, Time Machine. Darling's own `Darling Applications.app` also has none, and is left
 out of the count as a non-Apple bundle. Whatever stops those is not a missing framework.
 
 That list is main-executable-only. Embedded helpers and `.appex` plugins can have missing
-dependencies of their own: `Screenshot.app` is clean in its executable but its
+dependencies of their own; in the historical measurement `Screenshot.app` was clean in its executable but its
 `ScreenshotControls.appex` is missing `AppIntents`, `SwiftUI` and `WidgetKit`.
 
 That covers **direct** dependencies only. A present dependency may itself have missing
@@ -164,14 +173,16 @@ against `getconf PAGE_SIZE` outside it.
 
 ## What a stub does and does not buy
 
+The app figures below are from the historical 2026-09-20 measurement and are not reproducible with the *Method* tools.
+
 A stub gets `dyld` past one image. Where that is the only missing dependency, the app launches.
 For Apple's own bundled applications it usually is not, because at least one remaining entry
 is tier 3:
 
-- **Calculator**: 29 strong dependencies, 12 missing. `TextInputUI`, the framework named in
+- **Calculator**: 12 missing dependencies. `TextInputUI`, the framework named in
   its abort, is tier 1 and binds nothing. The other eleven are tier 3, `SwiftUI` alone binding
   955 symbols. Stubbing `TextInputUI` changes the error message, not the outcome.
-- **Chess**: 27 strong dependencies, 3 missing. GameKit is tier 2 and small (8 Objective-C
+- **Chess**: 3 missing dependencies. GameKit is tier 2 and small (8 Objective-C
   classes), but `Combine` (8 Swift symbols) and `GroupActivities` (53) are tier 3. A GameKit
   stub gets Chess past GameKit and into `Combine`.
 
@@ -192,7 +203,7 @@ normal path and "missing" only at the iOSSupport one, among them `Authentication
 site outside `src/external/` passes it, there is no UIKit in the tree, and a populated prefix
 has no `/System/iOSSupport` directory. Catalyst apps need a UIKit substrate; stubs will not
 reach them. Scope that work separately, and do not expect the path wiring alone to make a
-Catalyst app launch: `Clock.app`'s executable has 24 missing strong dependencies, of
+Catalyst app launch: the historical measurement found `Clock.app`'s executable has many missing dependencies, of
 which `RecapPerformanceTesting` is one.
 
 ## Reusing existing open-source implementations
