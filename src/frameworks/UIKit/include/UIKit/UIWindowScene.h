@@ -20,9 +20,10 @@ NS_ASSUME_NONNULL_BEGIN
 @class UIWindow;
 
 /*
- * The superclass is NSObject because UIScene is not implemented.  Instances are
- * meant to be created by the system from a UISceneConfiguration; a window joins
- * a scene through -[UIWindow setWindowScene:].
+ * The superclass is NSObject because UIScene is not implemented.  Nothing in
+ * this layer creates scenes from a UISceneConfiguration yet, so an instance
+ * comes from alloc/init; a window joins a scene through -[UIWindow
+ * setWindowScene:].
  */
 @interface UIWindowScene : NSObject {
 @package
