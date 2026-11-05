@@ -2800,8 +2800,13 @@ int connectToShellspawn(void)
 #if USE_LINUX_4_11_HACK
 	addr.sun_path[0] = '\0';
 	
-	strcpy(addr.sun_path, prefix);
-	strcat(addr.sun_path, SHELLSPAWN_SOCKPATH);
+	int pathLen = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s" SHELLSPAWN_SOCKPATH, prefix);
+	if (pathLen < 0 || (size_t) pathLen >= sizeof(addr.sun_path))
+	{
+		fprintf(stderr, "Prefix path is too long for the shellspawn socket (max %zu bytes): %s\n",
+			sizeof(addr.sun_path) - sizeof(SHELLSPAWN_SOCKPATH), prefix);
+		exit(1);
+	}
 #else
 	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s"  SHELLSPAWN_SOCKPATH, prefix);
 #endif
@@ -3150,7 +3155,7 @@ void showHelp(const char* argv0)
 	fprintf(stderr, "\t%s shutdown\n", argv0);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Environment variables:\n"
-		"DPREFIX - specifies the location of the Darling prefix, defaults to ~/.darling\n"
+		"DPREFIX - specifies the absolute path of the Darling prefix, defaults to ~/.darling\n"
 		"DARLING_PROFILE - selects an isolated named prefix at ~/.darling.<name>\n"
 		"DARLING_OS_VERSION - specifies the advertised macOS version (e.g. 11.7.4, 12.7.4, 26.0)\n");
 }

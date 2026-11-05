@@ -32,6 +32,8 @@ int main(void)
 	expectPath(NULL, "ruby-3.3_test", "/home/tester", "/home/tester/.darling.ruby-3.3_test");
 	expectError("/tmp/a", "ruby", "/home/tester", DARLING_PREFIX_CONFLICT);
 	expectError("", NULL, "/home/tester", DARLING_PREFIX_EMPTY);
+	expectError("prefix", NULL, "/home/tester", DARLING_PREFIX_RELATIVE);
+	expectError("./prefix", NULL, "/home/tester", DARLING_PREFIX_RELATIVE);
 	expectError(NULL, "", "/home/tester", DARLING_PREFIX_INVALID_PROFILE);
 	expectError(NULL, ".", "/home/tester", DARLING_PREFIX_INVALID_PROFILE);
 	expectError(NULL, "..", "/home/tester", DARLING_PREFIX_INVALID_PROFILE);

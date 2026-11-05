@@ -7,7 +7,7 @@
 #
 #   DARLING_VIEWER_OUTPUT  required. The build-standalone.py output directory,
 #                          the one containing manifest.json.
-#   DARLING_QA_PREFIX      optional. Disposable prefix. Default ~/.darling-qa.
+#   DARLING_QA_PREFIX      optional. Absolute path to a disposable prefix. Default ~/.darling-qa.
 #   DARLING_QA_APPS        optional. Directory holding the .app bundles staged
 #                          for the checklist. Default
 #                          $XDG_DATA_HOME/darling/macos-apps/Applications.
@@ -50,6 +50,7 @@ wayland_display=${WAYLAND_DISPLAY:-}
 
 die() { echo "$*" >&2; exit 1; }
 
+[[ "$prefix" == /* ]] || die "DARLING_QA_PREFIX must be an absolute path: $prefix"
 [[ -n "$output" ]] || die "DARLING_VIEWER_OUTPUT must be set to the build-standalone.py output directory."
 [[ -x "$launcher" ]] || die "Darling launcher not found or not executable: $launcher"
 [[ -n "$wayland_display" && -S "$runtime_dir/$wayland_display" ]] ||
