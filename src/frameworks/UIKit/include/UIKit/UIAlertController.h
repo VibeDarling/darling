@@ -14,9 +14,9 @@
 #import <Foundation/NSArray.h>
 #import <Foundation/NSString.h>
 
-// rung 6, ABI RISK: the pages name these constants but give no numeric values and no other
-// vendored source has them. The values below are a guess in declaration order and must be
-// confirmed (rung 3/4) before binary clients depend on them.
+// Rung 2: the numeric values (Default/Cancel/Destructive = 0/1/2, ActionSheet = 0, Alert = 1)
+// are those in the MIT-licensed WinObjC headers UIAlertAction.h and UIAlertController.h.
+// Apple's documentation pages name the constants without values.
 typedef NS_ENUM(NSInteger, UIAlertActionStyle) {
     UIAlertActionStyleDefault = 0,
     UIAlertActionStyleCancel,
