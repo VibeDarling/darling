@@ -459,6 +459,10 @@ static bool jobmgr_label_test(jobmgr_t jm, const char *str);
 static void jobmgr_reap_bulk(jobmgr_t jm, struct kevent *kev);
 static void jobmgr_log_stray_children(jobmgr_t jm, bool kill_strays);
 static void jobmgr_kill_stray_children(jobmgr_t jm, pid_t *p, size_t np);
+#ifdef DARLING
+static void jobmgr_reap_orphaned_children(void);
+static char stray_reap_timer;
+#endif
 static void jobmgr_remove(jobmgr_t jm);
 static void jobmgr_dispatch_all(jobmgr_t jm, bool newmounthack);
 static job_t jobmgr_init_session(jobmgr_t jm, const char *session_type, bool sflag);
@@ -4327,6 +4331,10 @@ jobmgr_callback(void *obj, struct kevent *kev)
 		} else if (kev->ident == (uintptr_t)jm) {
 			jobmgr_log(jm, LOG_DEBUG, "Shutdown timer firing.");
 			jobmgr_still_alive_with_check(jm);
+#ifdef DARLING
+		} else if (kev->ident == (uintptr_t)&stray_reap_timer) {
+			jobmgr_reap_orphaned_children();
+#endif
 		} else if (kev->ident == (uintptr_t)&jm->reboot_flags) {
 			jobmgr_do_garbage_collection(jm);
 		} else if (kev->ident == (uintptr_t)&launchd_runtime_busy_time) {
@@ -6720,6 +6728,63 @@ jobmgr_do_garbage_collection(jobmgr_t jm)
 
 	return jm;
 }
+
+#ifdef DARLING
+void
+jobmgr_reap_orphaned_children(void)
+{
+	/* XNU reaps a zombie whose parent died itself (P_LIST_DEADPARENT in
+	 * bsd/kern/kern_exit.c), but Linux hands it to launchd, the init of the
+	 * guest PID namespace, and launchd only waits for PIDs it has a job
+	 * for. Reap the others; a PID that a job in any job manager still holds
+	 * is left to job_reap(). proc_listpids() only returns the caller's PID
+	 * in Darling, so enumerate the namespace through /proc.
+	 */
+	DIR *dir;
+	struct dirent *de;
+	pid_t self = getpid();
+
+	if (root_jobmgr == NULL) {
+		return;
+	}
+
+	dir = opendir("/proc");
+	if (dir == NULL) {
+		jobmgr_log(root_jobmgr, LOG_DEBUG, "Unable to enumerate /proc: %d: %s", errno, strerror(errno));
+		return;
+	}
+
+	while ((de = readdir(dir)) != NULL) {
+		struct proc_bsdshortinfo proc;
+		char *end = NULL;
+		long value = strtol(de->d_name, &end, 10);
+		pid_t pid;
+		int status;
+
+		if (end == de->d_name || *end != '\0' || value <= 0) {
+			continue;
+		}
+		pid = (pid_t)value;
+
+		memset(&proc, 0, sizeof(proc));
+		if (proc_pidinfo(pid, PROC_PIDT_SHORTBSDINFO, 1, &proc, PROC_PIDT_SHORTBSDINFO_SIZE) == 0) {
+			continue;
+		}
+		if (proc.pbsi_ppid != self || proc.pbsi_status != SZOMB) {
+			continue;
+		}
+		if (jobmgr_find_by_pid_deep(root_jobmgr, pid, true) != NULL) {
+			continue;
+		}
+
+		if (waitpid(pid, &status, WNOHANG) == pid) {
+			jobmgr_log(root_jobmgr, LOG_DEBUG, "Reaped orphaned zombie child PID %u.", pid);
+		}
+	}
+
+	closedir(dir);
+}
+#endif
 
 void
 jobmgr_kill_stray_children(jobmgr_t jm, pid_t *p, size_t np)
@@ -11827,6 +11892,9 @@ jobmgr_init(bool sflag)
 		}
 	}
 	s_no_hang_fd = _fd(s_no_hang_fd);
+#ifdef DARLING
+	(void)jobmgr_assumes_zero_p(root_jobmgr, kevent_mod((uintptr_t)&stray_reap_timer, EVFILT_TIMER, EV_ADD, NOTE_SECONDS, 5, root_jobmgr));
+#endif
 }
 
 size_t
