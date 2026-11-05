@@ -50,6 +50,8 @@ int main(int argc, char **argv)
         CHECK([view viewWithTag:42] == child);
 
         CHECK([[[viewClass alloc] init] tag] == 0);
+        // NSView's default tag is -1; a UIView must not match it.
+        CHECK([view viewWithTag:-1] == nil);
         CHECK(CGAffineTransformIsIdentity([[[viewClass alloc] init] transform]));
         puts("PASS UIKit UIView additive members");
     }

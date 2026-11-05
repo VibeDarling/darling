@@ -16,6 +16,11 @@
 
 #import "UIKitPrivate.h"
 
+/* Cocotron implements -setTag: on NSView but does not declare it. */
+@interface NSView (UIKitSetTag)
+- (void)setTag:(NSInteger)tag;
+@end
+
 @implementation UIView
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -24,6 +29,8 @@
 	if (self != nil) {
 		_uiNeedsLayout = YES;
 		_uiTransform = CGAffineTransformIdentity;
+		/* NSView's -initWithFrame: sets -1; UIKit's default is 0. */
+		[super setTag:0];
 	}
 	return self;
 }
@@ -70,14 +77,15 @@
 	[self setAlphaValue:alpha];
 }
 
+/* The tag lives in NSView's own _tag, which viewWithtag: and nib decoding use. */
 - (NSInteger)tag
 {
-	return _uiTag;
+	return [super tag];
 }
 
 - (void)setTag:(NSInteger)tag
 {
-	_uiTag = tag;
+	[super setTag:tag];
 }
 
 - (BOOL)clipsToBounds

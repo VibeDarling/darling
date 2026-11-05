@@ -34,7 +34,6 @@
 	BOOL _uiNeedsLayout;
 	CGAffineTransform _uiTransform;
 	BOOL _uiClipsToBounds;
-	NSInteger _uiTag;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame;
@@ -44,7 +43,8 @@
 /*
  * Members NSView does not have.  center is derived from the frame, alpha maps
  * to NSView's alphaValue, and tag is settable (NSView's is read-only and
- * defaults to -1; UIKit's defaults to 0).  transform and clipsToBounds are
+ * defaults to -1; UIKit's defaults to 0) and is stored in NSView's own tag, so
+ * viewWithTag: and nib-decoded tags see it.  transform and clipsToBounds are
  * stored state: nothing draws with them yet.
  */
 @property (nonatomic) CGPoint center;
