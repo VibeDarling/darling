@@ -47,7 +47,7 @@ static id<UIApplicationDelegate> sDelegateStorage;
 {
 	self = [super init];
 	if (self != nil)
-		_uiApplicationState = UIApplicationStateInactive;
+		_uiApplicationState = UIApplicationStateActive;
 	return self;
 }
 

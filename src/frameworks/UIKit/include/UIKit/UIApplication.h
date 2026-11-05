@@ -32,8 +32,8 @@ typedef NS_ENUM(NSInteger, UIApplicationState) {
 + (UIApplication *)sharedApplication;
 
 @property (nonatomic, assign) id<UIApplicationDelegate> delegate;
-/* Inactive until AppKit reports the application active, then follows
- * activation and deactivation.  Background is never reported. */
+/* Starts Active, as upstream's constant did, then follows AppKit's resign and
+ * become-active notifications.  Background is never reported. */
 @property (nonatomic, readonly) UIApplicationState applicationState;
 
 /* Drain the main run loop, as -[NSApplication run] does. */

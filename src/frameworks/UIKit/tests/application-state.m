@@ -27,8 +27,8 @@ int main(int argc, char **argv)
         Delegate *delegate = [[Delegate alloc] init];
         application.delegate = delegate;
 
-        // A new application is inactive until AppKit reports otherwise.
-        CHECK(application.applicationState == UIApplicationStateInactive);
+        // The starting value is upstream's constant: Active.
+        CHECK(application.applicationState == UIApplicationStateActive);
 
         id<NSApplicationDelegate> appKit = (id<NSApplicationDelegate>)application;
         NSNotification *note = [NSNotification notificationWithName:@"test" object:nil];
@@ -37,10 +37,10 @@ int main(int argc, char **argv)
         NSArray *expected = @[@"will", @"did"];
         CHECK([delegate.log isEqualToArray:expected]);
 
-        [appKit applicationDidBecomeActive:note];
-        CHECK(application.applicationState == UIApplicationStateActive);
         [appKit applicationDidResignActive:note];
         CHECK(application.applicationState == UIApplicationStateInactive);
+        [appKit applicationDidBecomeActive:note];
+        CHECK(application.applicationState == UIApplicationStateActive);
         puts("PASS UIKit UIApplication state");
     }
     return 0;
