@@ -152,6 +152,44 @@ int listenForConnections(void)
 	}
 }
 
+static pid_t get_foreground_pgrp(int ctty_fd, pid_t shell_pid)
+{
+	pid_t fg = -1;
+	if (ctty_fd != -1)
+	{
+		fg = tcgetpgrp(ctty_fd);
+		if (fg > 1)
+			return fg;
+	}
+
+	if (shell_pid > 1)
+	{
+		char stat_path[64];
+		snprintf(stat_path, sizeof(stat_path), "/proc/%d/stat", shell_pid);
+		FILE *f = fopen(stat_path, "r");
+		if (f)
+		{
+			char buf[512];
+			if (fgets(buf, sizeof(buf), f))
+			{
+				char *rparen = strrchr(buf, ')');
+				if (rparen)
+				{
+					char state;
+					int ppid, pgrp, session, tty_nr, tpgid;
+					if (sscanf(rparen + 1, " %c %d %d %d %d %d", &state, &ppid, &pgrp, &session, &tty_nr, &tpgid) == 6)
+					{
+						if (tpgid > 1)
+							fg = tpgid;
+					}
+				}
+			}
+			fclose(f);
+		}
+	}
+	return fg;
+}
+
 void spawnShell(int fd)
 {
 	pid_t shell_pid = -1;
@@ -308,6 +346,7 @@ void spawnShell(int fd)
 
 	int ctty_master = -1;
 	int ctty_slave = -1;
+	int ctty_fd = -1;
 
 	// If stdin is not a terminal (e.g. piped input, test suite, non-interactive),
 	// allocate a fallback PTY to serve as the session's controlling terminal so
@@ -364,7 +403,7 @@ void spawnShell(int fd)
 		}
 		else
 		{
-			ioctl(STDIN_FILENO, TIOCSCTTY, STDIN_FILENO);
+			ioctl(STDIN_FILENO, TIOCSCTTY, 0);
 		}
 
 		if (ctty_slave != -1)
@@ -396,9 +435,19 @@ void spawnShell(int fd)
 		ctty_slave = -1;
 	}
 
+	if (isatty(shellfd[0]))
+	{
+		ctty_fd = fcntl(shellfd[0], F_DUPFD_CLOEXEC, 0);
+	}
+	else
+	{
+		ctty_fd = ctty_master;
+	}
+
 	close(shellfd[0]);
 	close(shellfd[1]);
 	close(shellfd[2]);
+	shellfd[0] = shellfd[1] = shellfd[2] = -1;
 
 	if (alloc_exec)
 	{
@@ -490,14 +539,20 @@ void spawnShell(int fd)
 
 						if (darwin_signal != 0)
 						{
-							int fg_pid = tcgetpgrp(shellfd[0]);
-							if (fg_pid != -1)
+							pid_t fg_pgrp = get_foreground_pgrp(ctty_fd, shell_pid);
+							if (fg_pgrp > 1)
 							{
-								if (DBG) printf("fg_pid = %d\n", fg_pid);
-								kill(fg_pid, darwin_signal);
+								if (DBG) printf("fg_pgrp = %d\n", fg_pgrp);
+								if (kill(-fg_pgrp, darwin_signal) == -1 && errno == ESRCH)
+								{
+									if (shell_pid > 1)
+										kill(-shell_pid, darwin_signal);
+								}
 							}
-							else
+							else if (shell_pid > 1)
+							{
 								kill(-shell_pid, darwin_signal);
+							}
 						}
 
 						break;
@@ -534,6 +589,11 @@ done_reaped:
 
 	if (DBG) printf("Shell terminated with exit code %d\n", wstatus);
 	close(fd);
+	if (ctty_fd != -1 && ctty_fd != ctty_master)
+	{
+		close(ctty_fd);
+		ctty_fd = -1;
+	}
 	if (ctty_master != -1)
 	{
 		close(ctty_master);
@@ -545,6 +605,8 @@ done_reaped:
 err:
 	if (DBG) fprintf(stderr, "Error spawning shell: %s\n", strerror(errno));
 
+	if (ctty_fd != -1 && ctty_fd != ctty_master)
+		close(ctty_fd);
 	if (ctty_master != -1)
 		close(ctty_master);
 	if (ctty_slave != -1)
