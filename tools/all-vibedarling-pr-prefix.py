@@ -8,11 +8,13 @@ it never updates an existing checkout, build directory, or prefix.
 import argparse
 import concurrent.futures
 import datetime
+import hashlib
 import http.client
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -24,37 +26,117 @@ import urllib.request
 OWNER = "VibeDarling"
 ROOT = "https://github.com/VibeDarling/darling.git"
 SHA = re.compile(r"^[0-9a-f]{40}$")
+ATTEMPTS = 4
+MAX_RETRY_WAIT = 60
+SECONDARY_WAIT = 30
+NETWORK_TIMEOUT = 120
+CLONE_TIMEOUT = 1800
+PERMANENT = re.compile(r"not found|could not resolve host|authentication failed|"
+                       r"terminal prompts disabled|returned error: 40[134]", re.I)
+RESOLUTIONS = []
+RESUME = False
 
 
-def run(*args, cwd=None, env=None, stream=False):
+def resolve_conflict(repo, item, pr, env):
+    before = run("git", "rev-parse", "HEAD^{tree}", cwd=repo)
+    stages = run("git", "ls-files", "--unmerged", cwd=repo)
+    matches = [r for r in RESOLUTIONS if r["repo"] == item["repo"]
+               and r["pr"] == pr["number"] and r["head"] == pr["head"]
+               and r["before_tree"] == before and r["stages"] == stages]
+    if len(matches) != 1 or not stages:
+        raise RuntimeError(f"unapproved conflict in {item['repo']} PR #{pr['number']}; "
+                           f"before tree {before}; inspect git ls-files --unmerged")
+    rule = matches[0]
+    paths = {line.split("\t", 1)[1] for line in stages.splitlines()}
+    if paths != set(rule["files"]):
+        raise RuntimeError("resolution must cover exactly the conflicted paths")
+    for name, content in rule["files"].items():
+        path = Path(name)
+        if path.is_absolute() or ".." in path.parts or ".git" in path.parts:
+            raise RuntimeError("unsafe resolution path")
+        target = repo / path
+        if target.is_symlink() or repo.resolve() not in target.resolve().parents:
+            raise RuntimeError("resolution path escapes repository")
+        target.write_text(content)
+        run("git", "add", "--", name, cwd=repo)
+    if run("git", "ls-files", "--unmerged", cwd=repo):
+        raise RuntimeError("resolution left unmerged paths")
+    tree = run("git", "write-tree", cwd=repo)
+    audit_path = repo / ".git/darling-pr-resolutions.json"
+    audit = json.loads(audit_path.read_text()) if audit_path.exists() else []
+    audit.append({**rule, "result_tree": tree, "result_blobs": {
+        name: run("git", "rev-parse", f":{name}", cwd=repo) for name in paths}})
+    audit_path.write_text(json.dumps(audit, indent=2) + "\n")
+    run("git", "commit", "--no-edit", cwd=repo, env=env)
+
+
+def run(*args, cwd=None, env=None, stream=False, retries=0, timeout=None):
+    if retries and timeout is None:
+        timeout = CLONE_TIMEOUT
+    for attempt in range(retries):
+        try:
+            return run(*args, cwd=cwd, env=env, stream=stream, timeout=timeout)
+        except RuntimeError as error:
+            if PERMANENT.search(str(error)):
+                raise
+            time.sleep(2 ** attempt)
     if stream:
         p = subprocess.run(args, cwd=cwd, env=env)
         if p.returncode:
             raise RuntimeError(f"{' '.join(map(str, args))}: exited {p.returncode}; see command output")
         return ""
-    p = subprocess.run(args, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE)
+    try:
+        p = subprocess.run(args, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(f"{' '.join(map(str, args))}: timed out after {timeout}s") from error
     if p.returncode:
         raise RuntimeError(f"{' '.join(map(str, args))}: {p.stderr.strip()}")
     return p.stdout.strip()
+
+
+def rate_limit_error(path, why):
+    return RuntimeError(f"GitHub API {path}: rate limited ({why}); set GITHUB_TOKEN or run gh auth login")
 
 
 def api(path):
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "darling-pr-prefix"}
     if os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
-    for attempt in range(3):
+    secondary_retried = False
+    for attempt in range(ATTEMPTS):
+        delay = 2 ** attempt
         try:
             with urllib.request.urlopen(urllib.request.Request(
                     "https://api.github.com" + path, headers=headers), timeout=30) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
-            if error.code not in (502, 503, 504) or attempt == 2:
-                raise RuntimeError(f"GitHub API {path}: HTTP {error.code}: {error.read().decode()}") from error
-        except (urllib.error.URLError, http.client.RemoteDisconnected, TimeoutError) as error:
-            if attempt == 2:
-                raise RuntimeError(f"GitHub API {path}: connection failed after 3 attempts: {error}") from error
-        time.sleep(attempt + 1)
+            body = error.read().decode()
+            failure = RuntimeError(f"GitHub API {path}: HTTP {error.code}: {body}")
+            retry_after = error.headers.get("Retry-After", "")
+            if error.code in (403, 429, 502, 503, 504) and retry_after.isdecimal():
+                if int(retry_after) > MAX_RETRY_WAIT:
+                    raise rate_limit_error(path, f"Retry-After {retry_after}s exceeds the {MAX_RETRY_WAIT}s budget") from error
+                delay = int(retry_after)
+            elif error.code == 403 and error.headers.get("X-RateLimit-Remaining") == "0":
+                reset = int(error.headers.get("X-RateLimit-Reset", "0"))
+                if reset - time.time() > MAX_RETRY_WAIT:
+                    when = datetime.datetime.fromtimestamp(reset, datetime.timezone.utc).isoformat()
+                    raise rate_limit_error(path, f"limit resets at {when}") from error
+                delay = max(reset - int(time.time()), 1)
+            elif error.code == 403 and "secondary rate limit" in body.lower():
+                if secondary_retried:
+                    raise rate_limit_error(path, "secondary limit persists") from error
+                secondary_retried, delay = True, SECONDARY_WAIT
+            elif error.code not in (429, 502, 503, 504):
+                raise failure from error
+            if attempt == ATTEMPTS - 1:
+                raise (rate_limit_error(path, f"HTTP {error.code} after {ATTEMPTS} attempts")
+                       if error.code in (403, 429) else failure) from error
+        except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError) as error:
+            if attempt == ATTEMPTS - 1:
+                raise RuntimeError(f"GitHub API {path}: connection failed after {ATTEMPTS} attempts: {error}") from error
+        time.sleep(delay)
 
 
 def modules(root, allow_external=False, required_prefix="src/external/"):
@@ -134,7 +216,11 @@ def remote_refs(item):
             raise RuntimeError(f"invalid declared branch for {item['repo']}: {requested}")
         patterns.append(f"refs/heads/{requested}")
     patterns += [f"refs/pull/{p['number']}/head" for p in item["prs"]]
-    output = run("git", "ls-remote", "--symref", item["url"], *patterns)
+    try:
+        output = run("git", "ls-remote", "--symref", item["url"], *patterns, retries=ATTEMPTS - 1,
+                     timeout=NETWORK_TIMEOUT)
+    except RuntimeError as error:
+        raise RuntimeError(f"{item['repo']}: {error}") from error
     refs = {}
     default = None
     for line in output.splitlines():
@@ -256,6 +342,634 @@ def resolve(args):
     print(f"excluded {len(excluded)} open PRs outside the dependency tree")
 
 
+def object_at(repo, sha, fallback):
+    try:
+        run("git", "cat-file", "-e", sha + "^{commit}", cwd=repo)
+        return
+    except RuntimeError:
+        pass
+    try:
+        run("git", "fetch", "origin", sha, cwd=repo, timeout=CLONE_TIMEOUT)
+    except RuntimeError:
+        run("git", "fetch", "origin", fallback, cwd=repo, retries=ATTEMPTS - 1)
+    run("git", "cat-file", "-e", sha + "^{commit}", cwd=repo)
+
+
+def ensure_merge_base(repo, head):
+    if subprocess.run(["git", "merge-base", "HEAD", head], cwd=repo,
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
+        if run("git", "rev-parse", "--is-shallow-repository", cwd=repo) == "true":
+            run("git", "fetch", "--unshallow", "origin", cwd=repo, retries=ATTEMPTS - 1)
+
+
+def integrate(repo, item):
+    object_at(repo, item["base"], f"refs/heads/{item['branch']}")
+    if not RESUME:
+        run("git", "checkout", "--detach", item["base"], cwd=repo)
+    else:
+        run("git", "merge-base", "--is-ancestor", item["base"], "HEAD", cwd=repo)
+        if not (repo / ".git/MERGE_HEAD").exists():
+            changed = set(run("git", "diff", "--name-only", cwd=repo).splitlines())
+            changed.update(run("git", "diff", "--cached", "--name-only", cwd=repo).splitlines())
+            allowed = {p for module in modules(repo, allow_external=True)
+                       for p in module["paths"]} if item["repo"] == "darling" else set()
+            if changed - allowed or run("git", "ls-files", "--others", "--exclude-standard", cwd=repo):
+                raise RuntimeError(f"resume found unrelated source changes: {repo}")
+    for pr in item["prs"]:
+        if pr.get("head_source"):
+            source = pr["head_source"]
+            if source["sha"] != pr["head"]:
+                raise RuntimeError("declared fork head does not match locked PR head")
+            try:
+                run("git", "cat-file", "-e", pr["head"] + "^{commit}", cwd=repo)
+            except RuntimeError:
+                try:
+                    run("git", "fetch", source["url"], pr["head"], cwd=repo)
+                except RuntimeError:
+                    run("git", "fetch", source["url"], source["ref"], cwd=repo)
+                run("git", "cat-file", "-e", pr["head"] + "^{commit}", cwd=repo)
+        else:
+            object_at(repo, pr["head"], pr["ref"])
+        env = dict(os.environ, GIT_AUTHOR_NAME="Darling PR integration",
+                   GIT_AUTHOR_EMAIL="integration@localhost",
+                   GIT_COMMITTER_NAME="Darling PR integration",
+                   GIT_COMMITTER_EMAIL="integration@localhost")
+        pending = repo / ".git/MERGE_HEAD"
+        if pending.exists():
+            if pending.read_text().strip() != pr["head"]:
+                # Earlier locked heads must already be integrated before this pending merge.
+                run("git", "merge-base", "--is-ancestor", pr["head"], "HEAD", cwd=repo)
+                continue
+            resolve_conflict(repo, item, pr, env)
+            continue
+        if RESUME and not subprocess.run(["git", "merge-base", "--is-ancestor",
+                                         pr["head"], "HEAD"], cwd=repo).returncode:
+            continue
+        ensure_merge_base(repo, pr["head"])
+        try:
+            run("git", "merge", "--no-ff", "--no-edit", "-m",
+                f"integration: merge {item['repo']} PR #{pr['number']} ({pr['head']})",
+                pr["head"], cwd=repo, env=env)
+        except RuntimeError:
+            if not pending.exists():
+                raise
+            resolve_conflict(repo, item, pr, env)
+    return run("git", "rev-parse", "HEAD", cwd=repo)
+
+
+def clone_shallow(url, target):
+    # git checkout leaves empty directories at submodule paths; a failed attempt may
+    # only clear what it created itself, never a directory that already had content.
+    created = not target.exists()
+    empty = target.is_dir() and not any(target.iterdir())
+    for attempt in range(ATTEMPTS):
+        try:
+            return run("git", "clone", "--depth=1", "--no-checkout", url, str(target), timeout=CLONE_TIMEOUT)
+        except RuntimeError as error:
+            if target.is_dir() and (created or empty):
+                for child in target.iterdir():
+                    shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
+                if created:
+                    target.rmdir()
+            if attempt == ATTEMPTS - 1 or PERMANENT.search(str(error)):
+                raise
+            time.sleep(2 ** attempt)
+
+
+def clone_repository(url, target, seed=None):
+    if seed and (seed / ".git").exists():
+        run("git", "clone", "--no-local", "--no-checkout", str(seed), str(target))
+        run("git", "remote", "set-url", "origin", url, cwd=target)
+        objects = Path(run("git", "rev-parse", "--git-path", "lfs/objects", cwd=seed))
+        if not objects.is_absolute():
+            objects = seed / objects
+        if objects.is_dir():
+            shutil.copytree(objects, target / ".git/lfs/objects", dirs_exist_ok=True)
+    else:
+        clone_shallow(url, target)
+
+
+def clone_and_integrate(source, item, seed_root):
+    commits = []
+    for path in item["paths"]:
+        target = source / path
+        if target.is_symlink() or source.resolve() not in target.resolve().parents:
+            raise RuntimeError(f"checkout path escapes private source: {target}")
+        if RESUME and ((target / ".git").is_file() or (target / ".git/objects/info/alternates").exists()):
+            raise RuntimeError(f"resume requires independent Git storage: {target}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        seed = seed_root / path if seed_root else None
+        if not (RESUME and (target / ".git").is_dir()):
+            clone_repository(item["url"], target, seed)
+            # Newly cloned seeds require checkout of the locked base even on resume.
+            if RESUME:
+                object_at(target, item["base"], f"refs/heads/{item['branch']}")
+                run("git", "checkout", "--detach", item["base"], cwd=target)
+        elif run("git", "remote", "get-url", "origin", cwd=target) != item["url"]:
+            raise RuntimeError(f"resume origin mismatch: {target}")
+        commits.append(integrate(target, item))
+    if len(set(commits)) != 1:
+        raise RuntimeError(f"repeated checkout paths diverged for {item['repo']}")
+    return item, commits[0]
+
+
+def checkout(args):
+    global RESUME, RESOLUTIONS
+    RESUME = bool(getattr(args, "resume", False))
+    RESOLUTIONS = json.loads(Path(args.resolutions).read_text()) if getattr(args, "resolutions", None) else []
+    lock = json.loads(Path(args.lock).read_text())
+    if lock.get("schema") != 1 or lock.get("owner") != OWNER or not lock.get("complete"):
+        raise RuntimeError("checkout requires a complete VibeDarling schema-1 lock")
+    items = lock["repos"]
+    if not items or items[0]["repo"] != "darling":
+        raise RuntimeError("lock has no superproject")
+    workspace = Path(args.workspace).resolve()
+    if workspace.exists() and not RESUME:
+        raise RuntimeError(f"refusing existing workspace: {workspace}")
+    if RESUME:
+        if (workspace / "refs.lock.json").read_bytes() != Path(args.lock).read_bytes():
+            raise RuntimeError("resume lock differs from original input")
+        if any((workspace / p).exists() for p in ("integrated.json", "build", "image", "prefix")):
+            raise RuntimeError("resume requires an unfinished, unbuilt checkout")
+    else:
+        workspace.mkdir(parents=True)
+        shutil.copy2(args.lock, workspace / "refs.lock.json")
+    source = workspace / "source"
+    if RESUME:
+        if run("git", "remote", "get-url", "origin", cwd=source) != ROOT:
+            raise RuntimeError("resume superproject origin mismatch")
+    elif args.seed_superproject:
+        seed = Path(args.seed_superproject).resolve()
+        if run("git", "remote", "get-url", "origin", cwd=seed) != ROOT:
+            raise RuntimeError("seed clone must have VibeDarling origin")
+        clone_repository(ROOT, source, seed)
+    else:
+        clone_shallow(ROOT, source)
+    integrated = {".": integrate(source, items[0])}
+    expected = {(x["repo"].lower(), p, x["url"]) for x in items[1:] for p in x["paths"]}
+    merged_modules = modules(source, allow_external=True)
+    actual = {(x["repo"].lower(), p, x["url"]) for x in merged_modules for p in x["paths"]}
+    if not expected.issubset(actual):
+        raise RuntimeError("superproject PRs removed or changed locked .gitmodules entries")
+    additions = [x for x in merged_modules if x["kind"] == "external"]
+    if actual - expected != {(x["repo"].lower(), p, x["url"])
+                            for x in additions for p in x["paths"]}:
+        raise RuntimeError("superproject PRs added a VibeDarling submodule absent from the lock")
+    seed_root = Path(args.seed_submodules_root).resolve() if args.seed_submodules_root else None
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        for start in range(1, len(items), args.jobs):
+            batch = items[start:start + args.jobs]
+            futures = {pool.submit(clone_and_integrate, source, item, seed_root): item
+                       for item in batch}
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    item, sha = future.result()
+                except RuntimeError as error:
+                    raise RuntimeError(f"{futures[future]['repo']}: {error}") from error
+                for path in item["paths"]:
+                    integrated[path] = sha
+                for path in item["paths"]:
+                    run("git", "add", "--", path, cwd=source)
+                print(f"integrated {item['repo']}: {sha}", flush=True)
+    external = []
+    for item in additions:
+        for path in item["paths"]:
+            line = run("git", "ls-tree", "HEAD", "--", path, cwd=source)
+            match = re.fullmatch(r"160000 commit ([0-9a-f]{40})\t(.+)", line)
+            if not match or match.group(2) != path:
+                raise RuntimeError(f"PR-added submodule has no gitlink commit: {path}")
+            sha = match.group(1)
+            target = source / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            clone_repository(item["url"], target, seed_root / path if seed_root else None)
+            object_at(target, sha, "HEAD")
+            run("git", "checkout", "--detach", sha, cwd=target)
+            external.append({"path": path, "url": item["url"], "gitlink": sha})
+    env = dict(os.environ, GIT_AUTHOR_NAME="Darling PR integration",
+               GIT_AUTHOR_EMAIL="integration@localhost",
+               GIT_COMMITTER_NAME="Darling PR integration",
+               GIT_COMMITTER_EMAIL="integration@localhost")
+    if run("git", "diff", "--cached", "--name-only", cwd=source):
+        run("git", "commit", "-m", "integration: pin VibeDarling default branches and open PRs",
+            cwd=source, env=env)
+    audits = {}
+    for path in integrated:
+        audit = source / path / ".git/darling-pr-resolutions.json"
+        if audit.exists():
+            audits[path] = json.loads(audit.read_text())
+    (workspace / "integrated.json").write_text(json.dumps(
+        {"repositories": integrated, "pr_added_external_submodules": external,
+         "merge_resolutions": audits}, indent=2) + "\n")
+    print(f"integrated source: {source}")
+    print(f"superproject commit: {run('git', 'rev-parse', 'HEAD', cwd=source)}")
+
+
+def nested_modules(workspace):
+    source = workspace / "source"
+    top = json.loads((workspace / "refs.lock.json").read_text())
+    found = []
+    for item in top["repos"][1:]:
+        for parent_path in item["paths"]:
+            parent = source / parent_path
+            if (parent / ".gitmodules").is_file():
+                for module in modules(parent, allow_external=True, required_prefix=None):
+                    for subpath in module["paths"]:
+                        line = run("git", "ls-tree", "HEAD", "--", subpath, cwd=parent)
+                        match = re.fullmatch(r"160000 commit ([0-9a-f]{40})\t(.+)", line)
+                        if not match or match.group(2) != subpath:
+                            raise RuntimeError(f"nested module has no gitlink: {parent_path}/{subpath}")
+                        found.append({"parent": parent_path, "path": subpath,
+                                      "repo": module["repo"], "url": module["url"],
+                                      "kind": module["kind"], "pin": match.group(1)})
+    return found
+
+
+def resolve_nested(args):
+    workspace = Path(args.workspace).resolve()
+    if not (workspace / "integrated.json").is_file():
+        raise RuntimeError("complete top-level checkout first")
+    occurrences = nested_modules(workspace)
+    by_repo = {}
+    external = []
+    for occurrence in occurrences:
+        if occurrence["kind"] == "external":
+            external.append(occurrence)
+        else:
+            key = occurrence["repo"].lower()
+            if key not in by_repo:
+                by_repo[key] = {"repo": occurrence["repo"], "url": occurrence["url"],
+                                "occurrences": [], "prs": []}
+            by_repo[key]["occurrences"].append(occurrence)
+    top = json.loads((workspace / "refs.lock.json").read_text())
+    top_repos = {item["repo"].lower() for item in top["repos"]}
+    if args.no_prs and not top.get("no_prs"):
+        raise RuntimeError("--no-prs conflicts with the top-level lock, which includes open PRs")
+    no_prs = bool(top.get("no_prs"))
+    prs = [] if no_prs else open_prs()
+    for pr in prs:
+        repo = pr["repository_url"].rsplit("/", 1)[-1].lower()
+        if repo in by_repo:
+            by_repo[repo]["prs"].append(pr_record(pr))
+        elif repo not in top_repos and not any(
+                p["repo"].lower() == repo for p in top["excluded_open_prs"]):
+            raise RuntimeError(f"PR set changed since top-level lock: {pr['html_url']}")
+    items = list(by_repo.values())
+    for item in items:
+        item["prs"].sort(key=lambda p: p["number"])
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        items = list(pool.map(remote_refs, items))
+    lock = {"schema": 1, "owner": OWNER, "no_prs": no_prs,
+            "excluded_open_prs": off_branch_exclusions(items),
+            "resolved_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "top_lock_sha256": hashlib.sha256((workspace / "refs.lock.json").read_bytes()).hexdigest(),
+            "vibedarling": items, "external_pinned": external}
+    output = Path(args.output).resolve()
+    if output.exists():
+        raise RuntimeError(f"refusing to overwrite nested lock: {output}")
+    output.write_text(json.dumps(lock, indent=2) + "\n")
+    print(f"locked {len(items)} nested VibeDarling repos and {len(external)} external pins: {output}")
+
+
+def checkout_nested(args):
+    global RESUME, RESOLUTIONS
+    RESUME = bool(getattr(args, "resume", False))
+    RESOLUTIONS = json.loads(Path(args.resolutions).read_text()) if getattr(args, "resolutions", None) else []
+    workspace = Path(args.workspace).resolve()
+    source = workspace / "source"
+    lock = json.loads(Path(args.lock).read_text())
+    if lock.get("schema") != 1 or lock.get("owner") != OWNER:
+        raise RuntimeError("invalid nested lock")
+    digest = hashlib.sha256((workspace / "refs.lock.json").read_bytes()).hexdigest()
+    if digest != lock.get("top_lock_sha256"):
+        raise RuntimeError("nested lock belongs to a different top-level lock")
+    if (workspace / "nested.integrated.json").exists():
+        raise RuntimeError("nested integration already completed")
+    if any((workspace / p).exists() for p in ("build", "image", "prefix")):
+        raise RuntimeError("nested integration requires an unbuilt workspace")
+    retained_lock = workspace / "nested.refs.lock.json"
+    if retained_lock.exists() and retained_lock.read_bytes() != Path(args.lock).read_bytes():
+        raise RuntimeError("nested resume lock differs from original input")
+    current = nested_modules(workspace)
+    expected = [o for item in lock["vibedarling"] for o in item["occurrences"]]
+    expected += lock["external_pinned"]
+    if sorted(current, key=lambda x: (x["parent"], x["path"])) != sorted(
+            expected, key=lambda x: (x["parent"], x["path"])):
+        raise RuntimeError("nested submodule map changed since nested lock")
+    if not retained_lock.exists():
+        shutil.copy2(args.lock, retained_lock)
+    changed_parents = set()
+    realized = []
+    seed_root = Path(args.seed_submodules_root).resolve() if args.seed_submodules_root else None
+    for item in lock["vibedarling"]:
+        for o in item["occurrences"]:
+            parent = source / o["parent"]
+            target = parent / o["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            seed = seed_root / o["parent"] / o["path"] if seed_root else None
+            if RESUME and (target / ".git").is_dir():
+                if target.is_symlink() or (target / ".git/objects/info/alternates").exists():
+                    raise RuntimeError("nested resume requires independent Git storage")
+                if run("git", "remote", "get-url", "origin", cwd=target) != item["url"]:
+                    raise RuntimeError("nested resume origin mismatch")
+            else:
+                clone_repository(item["url"], target, seed)
+                if RESUME:
+                    object_at(target, item["base"], f"refs/heads/{item['branch']}")
+                    run("git", "checkout", "--detach", item["base"], cwd=target)
+            sha = integrate(target, item)
+            if (target / ".gitmodules").is_file():
+                raise RuntimeError(f"deeper nested modules need a new integration step: {target}")
+            run("git", "add", "--", o["path"], cwd=parent)
+            changed_parents.add(o["parent"])
+            record = {"path": str(Path(o["parent"]) / o["path"]),
+                      "repo": item["repo"], "commit": sha}
+            audit = target / ".git/darling-pr-resolutions.json"
+            if audit.exists():
+                record["merge_resolutions"] = json.loads(audit.read_text())
+            realized.append(record)
+    for o in lock["external_pinned"]:
+        parent = source / o["parent"]
+        target = parent / o["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        seed = seed_root / o["parent"] / o["path"] if seed_root else None
+        if RESUME and (target / ".git").is_dir():
+            if target.is_symlink() or (target / ".git/objects/info/alternates").exists():
+                raise RuntimeError("external resume requires independent Git storage")
+            if run("git", "remote", "get-url", "origin", cwd=target) != o["url"] or run("git", "status", "--porcelain", cwd=target):
+                raise RuntimeError("external resume origin/source mismatch")
+        else:
+            clone_repository(o["url"], target, seed)
+        object_at(target, o["pin"], "HEAD")
+        run("git", "checkout", "--detach", o["pin"], cwd=target)
+        if (target / ".gitmodules").is_file():
+            raise RuntimeError(f"deeper nested modules need a new integration step: {target}")
+        realized.append({"path": str(Path(o["parent"]) / o["path"]),
+                         "repo": o["repo"], "commit": o["pin"]})
+    env = dict(os.environ, GIT_AUTHOR_NAME="Darling PR integration",
+               GIT_AUTHOR_EMAIL="integration@localhost",
+               GIT_COMMITTER_NAME="Darling PR integration",
+               GIT_COMMITTER_EMAIL="integration@localhost")
+    for parent_path in changed_parents:
+        parent = source / parent_path
+        if run("git", "diff", "--cached", "--name-only", cwd=parent):
+            run("git", "commit", "-m", "integration: pin nested VibeDarling repositories",
+                cwd=parent, env=env)
+            run("git", "add", "--", parent_path, cwd=source)
+    if run("git", "diff", "--cached", "--name-only", cwd=source):
+        run("git", "commit", "-m", "integration: pin nested VibeDarling repositories",
+            cwd=source, env=env)
+    (workspace / "nested.integrated.json").write_text(json.dumps(realized, indent=2) + "\n")
+    print(f"integrated {len(realized)} nested paths; superproject {run('git', 'rev-parse', 'HEAD', cwd=source)}")
+
+
+def supplement(args):
+    workspace = Path(args.workspace).resolve()
+    source = workspace / "source"
+    if not (workspace / "integrated.json").is_file():
+        raise RuntimeError("workspace has not completed checkout")
+    if any((workspace / name).exists() for name in ("build", "image", "prefix")):
+        raise RuntimeError("supplements require an unconfigured workspace")
+    if nested_modules(workspace) and not (workspace / "nested.integrated.json").is_file():
+        raise RuntimeError("complete nested integration before adding supplements")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("integrated source is dirty")
+    if not SHA.fullmatch(args.commit):
+        raise RuntimeError("supplement requires a full 40-character commit SHA")
+    entries = [item for item in modules(source, allow_external=True)
+               if args.path in item["paths"] and item["kind"] == "VibeDarling"]
+    if len(entries) != 1:
+        raise RuntimeError("supplement path must name a top-level VibeDarling submodule")
+    target = source / args.path
+    donor = Path(args.from_repo).resolve()
+    if not (target / ".git").is_dir() or not (donor / ".git").is_dir() or target.resolve() == donor:
+        raise RuntimeError("target and donor must be distinct independent Git clones")
+    if run("git", "remote", "get-url", "origin", cwd=donor) != entries[0]["url"]:
+        raise RuntimeError("donor origin does not match the locked VibeDarling repository")
+    run("git", "cat-file", "-e", args.commit + "^{commit}", cwd=donor)
+    if run("git", "rev-parse", args.commit + "^{commit}", cwd=donor) != args.commit:
+        raise RuntimeError("supplement SHA must identify a commit, not a tag")
+    manifest_path = workspace / "supplements.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {
+        "schema": 1, "inputs": []}
+    if any(item["status"] != "complete" for item in manifest["inputs"]):
+        raise RuntimeError("an earlier supplement failed; inspect its workspace")
+    if manifest["inputs"] and manifest["inputs"][-1]["superproject_result"] != run(
+            "git", "rev-parse", "HEAD", cwd=source):
+        raise RuntimeError("source no longer matches its recorded supplements")
+    run("git", "fetch", "--no-tags", "--no-write-fetch-head", str(donor), args.commit, cwd=target)
+    before = run("git", "rev-parse", "HEAD", cwd=target)
+    if run("git", "diff", before, args.commit, "--", ".gitmodules", cwd=target):
+        raise RuntimeError("supplement changes submodule metadata; resolve a new dependency lock")
+    changes = run("git", "diff", "--raw", before, args.commit, cwd=target)
+    if any("160000" in [mode.lstrip(":") for mode in line.split()[:2]]
+           for line in changes.splitlines()):
+        raise RuntimeError("supplement changes nested gitlinks; resolve a new dependency lock")
+    record = {"path": args.path, "repo": entries[0]["repo"], "source_repo": str(donor),
+              "commit": args.commit, "reason": args.reason, "before": before,
+              "superproject_before": run("git", "rev-parse", "HEAD", cwd=source),
+              "status": "applying"}
+    manifest["inputs"].append(record)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    env = dict(os.environ, GIT_AUTHOR_NAME="Darling PR integration",
+               GIT_AUTHOR_EMAIL="integration@localhost",
+               GIT_COMMITTER_NAME="Darling PR integration",
+               GIT_COMMITTER_EMAIL="integration@localhost")
+    try:
+        run("git", "merge", "--no-ff", "--no-edit", "-m",
+            f"integration: merge {record['repo']} supplement ({args.commit})",
+            args.commit, cwd=target, env=env)
+        run("git", "add", "--", args.path, cwd=source)
+        if run("git", "diff", "--cached", "--name-only", cwd=source):
+            run("git", "commit", "-m", f"integration: pin {record['repo']} supplement",
+                cwd=source, env=env)
+        record.update(status="complete", result=run("git", "rev-parse", "HEAD", cwd=target),
+                      superproject_result=run("git", "rev-parse", "HEAD", cwd=source))
+    except (RuntimeError, OSError) as error:
+        record.update(status="failed", error=str(error), conflicts=run(
+            "git", "diff", "--name-only", "--diff-filter=U", cwd=target).splitlines())
+        raise RuntimeError(f"supplement failed; inspect {manifest_path} and {target}: {error}") from error
+    finally:
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"supplemented source: {record['superproject_result']}")
+
+
+def build(args):
+    workspace = Path(args.workspace).resolve()
+    source = workspace / "source"
+    if not (workspace / "integrated.json").is_file() or not source.is_dir():
+        raise RuntimeError("workspace has not completed checkout")
+    if nested_modules(workspace) and not (workspace / "nested.integrated.json").is_file():
+        raise RuntimeError("resolve-nested and checkout-nested before building")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("integrated source is dirty")
+    supplements = workspace / "supplements.json"
+    if supplements.exists():
+        inputs = json.loads(supplements.read_text())["inputs"]
+        if any(item["status"] != "complete" for item in inputs):
+            raise RuntimeError("an incomplete supplement prevents building")
+        if inputs and inputs[-1]["superproject_result"] != run("git", "rev-parse", "HEAD", cwd=source):
+            raise RuntimeError("source no longer matches its recorded supplements")
+    builddir, image, prefix = (workspace / name for name in ("build", "image", "prefix"))
+    if image.exists() or prefix.exists():
+        raise RuntimeError("image and prefix must not exist yet")
+    marker = builddir / ".darling-pr-prefix-source"
+    source_sha = run("git", "rev-parse", "HEAD", cwd=source)
+    if builddir.exists():
+        if not marker.is_file():
+            raise RuntimeError("existing build directory does not match this integrated source")
+        previous_sha = marker.read_text().strip()
+        if getattr(args, "reconfigure", False):
+            run("cmake", "-S", str(source), "-B", str(builddir), "-G", "Ninja",
+                "-DCMAKE_INSTALL_PREFIX=/usr/local", *args.cmake_arg, stream=True)
+            history_path = builddir / ".darling-pr-prefix-history.json"
+            history = json.loads(history_path.read_text()) if history_path.exists() else []
+            history.append({"previous_source": previous_sha, "source": source_sha,
+                            "cmake_arguments": args.cmake_arg,
+                            "configured_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+            history_path.write_text(json.dumps(history, indent=2) + "\n")
+            marker.write_text(source_sha + "\n")
+        elif previous_sha != source_sha:
+            raise RuntimeError("existing build directory does not match this integrated source; use --reconfigure explicitly before staging")
+        elif args.cmake_arg:
+            raise RuntimeError("CMake arguments can only be supplied on first configuration")
+    else:
+        run("cmake", "-S", str(source), "-B", str(builddir), "-G", "Ninja",
+            "-DCMAKE_INSTALL_PREFIX=/usr/local", *args.cmake_arg, stream=True)
+        marker.write_text(source_sha + "\n")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("source became dirty during configuration; commit the correction and reconfigure before building")
+    if args.configure_only:
+        print(f"configured: {builddir} ({source_sha})")
+        return
+    run("cmake", "--build", str(builddir), "--parallel", str(args.jobs), stream=True)
+    pending = run("ninja", "-C", str(builddir), "-n")
+    if "no work to do" not in pending.lower():
+        run("cmake", "--build", str(builddir), "--parallel", str(args.jobs), stream=True)
+        if "no work to do" not in run("ninja", "-C", str(builddir), "-n").lower():
+            raise RuntimeError("build graph still has pending work")
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("source became dirty during compilation; refusing to stage uncommitted inputs")
+    run("cmake", "--install", str(builddir), env=dict(os.environ, DESTDIR=str(image)), stream=True)
+    provenance = {"source_commit": source_sha,
+                  "source_tree": run("git", "rev-parse", "HEAD^{tree}", cwd=source),
+                  "image": str(image), "launcher": str(builddir / "src/startup/darling"),
+                  "locks": {name: hashlib.sha256((workspace / name).read_bytes()).hexdigest()
+                            for name in ("refs.lock.json", "nested.refs.lock.json")
+                            if (workspace / name).exists()},
+                  "swiftui_verified": False, "prefix_execution_verified": False}
+    (workspace / "runtime.manifest.json").write_text(json.dumps(provenance, indent=2) + "\n")
+    if getattr(args, "stage_only", False):
+        print(f"staged runtime: {image}; no prefix execution or SwiftUI claim")
+        return
+    verify_prefix(args)
+
+
+def bounded_process(command, env, log, seconds):
+    with log.open("w") as output:
+        child = subprocess.Popen(command, env=env, stdout=output, stderr=subprocess.STDOUT)
+        try:
+            return {"pid": child.pid, "exit": child.wait(timeout=seconds), "pending": False}
+        except subprocess.TimeoutExpired:
+            return {"pid": child.pid, "exit": None, "pending": True}
+
+
+def prefix_server_identity(prefix, image):
+    pidfile = prefix / ".init.pid"
+    pid = pidfile.read_text().strip() if pidfile.exists() else ""
+    result = {"server_pid": pid, "server_identity_verified": False}
+    if pid.isdecimal():
+        proc = Path("/proc") / pid
+        try:
+            result["server_exe"] = os.readlink(proc / "exe")
+            result["server_argv"] = [v.decode(errors="replace") for v in
+                                     (proc / "cmdline").read_bytes().split(b"\0") if v]
+            status = (proc / "status").read_text()
+            uid = next(line.split()[1] for line in status.splitlines() if line.startswith("Uid:"))
+            result["server_identity_verified"] = (result["server_exe"] == str(image / "usr/local/bin/darlingserver")
+                and result["server_argv"][1:2] == [str(prefix)] and int(uid) == os.getuid())
+        except (OSError, StopIteration):
+            pass
+    return result
+
+
+def verify_prefix(args):
+    workspace = Path(args.workspace).resolve()
+    source, builddir, image = workspace / "source", workspace / "build", workspace / "image"
+    manifest = workspace / "runtime.manifest.json"
+    provenance = json.loads(manifest.read_text())
+    sha = run("git", "rev-parse", "HEAD", cwd=source)
+    launcher = builddir / "src/startup/darling"
+    if (provenance["source_commit"] != sha or run("git", "status", "--porcelain", cwd=source)
+            or (builddir / ".darling-pr-prefix-source").read_text().strip() != sha
+            or provenance["image"] != str(image) or provenance["launcher"] != str(launcher)):
+        raise RuntimeError("prefix verification requires the exact clean staged source/runtime binding")
+    for name, digest in provenance["locks"].items():
+        if hashlib.sha256((workspace / name).read_bytes()).hexdigest() != digest:
+            raise RuntimeError("staged runtime lock changed")
+    if not launcher.is_file() or launcher.stat().st_mode & 0o6000:
+        raise RuntimeError("prefix verification requires the non-setuid build-tree launcher")
+    prefix = workspace / getattr(args, "prefix_name", "prefix")
+    if prefix.parent != workspace or prefix.name in ("source", "build", "image") or prefix.exists():
+        raise RuntimeError("prefix must be a new direct child of the private workspace")
+    # Linux sun_path[108] includes its terminator; the current launcher and
+    # guest sockaddr fixup truncate longer paths instead of rejecting them.
+    for socket_path in (prefix / ".darlingserver.sock", prefix / "var/run/shellspawn.sock"):
+        if len(os.fsencode(socket_path)) >= 108:
+            raise RuntimeError(f"private prefix socket path exceeds Linux sun_path capacity: {socket_path}; choose a shorter workspace/prefix")
+    env = dict(os.environ, DPREFIX=str(prefix), DARLING_INSTALL_PREFIX=str(image / "usr/local"))
+    if getattr(args, "disable_ptrauth", False):
+        env["DARLING_DISABLE_PTRAUTH"] = "1"
+    report = {"source_commit": sha, "prefix": str(prefix), "launcher": str(launcher),
+              "launcher_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest(),
+              "guest_command": ["/usr/bin/true"], "signals_sent": False,
+              "environment": {name: env.get(name) for name in ("DPREFIX", "DARLING_INSTALL_PREFIX",
+                  "DARLING_DISABLE_PTRAUTH", "DSERVER_LOG_LEVEL", "DSERVER_LOG_STDERR",
+                  "DSERVER_WAIT4DEBUGGER", "DARLING_NONROOT", "DARLING_NOOVERLAYFS",
+                  "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DARLING_APPKIT_BACKEND", "DISPLAY")}}
+    report_path = workspace / (prefix.name + ".verify.json")
+    provenance.update(prefix_execution_verified=False, guest_environment=report["environment"])
+    manifest.write_text(json.dumps(provenance, indent=2) + "\n")
+    report["guest"] = bounded_process([str(launcher), "shell", "/usr/bin/true"], env,
+                                      workspace / (prefix.name + ".guest.log"), getattr(args, "guest_wait", 60))
+    report.update(prefix_server_identity(prefix, image))
+    server_pid = report["server_pid"]
+    report["shutdown"] = bounded_process([str(launcher), "shutdown"], env,
+                                         workspace / (prefix.name + ".shutdown.log"), 30)
+    report["server_exists_after_shutdown"] = bool(server_pid) and (Path("/proc") / server_pid).exists()
+    report["markers_after_shutdown"] = [name for name in (".init.pid", ".darlingserver.sock", ".shellspawn.pid")
+                                         if (prefix / name).exists()]
+    report["verified"] = (report["guest"]["exit"] == 0 and report["shutdown"]["exit"] == 0
+                          and report["server_identity_verified"] and not report["server_exists_after_shutdown"]
+                          and not report["markers_after_shutdown"] and (prefix / "private/etc/passwd").is_file())
+    report_path.write_text(json.dumps(report, indent=2) + "\n")
+    if not report["verified"]:
+        raise RuntimeError(f"private prefix lifecycle not verified; preserved evidence at {report_path}; no signals sent")
+    provenance.update(prefix_execution_verified=True, prefix=str(prefix), prefix_verification=str(report_path))
+    manifest.write_text(json.dumps(provenance, indent=2) + "\n")
+    print(f"private prefix verified: {prefix}")
+
+
+def verify_build(args):
+    workspace = Path(args.workspace).resolve()
+    source, builddir = workspace / "source", workspace / "build"
+    sha = run("git", "rev-parse", "HEAD", cwd=source)
+    if run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("incremental verification requires clean source")
+    if (builddir / ".darling-pr-prefix-source").read_text().strip() != sha:
+        raise RuntimeError("incremental source binding mismatch")
+    before = run("ninja", "-C", str(builddir), "-n")
+    if "no work to do" not in before.lower():
+        raise RuntimeError("fresh build still has pending work before incremental verification")
+    run("cmake", "--build", str(builddir), "--parallel", str(args.jobs), stream=True)
+    after = run("ninja", "-C", str(builddir), "-n")
+    if "no work to do" not in after.lower() or run("git", "status", "--porcelain", cwd=source):
+        raise RuntimeError("incremental verification left pending work or dirty source")
+    (workspace / "incremental.verify.json").write_text(json.dumps(
+        {"source_commit": sha, "before": before, "after": after,
+         "build_exit": 0, "image_or_prefix_modified": False}, indent=2) + "\n")
+    print(f"incremental build verified: {sha}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -265,11 +979,57 @@ def main():
     discover.add_argument("--repo", action="append", help="limited diagnostic resolution only")
     discover.add_argument("--jobs", type=int, default=8)
     discover.add_argument("--no-prs", action="store_true", help="lock the default branches only and skip open pull requests")
+    materialize = commands.add_parser("checkout", help="clone and integrate locked refs")
+    materialize.add_argument("--lock", required=True)
+    materialize.add_argument("--workspace", required=True)
+    materialize.add_argument("--jobs", type=int, default=6)
+    materialize.add_argument("--seed-superproject", help="existing independent clone to copy locally")
+    materialize.add_argument("--seed-submodules-root", help="read-only populated tree to copy with --no-local")
+    materialize.add_argument("--resume", action="store_true", help="continue only an unfinished checkout with identical lock")
+    materialize.add_argument("--resolutions", help="reviewed exact conflict-stage/source-tree resolution JSON")
+    nested_discover = commands.add_parser("resolve-nested", help="lock nested submodule refs")
+    nested_discover.add_argument("--workspace", required=True)
+    nested_discover.add_argument("--output", required=True)
+    nested_discover.add_argument("--jobs", type=int, default=8)
+    nested_discover.add_argument("--no-prs", action="store_true", help="lock the default branches only and skip open pull requests")
+    nested_materialize = commands.add_parser("checkout-nested", help="integrate locked nested refs")
+    nested_materialize.add_argument("--workspace", required=True)
+    nested_materialize.add_argument("--lock", required=True)
+    nested_materialize.add_argument("--seed-submodules-root", help="read-only populated tree to copy nested dependencies and LFS objects")
+    nested_materialize.add_argument("--resume", action="store_true", help="continue unfinished nested checkout with identical lock")
+    nested_materialize.add_argument("--resolutions", help="reviewed exact conflict-stage/source-tree resolution JSON")
+    additional = commands.add_parser("supplement", help="merge an exact private submodule fix")
+    additional.add_argument("--workspace", required=True)
+    additional.add_argument("--path", required=True, help="top-level submodule path")
+    additional.add_argument("--from-repo", required=True, help="read-only independent donor clone")
+    additional.add_argument("--commit", required=True, help="exact committed supplement SHA")
+    additional.add_argument("--reason", required=True, help="purpose and verification provenance")
+    compile_command = commands.add_parser("build", help="build and initialize an isolated prefix")
+    compile_command.add_argument("--workspace", required=True)
+    compile_command.add_argument("--jobs", type=int, default=4)
+    compile_command.add_argument("--cmake-arg", action="append", default=[])
+    compile_command.add_argument("--configure-only", action="store_true")
+    compile_command.add_argument("--stage-only", action="store_true", help="stage runtime with provenance before separately verified SwiftUI/prefix integration")
+    compile_command.add_argument("--disable-ptrauth", action="store_true", help="explicitly disable pointer authentication only for Darling guest processes during private prefix smoke")
+    compile_command.add_argument("--reconfigure", action="store_true", help="explicitly reconfigure a known private build after a committed source correction, before staging")
+    incremental = commands.add_parser("verify-build", help="verify a clean bound incremental build without restaging")
+    incremental.add_argument("--workspace", required=True)
+    incremental.add_argument("--jobs", type=int, default=2)
+    prefix_check = commands.add_parser("verify-prefix", help="verify actual guest completion and matching private shutdown after staging")
+    prefix_check.add_argument("--workspace", required=True)
+    prefix_check.add_argument("--prefix-name", default="prefix")
+    prefix_check.add_argument("--guest-wait", type=int, default=60)
+    prefix_check.add_argument("--disable-ptrauth", action="store_true")
     args = parser.parse_args()
     if getattr(args, "jobs", 1) < 1:
         parser.error("--jobs must be positive")
+    if not 1 <= getattr(args, "guest_wait", 60) <= 300:
+        parser.error("--guest-wait must be between 1 and 300 seconds")
     try:
-        {"resolve": resolve}[args.command](args)
+        {"resolve": resolve, "checkout": checkout,
+         "resolve-nested": resolve_nested, "checkout-nested": checkout_nested,
+         "supplement": supplement, "build": build, "verify-build": verify_build,
+         "verify-prefix": verify_prefix}[args.command](args)
     except (RuntimeError, OSError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
