@@ -129,6 +129,10 @@ static void test_remap_alias(void)
 
 int main(void)
 {
+#ifndef __arm64__
+	puts("SKIP: the generated code is arm64");
+	return 0;
+#endif
 	test_csops();
 	test_map_jit();
 	test_mprotect();
