@@ -117,3 +117,18 @@ at startup and validates its user and exact prefix socket environment before
 obtaining a shutdown target. Existing nonroot containers started by an older
 launcher lack this record and are refused rather than falling back to a global
 process-name search. Start disposable nonroot tests with the fixed launcher.
+
+## Missing init pid file
+
+Run without root or any Darling container:
+
+```sh
+python3 tests/launcher/test-missing-init.py src/startup/darling.c --run
+```
+
+The script extracts the launcher's "start the prefix's init" branch from the
+given source, compiles it with mocked process and filesystem helpers in a
+temporary directory, and runs three cases. A live darlingserver with a missing
+or invalid `.init.pid` and a failed server inspection must both refuse with
+exit 1 and no unlink, setup, spawn or pid write. A verified absence of a server
+must proceed with setup. The script fails if the branch's shape changes.
