@@ -200,6 +200,13 @@ OSStatus AudioHardwareCreateAggregateDevice(CFDictionaryRef, AudioObjectID* outD
 
 OSStatus AudioHardwareDestroyAggregateDevice(AudioObjectID inDeviceID);
 
+// Process taps are represented by CATapDescription Objective-C objects. The
+// service is currently unsupported; keep these entry points available so
+// clients can handle the returned OSStatus.
+OSStatus AudioHardwareCreateProcessTap(void* inDescription, AudioObjectID* outTapID);
+
+OSStatus AudioHardwareDestroyProcessTap(AudioObjectID inTapID);
+
 typedef OSStatus (*AudioDeviceIOProc)(AudioObjectID inObjectID,
 		const AudioTimeStamp* inNow, const AudioBufferList* inInputData,
 		const AudioTimeStamp* inInputTime,
@@ -263,4 +270,3 @@ OSStatus AudioHardwareGetPropertyInfo(AudioHardwarePropertyID inPropertyID, UInt
 #endif
 
 #endif /* AUDIOHARDWARE_H */
-

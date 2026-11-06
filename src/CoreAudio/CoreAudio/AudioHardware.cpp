@@ -171,6 +171,38 @@ OSStatus AudioHardwareDestroyAggregateDevice(AudioObjectID inDeviceID)
 	return unimpErr;
 }
 
+OSStatus AudioHardwareCreateProcessTap(void* inDescription, AudioObjectID* outTapID)
+{
+	STUB();
+	if (outTapID)
+		*outTapID = kAudioObjectUnknown;
+	return kAudioHardwareUnsupportedOperationError;
+}
+
+OSStatus AudioHardwareDestroyProcessTap(AudioObjectID inTapID)
+{
+	STUB();
+	return kAudioHardwareUnsupportedOperationError;
+}
+
+#ifdef __BLOCKS__
+OSStatus AudioObjectAddPropertyListenerBlock(AudioObjectID inObjectID,
+		const AudioObjectPropertyAddress* inAddress,
+		dispatch_queue_t inDispatchQueue, AudioObjectPropertyListenerBlock inListener)
+{
+	STUB();
+	return kAudioHardwareUnsupportedOperationError;
+}
+
+OSStatus AudioObjectRemovePropertyListenerBlock(AudioObjectID inObjectID,
+		const AudioObjectPropertyAddress* inAddress,
+		dispatch_queue_t inDispatchQueue, AudioObjectPropertyListenerBlock inListener)
+{
+	STUB();
+	return kAudioHardwareUnsupportedOperationError;
+}
+#endif
+
 OSStatus AudioHardwareGetProperty(AudioHardwarePropertyID inPropId, UInt32* ioPropertyDataSize, void* outPropertyData)
 {
 	if (!ioPropertyDataSize)
