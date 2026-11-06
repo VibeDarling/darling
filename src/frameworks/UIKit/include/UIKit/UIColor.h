@@ -13,15 +13,24 @@
 #define UIKIT_UIColor_H
 
 #import <Foundation/NSObject.h>
+#import <Foundation/NSObjCRuntime.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGColor.h>
 
-@interface UIColor : NSObject {
+@interface UIColor : NSObject <NSCopying> {
 @private
 	CGFloat _red, _green, _blue, _alpha;
+	BOOL _isGray;
+	CGColorRef _cgColor;
 }
 
 + (UIColor *)colorWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha;
 + (UIColor *)colorWithWhite:(CGFloat)white alpha:(CGFloat)alpha;
++ (UIColor *)colorWithCGColor:(CGColorRef)color;
+
+- (instancetype)initWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha;
+- (instancetype)initWithWhite:(CGFloat)white alpha:(CGFloat)alpha;
+- (instancetype)initWithCGColor:(CGColorRef)color;
 
 + (UIColor *)blackColor;
 + (UIColor *)whiteColor;
@@ -36,6 +45,11 @@
 @property (nonatomic, readonly) CGFloat greenComponent;
 @property (nonatomic, readonly) CGFloat blueComponent;
 @property (nonatomic, readonly) CGFloat alphaComponent;
+
+@property (nonatomic, readonly) CGColorRef CGColor NS_RETURNS_INNER_POINTER;
+
+- (BOOL)getRed:(CGFloat *)red green:(CGFloat *)green blue:(CGFloat *)blue alpha:(CGFloat *)alpha;
+- (BOOL)getWhite:(CGFloat *)white alpha:(CGFloat *)alpha;
 
 - (void)set;
 - (void)setFill;
