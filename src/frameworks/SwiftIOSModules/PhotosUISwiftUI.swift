@@ -78,3 +78,19 @@ extension View {
         modifier(PickerNeverPresents(isPresented: isPresented))
     }
 }
+
+/// Shows its label; tapping it presents nothing, as there is no photo library.
+@available(iOS 16.0, *)
+public struct PhotosPicker<Label>: View where Label: View {
+    private let label: Label
+
+    public init(selection: Binding<PhotosPickerItem?>, matching filter: PHPickerFilter? = nil,
+                preferredItemEncoding: PhotosPickerItem.EncodingDisambiguationPolicy = .automatic,
+                @ViewBuilder label: () -> Label) {
+        self.label = label()
+    }
+
+    public var body: some View {
+        Button(action: {}, label: { label })
+    }
+}

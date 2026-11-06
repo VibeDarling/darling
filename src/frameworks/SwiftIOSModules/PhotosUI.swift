@@ -1,6 +1,8 @@
 // PhotosUI's Swift PHPickerFilter, with the public shape of the iOS 16 SDK's
 // interface. A filter is a predicate over asset kinds, combined with any(of:),
 // all(of:) and not(_:).
+import Foundation
+
 @available(iOS 14.0, *)
 public struct PHPickerFilter: Equatable, Hashable {
     indirect enum Term: Hashable {
@@ -45,4 +47,11 @@ public struct PHPickerFilter: Equatable, Hashable {
     public static func not(_ filter: PHPickerFilter) -> PHPickerFilter {
         PHPickerFilter(term: .not(filter.term))
     }
+}
+
+// From the iOS 18.0 SDK's interface. There is no picker to make one, so an app never receives a value.
+@available(iOS 14.0, *)
+public struct PHPickerResult: Equatable, Hashable {
+    public let itemProvider: NSItemProvider
+    public let assetIdentifier: String?
 }
