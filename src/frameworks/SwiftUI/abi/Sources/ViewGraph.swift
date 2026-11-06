@@ -179,6 +179,15 @@ final class ViewGraph {
         if let old = lastValues[path]?.value as? Value, old != value { pendingActions.append { action(value) } }
         lastValues[path] = (generation, value)
     }
+    /// As above, for an action that takes the old value too; `initial` also runs it on first appearance.
+    func valueChange<Value: Equatable>(at path: ViewPath, value: Value, initial: Bool, action: @escaping (Value, Value) -> Void) {
+        if let old = lastValues[path]?.value as? Value {
+            if old != value { pendingActions.append { action(old, value) } }
+        } else if initial {
+            pendingActions.append { action(value, value) }
+        }
+        lastValues[path] = (generation, value)
+    }
     /// Evaluates the graph, then runs the onAppear, onDisappear and onChange actions the evaluation
     /// queued; as in SwiftUI they run before the result is laid out, so what they change is
     /// evaluated again first (a few rounds at most), and layout never sees state behind its views.

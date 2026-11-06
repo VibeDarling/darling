@@ -48,3 +48,25 @@ extension _ValueActionModifier : _SceneModifier {
     body(_Graph(), inputs)
   }
 }
+
+/// onChange(of:initial:_:), whose action takes the old and new values.
+private struct _ValueChangeModifier<Value: Equatable>: ViewModifier {
+  typealias Body = Never
+  let value: Value
+  let initial: Bool
+  let action: (Value, Value) -> Void
+  static func _makeView(modifier: _GraphValue<Self>, inputs: _ViewInputs, body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    inputs.graph?.valueChange(at: inputs.path, value: modifier.value.value, initial: modifier.value.initial, action: modifier.value.action)
+    return body(_Graph(), inputs)
+  }
+  static func _makeViewList(modifier: _GraphValue<Self>, inputs: _ViewListInputs, body: @escaping (_Graph, _ViewListInputs) -> _ViewListOutputs) -> _ViewListOutputs {
+    inputs.viewInputs.graph?.valueChange(at: inputs.viewInputs.path, value: modifier.value.value, initial: modifier.value.initial, action: modifier.value.action)
+    return body(_Graph(), inputs)
+  }
+}
+@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+extension View {
+  public func onChange<V>(of value: V, initial: Swift.Bool = false, _ action: @escaping (_ oldValue: V, _ newValue: V) -> Swift.Void) -> some View where V : Swift.Equatable {
+    modifier(_ValueChangeModifier(value: value, initial: initial, action: action))
+  }
+}

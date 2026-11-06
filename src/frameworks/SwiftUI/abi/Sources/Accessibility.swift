@@ -86,7 +86,15 @@ extension View {
         modifier(AccessibilityAttachmentModifier("traits", ""))
     }
 }
+extension View {
+    /// Actions are not offered to any assistive technology here, and their handlers never run.
+    @_disfavoredOverload public func accessibilityAction<S: StringProtocol>(named name: S, _ handler: @escaping () -> Void) -> ModifiedContent<Self, AccessibilityAttachmentModifier> {
+        modifier(AccessibilityAttachmentModifier("action", String(name)))
+    }
+}
 extension ModifiedContent where Modifier == AccessibilityAttachmentModifier {
+    public func accessibilityAction(named nameKey: LocalizedStringKey, _ handler: @escaping () -> Void) -> ModifiedContent<Content, Modifier> { self }
+    public func accessibilityScrollAction(_ handler: @escaping (Edge) -> Void) -> ModifiedContent<Content, Modifier> { self }
     public func accessibilityAddTraits(_ traits: AccessibilityTraits) -> ModifiedContent<Content, Modifier> { self }
     public func accessibilityLabel(_ text: Text) -> ModifiedContent<Content, Modifier> {
         ModifiedContent(content: content, modifier: modifier.setting("label", accessibilityText(text)))
