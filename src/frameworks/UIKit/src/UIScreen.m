@@ -23,16 +23,60 @@
 	return screen;
 }
 
++ (NSArray<UIScreen *> *)screens
+{
+	static NSMutableArray<UIScreen *> *others;
+	UIScreen *main = [self mainScreen];
+	/* Cocotron's X11 backend builds fresh NSScreen objects when its screen list is
+	 * rebuilt or unavailable, so pointer identity is not stable: key on the display ID. */
+	CGDirectDisplayID mainID = [[NSScreen mainScreen] cgDirectDisplayID];
+	NSMutableArray<UIScreen *> *result = [NSMutableArray arrayWithObject:main];
+
+	@synchronized(self) {
+		NSMutableArray<UIScreen *> *current = [NSMutableArray array];
+		for (NSScreen *native in [NSScreen screens]) {
+			CGDirectDisplayID displayID = [native cgDirectDisplayID];
+			if (displayID == mainID)
+				continue;
+			BOOL listed = NO;
+			for (UIScreen *candidate in current)
+				if ([candidate->_uiNativeScreen cgDirectDisplayID] == displayID)
+					listed = YES;
+			if (listed)
+				continue;
+			UIScreen *known = nil;
+			for (UIScreen *candidate in others) {
+				if ([candidate->_uiNativeScreen cgDirectDisplayID] == displayID) {
+					known = candidate;
+					break;
+				}
+			}
+			if (known == nil)
+				known = [[UIScreen alloc] init];
+			known->_uiNativeScreen = native;
+			[current addObject:known];
+		}
+		others = current;
+		[result addObjectsFromArray:current];
+	}
+	return result;
+}
+
+- (NSScreen *)nativeScreen
+{
+	return _uiNativeScreen != nil ? _uiNativeScreen : [NSScreen mainScreen];
+}
+
 - (CGRect)bounds
 {
-	NSScreen *screen = [NSScreen mainScreen];
+	NSScreen *screen = [self nativeScreen];
 	NSRect frame = screen != nil ? [screen frame] : NSMakeRect(0, 0, 1024, 768);
 	return CGRectMake(0, 0, frame.size.width, frame.size.height);
 }
 
 - (CGFloat)scale
 {
-	NSScreen *screen = [NSScreen mainScreen];
+	NSScreen *screen = [self nativeScreen];
 	CGFloat scale = screen != nil ? [screen backingScaleFactor] : 1.0;
 	return scale > 0 ? scale : 1.0;
 }

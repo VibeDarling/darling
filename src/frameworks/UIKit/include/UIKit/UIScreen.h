@@ -13,11 +13,21 @@
 #define UIKIT_UISCREEN_H
 
 #import <Foundation/NSObject.h>
+#import <Foundation/NSArray.h>
 #import <CoreGraphics/CGGeometry.h>
 
-@interface UIScreen : NSObject
+@class NSScreen;
+
+@interface UIScreen : NSObject {
+@package
+	/* nil for the main screen, which follows [NSScreen mainScreen]. */
+	NSScreen *_uiNativeScreen;
+}
 
 + (UIScreen *)mainScreen;
+
+/* The main screen first, then one UIScreen per other attached display. */
++ (NSArray<UIScreen *> *)screens;
 
 @property (nonatomic, readonly) CGRect bounds;
 @property (nonatomic, readonly) CGFloat scale;
