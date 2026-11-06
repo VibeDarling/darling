@@ -22,6 +22,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+NSString * const PHLivePhotoInfoErrorKey = @"PHLivePhotoInfoErrorKey";
+NSString * const PHLivePhotoInfoIsDegradedKey = @"PHLivePhotoInfoIsDegradedKey";
+NSString * const PHLivePhotoInfoCancelledKey = @"PHLivePhotoInfoCancelledKey";
+
 static int verbose = 0;
 
 __attribute__((constructor))
