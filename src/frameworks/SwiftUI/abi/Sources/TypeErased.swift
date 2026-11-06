@@ -49,6 +49,10 @@ private final class AnyViewStorage<V: View>: AnyViewStorageBase {
   fileprivate let box: AnyTransitionBox
   fileprivate static let immediate = AnyTransition(box: AnyTransitionBox())
 }
+@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+extension AnyTransition {
+  public init<T>(_ transition: T) where T : Transition { self = .immediate }
+}
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 @usableFromInline
 internal class AnyTransitionBox {
