@@ -27,6 +27,7 @@
 #import <UIKit/UIFont.h>
 #import <UIKit/UIView.h>
 #import <UIKit/UIViewController.h>
+#import <UIKit/UIAlertController.h>
 #import <UIKit/UIWindow.h>
 #import <UIKit/UILabel.h>
 #import <UIKit/UICollectionViewCompositionalLayout.h>
