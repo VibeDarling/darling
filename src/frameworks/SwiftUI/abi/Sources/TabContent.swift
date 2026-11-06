@@ -29,6 +29,12 @@ public struct _TabContentBodyAdaptor<C>: View where C: TabContent {
     }
     @_alwaysEmitIntoClient public static func buildExpression(_ content: some TabContent<TabValue>) -> some TabContent<TabValue> { content }
     @_alwaysEmitIntoClient public static func buildBlock(_ content: some TabContent<TabValue>) -> some TabContent<TabValue> { content }
+    @_alwaysEmitIntoClient public static func buildBlock<C0, C1>(_ c0: C0, _ c1: C1) -> some TabContent<TabValue> where TabValue == C0.TabValue, C0: TabContent, C1: TabContent, C0.TabValue == C1.TabValue {
+        return _TupleTabContent<TabValue, (C0._IdentifiedView, C1._IdentifiedView)>((c0._identifiedView, c1._identifiedView))
+    }
+    @_alwaysEmitIntoClient public static func buildBlock<C0, C1, C2>(_ c0: C0, _ c1: C1, _ c2: C2) -> some TabContent<TabValue> where TabValue == C0.TabValue, C0: TabContent, C1: TabContent, C2: TabContent, C0.TabValue == C1.TabValue, C1.TabValue == C2.TabValue {
+        return _TupleTabContent<TabValue, (C0._IdentifiedView, C1._IdentifiedView, C2._IdentifiedView)>((c0._identifiedView, c1._identifiedView, c2._identifiedView))
+    }
 }
 
 @available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
