@@ -44,6 +44,9 @@ rm -rf "$OUT/module-cache"
 "$SWIFT_TOOLCHAIN/bin/clang" -c -O2 -fobjc-exceptions -fblocks -target arm64-apple-ios16.0 -isysroot "$IOS_SDK" -I "$here/../../../include" \
     "$here/CoreDataBridge/CoreDataBridge.m" -o "$OUT/CoreDataBridge.o"
 
+"$SWIFT_TOOLCHAIN/bin/clang" -c -O2 -fobjc-exceptions -fblocks -target arm64-apple-ios16.0 -isysroot "$IOS_SDK" -I "$here/../../../include" \
+    "$here/FoundationAdditions.m" -o "$OUT/FoundationAdditions.o"
+
 # The runtime of #available, which Apple's clang would link from libclang_rt.ios.a.
 "$SWIFT_TOOLCHAIN/bin/clang" -c -O2 -target arm64-apple-ios16.0 -isysroot "$IOS_SDK" \
 	"$here/../backend/os_version_check.c" -o "$OUT/os_version_check.o"
@@ -53,7 +56,7 @@ rm -rf "$OUT/module-cache"
 "${LD64_LLD:-ld64.lld}" -dylib -arch arm64 -platform_version ios 16.0 16.4 -syslibroot "$IOS_SDK" \
 	-ignore_auto_link -undefined dynamic_lookup \
 	-install_name /System/Library/Frameworks/SwiftUI.framework/SwiftUI \
-	-o "$OUT/SwiftUI.framework/SwiftUI" "$OUT/SwiftUI.o" "$OUT/os_version_check.o" "$OUT/CoreDataBridge.o" \
+	-o "$OUT/SwiftUI.framework/SwiftUI" "$OUT/SwiftUI.o" "$OUT/os_version_check.o" "$OUT/CoreDataBridge.o" "$OUT/FoundationAdditions.o" \
 	-L "$IOS_SDK/usr/lib/swift" -lswiftCore -weak_library "$OBSERVATION_DYLIB" -lswiftCoreFoundation -lswift_Concurrency \
 	-framework Foundation -framework CoreFoundation -framework UIKit -framework CoreGraphics -framework Combine -framework CoreData -lobjc
 echo "Built $OUT/SwiftUI.framework/SwiftUI"
