@@ -1,0 +1,49 @@
+# Bitmap image context baseline and candidate proof
+
+The bounded component preserves the three public function signatures and implements
+offscreen bitmap creation, UIImage snapshots and cleanup.
+It reuses the tested UIGraphics push/pop bridge and CGImage-backed UIImage.
+It does not supply views/windows, drawing helpers or application lifecycle.
+
+Provenance rung 3:
+
+- [Begin with options](https://developer.apple.com/documentation/uikit/uigraphicsbeginimagecontextwithoptions(_:_:_:)): host-byte-order ARGB32; opaque NoneSkipFirst, otherwise PremultipliedFirst; upper-left UIKit coordinates and supplied scale.
+- [Get image](https://developer.apple.com/documentation/uikit/uigraphicsgetimagefromcurrentimagecontext()): current bitmap snapshot, nil for nil/foreign contexts.
+- [End](https://developer.apple.com/documentation/uikit/uigraphicsendimagecontext()): removes the current bitmap context, no action for a foreign current context.
+
+Licensed Chameleon UIGraphics.h/.m at84605ede274bd82b330d72dd6ac41e64eb925fd7
+supplies bitmap creation, CTM and snapshot structure; complete BSD notices retained.
+Its global image stack and its own main-screen scale lookup are excluded. Existing tracked
+CoreGraphics CGBitmapContext/CGContext headers and source supply allocation and CGImage
+snapshots, while thread-local retained frames own context and scale lifetimes.
+
+Scale zero uses `[UIScreen mainScreen].scale`, as documented. Fractional pixel
+sizes are rounded up (ceil), a local rung 6 choice; Apple's exact rounding is not
+observed or claimed. Non-finite or non-positive sizes and scales, unrepresentable
+pixel dimensions and allocation overflow raise NSInvalidArgumentException.
+UIGraphicsEndImageContext does nothing when no image context exists and raises
+NSInternalInconsistencyException when another context was pushed on top.
+
+Authored baseline test bitmap-context.m dynamically looks up the three functions
+against the unchanged d216 UIKit artifact. It must fail missing exports. The same
+executable against a candidate verifies scale2 pixels, exact CTM, opaque/translucent
+formats, partial alpha, nested contexts, foreign context getnil/endno-op, retained
+snapshot bytes after cleanup, nil restoration, scale 0 as the main-screen scale, ceil of fractional pixels and the raise on a foreign current context.
+
+Compile serially only in an owner-granted short shared-lock slot:
+
+```
+python3 tests/build-layout-values.py --source-root <independent-source> --runtime-root <immutable-runtime-libexec/darling> --build-dir <own-output> --linker <native-Darwin-linker> --test-source tests/bitmap-context.m
+```
+
+Exit1 without compiler output may mean lock contention; do not label it source failure.
+Run via immutable non-setuid launcher in an own sanitized prefix, baseline then
+candidate. Commit only after actual compile/guest proof; rebuild clean source before
+artifact handoff. No shared runtime installs or user data are involved.
+
+The existing d216 PNG wrapper supports straightRGBA8/32Big only. These documented
+hostARGB snapshots are currently rejected with nil. The test checks that limitation
+rather than substituting an undocumented bitmap format. Successful canonical authored
+PNG pixel proof remains in image-values.m and its recipe; direct bitmap-snapshot PNG
+normalization/encoding is a separate missing capability. No new encoding transform or
+backend edit is implied by this component.
