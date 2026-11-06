@@ -21,6 +21,53 @@
 
 @implementation NSStringDrawingContext
 
+@synthesize minimumScaleFactor = _minimumScaleFactor;
+@synthesize actualScaleFactor = _actualScaleFactor;
+@synthesize totalBounds = _totalBounds;
+@synthesize baselineOffset = _baselineOffset;
+@synthesize firstBaselineOffset = _firstBaselineOffset;
+@synthesize scaledLineHeight = _scaledLineHeight;
+@synthesize scaledBaselineOffset = _scaledBaselineOffset;
+@synthesize wrapsForTruncationMode = _wrapsForTruncationMode;
+@synthesize wantsBaselineOffset = _wantsBaselineOffset;
+@synthesize wantsScaledLineHeight = _wantsScaledLineHeight;
+@synthesize wantsScaledBaselineOffset = _wantsScaledBaselineOffset;
+@synthesize cachesLayout = _cachesLayout;
+@synthesize maximumNumberOfLines = _maximumNumberOfLines;
+@synthesize wantsNumberOfLineFragments = _wantsNumberOfLineFragments;
+@synthesize activeRenderers = _activeRenderers;
+@synthesize layout = _layout;
+@synthesize numberOfLineFragments = _numberOfLineFragments;
+@synthesize hasTruncatedRanges = _hasTruncatedRanges;
+@synthesize linkTextAttributesProvider = _linkTextAttributesProvider;
+
+- (void)setActualScaleFactor:(CGFloat)scale
+{
+    _actualScaleFactor = scale;
+}
+
+- (void)setTotalBounds:(NSRect)bounds
+{
+    _totalBounds = bounds;
+}
+
+- (instancetype)init
+{
+    self = [super init];
+    if (self != nil) {
+        _actualScaleFactor = 1.0;
+        _totalBounds = NSZeroRect;
+    }
+    return self;
+}
+
+- (void)dealloc
+{
+    [_layout release];
+    [_linkTextAttributesProvider release];
+    [super dealloc];
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];
