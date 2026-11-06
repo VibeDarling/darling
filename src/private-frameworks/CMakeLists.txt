@@ -86,6 +86,7 @@ endif()
 # this is for all the other stubbed frameworks
 if (COMPONENT_gui_stubs)
 	set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "gui_stubs")
+	add_subdirectory(ScreenshotService)
 
 	add_subdirectory(CPAnalytics)
 
