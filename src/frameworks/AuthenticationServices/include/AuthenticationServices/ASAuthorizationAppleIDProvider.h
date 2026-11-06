@@ -19,6 +19,10 @@
 
 #include <Foundation/Foundation.h>
 
+@class ASAuthorizationAppleIDRequest;
+
 @interface ASAuthorizationAppleIDProvider : NSObject
+
+- (ASAuthorizationAppleIDRequest *)createRequest;
 
 @end

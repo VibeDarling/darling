@@ -19,7 +19,28 @@
 
 #import <AuthenticationServices/ASAuthorizationOpenIDRequest.h>
 
+ASAuthorizationOpenIDOperation const ASAuthorizationOperationImplicit = @"implicit";
+ASAuthorizationOpenIDOperation const ASAuthorizationOperationLogin = @"login";
+ASAuthorizationOpenIDOperation const ASAuthorizationOperationRefresh = @"refresh";
+ASAuthorizationOpenIDOperation const ASAuthorizationOperationLogout = @"logout";
+
 @implementation ASAuthorizationOpenIDRequest
+
+- (instancetype)init
+{
+    if ((self = [super init]))
+        _requestedOperation = [ASAuthorizationOperationImplicit copy];
+    return self;
+}
+
+- (void)dealloc
+{
+    [_requestedScopes release];
+    [_state release];
+    [_nonce release];
+    [_requestedOperation release];
+    [super dealloc];
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {

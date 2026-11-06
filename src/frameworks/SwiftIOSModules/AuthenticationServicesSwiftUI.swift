@@ -32,6 +32,7 @@ public struct SignInWithAppleButton: View {
     }
 
     private let label: Label
+    private let onRequest: (ASAuthorizationAppleIDRequest) -> Void
     private let onCompletion: (Result<ASAuthorization, any Error>) -> Void
     @Environment(\.signInWithAppleButtonStyle) private var style
 
@@ -39,11 +40,13 @@ public struct SignInWithAppleButton: View {
                 onRequest: @escaping (ASAuthorizationAppleIDRequest) -> Void,
                 onCompletion: @escaping (Result<ASAuthorization, any Error>) -> Void) {
         self.label = label
+        self.onRequest = onRequest
         self.onCompletion = onCompletion
     }
 
     public var body: some View {
         Button(action: {
+            onRequest(ASAuthorizationAppleIDProvider().createRequest())
             onCompletion(.failure(NSError(domain: ASAuthorizationErrorDomain, code: ASAuthorizationError.Code.notHandled.rawValue)))
         }, label: {
             Text(verbatim: label.title)

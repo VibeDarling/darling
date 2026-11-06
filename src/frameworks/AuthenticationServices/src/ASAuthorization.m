@@ -19,9 +19,9 @@
 
 #import <AuthenticationServices/ASAuthorization.h>
 
-NSErrorDomain const ASAuthorizationErrorDomain = @"ASAuthorizationErrorDomain";
-NSString * const ASAuthorizationScopeFullName = @"ASAuthorizationScopeFullName";
-NSString * const ASAuthorizationScopeEmail = @"ASAuthorizationScopeEmail";
+NSErrorDomain const ASAuthorizationErrorDomain = @"com.apple.AuthenticationServices.AuthorizationError";
+NSString * const ASAuthorizationScopeFullName = @"full_name";
+NSString * const ASAuthorizationScopeEmail = @"email";
 
 @implementation ASAuthorization
 
