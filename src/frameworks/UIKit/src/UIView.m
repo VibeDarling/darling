@@ -16,14 +16,86 @@
 
 #import "UIKitPrivate.h"
 
+/* Cocotron implements -setTag: on NSView but does not declare it. */
+@interface NSView (UIKitSetTag)
+- (void)setTag:(NSInteger)tag;
+@end
+
 @implementation UIView
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
 	self = [super initWithFrame:frame];
-	if (self != nil)
+	if (self != nil) {
 		_uiNeedsLayout = YES;
+		_uiTransform = CGAffineTransformIdentity;
+		/* NSView's -initWithFrame: sets -1; UIKit's default is 0. */
+		[super setTag:0];
+	}
 	return self;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	self = [super initWithCoder:coder];
+	if (self != nil) {
+		_uiNeedsLayout = YES;
+		_uiTransform = CGAffineTransformIdentity;
+	}
+	return self;
+}
+
+- (CGPoint)center
+{
+	CGRect frame = [self frame];
+	return CGPointMake(CGRectGetMidX(frame), CGRectGetMidY(frame));
+}
+
+- (void)setCenter:(CGPoint)center
+{
+	CGSize size = [self frame].size;
+	[self setFrameOrigin:CGPointMake(center.x - size.width / 2, center.y - size.height / 2)];
+}
+
+- (CGAffineTransform)transform
+{
+	return _uiTransform;
+}
+
+- (void)setTransform:(CGAffineTransform)transform
+{
+	_uiTransform = transform;
+}
+
+- (CGFloat)alpha
+{
+	return [self alphaValue];
+}
+
+- (void)setAlpha:(CGFloat)alpha
+{
+	[self setAlphaValue:alpha];
+}
+
+/* The tag lives in NSView's own _tag, which viewWithtag: and nib decoding use. */
+- (NSInteger)tag
+{
+	return [super tag];
+}
+
+- (void)setTag:(NSInteger)tag
+{
+	[super setTag:tag];
+}
+
+- (BOOL)clipsToBounds
+{
+	return _uiClipsToBounds;
+}
+
+- (void)setClipsToBounds:(BOOL)clipsToBounds
+{
+	_uiClipsToBounds = clipsToBounds;
 }
 
 /* UIKit's origin is top-left; AppKit's is bottom-left. */
