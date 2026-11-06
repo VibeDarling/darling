@@ -304,43 +304,43 @@ extension View where Self : Swift.Equatable {
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 extension View {
   public func alert<A>(_ titleKey: LocalizedStringKey, isPresented: Binding<Swift.Bool>, @ViewBuilder actions: () -> A) -> some View where A : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, EmptyView>(base: self, title: Text(titleKey), isPresented: isPresented, shown: true, actions: actions(), message: nil)
   }
   @_disfavoredOverload public func alert<S, A>(_ title: S, isPresented: Binding<Swift.Bool>, @ViewBuilder actions: () -> A) -> some View where S : Swift.StringProtocol, A : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, EmptyView>(base: self, title: Text(verbatim: String(title)), isPresented: isPresented, shown: true, actions: actions(), message: nil)
   }
   public func alert<A>(_ title: Text, isPresented: Binding<Swift.Bool>, @ViewBuilder actions: () -> A) -> some View where A : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, EmptyView>(base: self, title: title, isPresented: isPresented, shown: true, actions: actions(), message: nil)
   }
 }
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 extension View {
   @_disfavoredOverload public func alert<S, A, M>(_ title: S, isPresented: Binding<Swift.Bool>, @ViewBuilder actions: () -> A, @ViewBuilder message: () -> M) -> some View where S : Swift.StringProtocol, A : View, M : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, M>(base: self, title: Text(verbatim: String(title)), isPresented: isPresented, shown: true, actions: actions(), message: message())
   }
   public func alert<A, M>(_ title: Text, isPresented: Binding<Swift.Bool>, @ViewBuilder actions: () -> A, @ViewBuilder message: () -> M) -> some View where A : View, M : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, M>(base: self, title: title, isPresented: isPresented, shown: true, actions: actions(), message: message())
   }
 }
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 extension View {
   public func alert<A, T>(_ titleKey: LocalizedStringKey, isPresented: Binding<Swift.Bool>, presenting data: T?, @ViewBuilder actions: (T) -> A) -> some View where A : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, EmptyView>(base: self, title: Text(titleKey), isPresented: isPresented, shown: data != nil, actions: data.map(actions), message: nil)
   }
   @_disfavoredOverload public func alert<S, A, T>(_ title: S, isPresented: Binding<Swift.Bool>, presenting data: T?, @ViewBuilder actions: (T) -> A) -> some View where S : Swift.StringProtocol, A : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, EmptyView>(base: self, title: Text(verbatim: String(title)), isPresented: isPresented, shown: data != nil, actions: data.map(actions), message: nil)
   }
   public func alert<A, T>(_ title: Text, isPresented: Binding<Swift.Bool>, presenting data: T?, @ViewBuilder actions: (T) -> A) -> some View where A : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, EmptyView>(base: self, title: title, isPresented: isPresented, shown: data != nil, actions: data.map(actions), message: nil)
   }
 }
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 extension View {
   public func alert<E, A>(isPresented: Binding<Swift.Bool>, error: E?, @ViewBuilder actions: () -> A) -> some View where E : Foundation.LocalizedError, A : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, EmptyView>(base: self, title: Text(verbatim: error?.errorDescription ?? ""), isPresented: isPresented, shown: error != nil, actions: actions(), message: nil)
   }
   public func alert<E, A, M>(isPresented: Binding<Swift.Bool>, error: E?, @ViewBuilder actions: (E) -> A, @ViewBuilder message: (E) -> M) -> some View where E : Foundation.LocalizedError, A : View, M : View {
-    _darlingIgnoredModifier(self, "alert")
+    _AlertLayer<Self, A, M>(base: self, title: Text(verbatim: error?.errorDescription ?? ""), isPresented: isPresented, shown: error != nil, actions: error.map(actions), message: error.map(message))
   }
 }
 @available(iOS 15.0, macOS 13.0, *)

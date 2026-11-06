@@ -57,7 +57,8 @@ public struct Button<Label: View>: View {
         if labelInputs.foreground.isEmpty { labelInputs.foreground = [Color.blue.resolve(inputs)] }
         if view.value.role == .destructive { labelInputs.foreground = [Color.red.resolve(inputs)] }
         let label = Label._makeView(view: _GraphValue(value: view.value.label), inputs: labelInputs.child("label"))
-        return makeButton(label: label, action: view.value.action, inputs: inputs)
+        let action = view.value.action, dismiss = inputs.environment._alertDismiss
+        return makeButton(label: label, action: dismiss.map { dismiss in { action(); dismiss() } } ?? action, inputs: inputs)
     }
 }
 extension Button where Label == Text {
@@ -71,55 +72,66 @@ extension Button where Label == Text {
         self.init(role: role, action: action) { Text(titleKey) }
     }
 }
-private struct AlertView<Content: View, Actions: View, Message: View>: View {
-    let content: Content
-    let title: LocalizedStringKey
-    let isPresented: Binding<Bool>
-    let actions: Actions
-    let message: Message
-    typealias Body = Never
-    static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
-        precondition(!view.value.isPresented.wrappedValue,
-                     "SwiftUI: presenting an alert requires interactive presentation support")
-        return Content._makeView(view: _GraphValue(value: view.value.content), inputs: inputs)
+// An alert: while presented, a card is laid over a dimmed presenter, which takes no taps. Any of
+// its buttons ends the presentation; an alert without actions gets OK.
+private struct AlertDismissKey: EnvironmentKey { static let defaultValue: (() -> Void)? = nil }
+extension EnvironmentValues {
+    var _alertDismiss: (() -> Void)? {
+        get { self[AlertDismissKey.self] }
+        set { self[AlertDismissKey.self] = newValue }
     }
 }
-private struct PresentingAlertView<Content: View, Actions: View, Message: View, Data>: View {
-    let content: Content
+struct _AlertLayer<Base: View, Actions: View, Message: View>: View {
+    let base: Base
     let title: Text
     let isPresented: Binding<Bool>
-    let data: Data?
+    let shown: Bool
     let actions: Actions?
     let message: Message?
-    typealias Body = Never
-    static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
-        precondition(!view.value.isPresented.wrappedValue || view.value.data == nil,
-                     "SwiftUI: presenting an alert requires interactive presentation support")
-        return Content._makeView(view: _GraphValue(value: view.value.content), inputs: inputs)
+    var body: some View {
+        ZStack {
+            base
+            if shown && isPresented.wrappedValue {
+                Button(action: {}) {
+                    Color.black.opacity(0.35).frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                VStack(spacing: 14) {
+                    title
+                    if let message { message }
+                    VStack(spacing: 10) {
+                        if let actions, Actions.self != EmptyView.self { actions } else { Button("OK", action: {}) }
+                    }
+                }
+                .padding(20)
+                .frame(width: 270)
+                .background(Color(uiColor: .systemBackground))
+                .environment(\._alertDismiss, { isPresented.wrappedValue = false })
+            }
+        }
     }
 }
 extension View {
     public func alert<A: View, M: View>(_ titleKey: LocalizedStringKey, isPresented: Binding<Bool>,
                                       @ViewBuilder actions: () -> A, @ViewBuilder message: () -> M) -> some View {
-        AlertView(content: self, title: titleKey, isPresented: isPresented, actions: actions(), message: message())
+        _AlertLayer(base: self, title: Text(titleKey), isPresented: isPresented, shown: true, actions: actions(), message: message())
     }
     public func onOpenURL(perform action: @escaping (URL) -> Void) -> some View {
         OpenURLView(content: self, action: action)
     }
     public func alert<A: View, M: View, T>(_ titleKey: LocalizedStringKey, isPresented: Binding<Bool>,
         presenting data: T?, @ViewBuilder actions: (T) -> A, @ViewBuilder message: (T) -> M) -> some View {
-        PresentingAlertView(content: self, title: Text(titleKey), isPresented: isPresented,
-                            data: data, actions: data.map(actions), message: data.map(message))
+        _AlertLayer(base: self, title: Text(titleKey), isPresented: isPresented, shown: data != nil,
+                    actions: data.map(actions), message: data.map(message))
     }
     @_disfavoredOverload public func alert<S: StringProtocol, A: View, M: View, T>(_ title: S, isPresented: Binding<Bool>,
         presenting data: T?, @ViewBuilder actions: (T) -> A, @ViewBuilder message: (T) -> M) -> some View {
-        PresentingAlertView(content: self, title: Text(verbatim: String(title)), isPresented: isPresented,
-                            data: data, actions: data.map(actions), message: data.map(message))
+        _AlertLayer(base: self, title: Text(verbatim: String(title)), isPresented: isPresented, shown: data != nil,
+                    actions: data.map(actions), message: data.map(message))
     }
     public func alert<A: View, M: View, T>(_ title: Text, isPresented: Binding<Bool>,
         presenting data: T?, @ViewBuilder actions: (T) -> A, @ViewBuilder message: (T) -> M) -> some View {
-        PresentingAlertView(content: self, title: title, isPresented: isPresented,
-                            data: data, actions: data.map(actions), message: data.map(message))
+        _AlertLayer(base: self, title: title, isPresented: isPresented, shown: data != nil,
+                    actions: data.map(actions), message: data.map(message))
     }
 }
 
