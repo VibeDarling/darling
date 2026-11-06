@@ -75,6 +75,11 @@ public struct TabView<SelectionValue, Content> : View where SelectionValue : Swi
     self.selection = selection
     self.content = content()
   }
+  @available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+  public init<C>(selection: Binding<SelectionValue>, @TabContentBuilder<SelectionValue> content: () -> C) where Content == TabContentBuilder<SelectionValue>.Content<C>, C : TabContent {
+    self.selection = selection
+    self.content = TabContentBuilder<SelectionValue>.Content(content())
+  }
   public typealias Body = Never
   public static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
     let value = view.value
