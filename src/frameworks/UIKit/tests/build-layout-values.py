@@ -11,6 +11,7 @@ parser.add_argument('--build-dir', required=True, type=Path)
 parser.add_argument('--linker', required=True, type=Path)
 parser.add_argument('--arch', default='arm64', choices=('arm64', 'x86_64'),
                     help='guest architecture to build for; must be one the runtime image provides (the CMake FAT product carries several, this script builds only one)')
+parser.add_argument('--test-source', type=Path)
 args = parser.parse_args()
 target = ('aarch64' if args.arch == 'arm64' else args.arch) + '-apple-darwin20'
 source = args.source_root.resolve()
@@ -28,7 +29,8 @@ for directory in ('basic-headers',
                   'Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include',
                   'framework-include', 'src/external/foundation/include',
                   'src/external/corefoundation/include',
-                  'src/external/cocotron/CoreGraphics/include', 'src/frameworks/UIKit/include'):
+                  'src/external/cocotron/CoreGraphics/include',
+                  'src/external/cocotron/AppKit/include', 'src/frameworks/UIKit/include'):
     compile_flags += ['-I' + str(source / directory)]
 linker = args.linker.resolve()
 if not linker.is_file():
@@ -40,7 +42,9 @@ for path in sorted(runtime.rglob('*')):
         guest = '/' + str(path.relative_to(runtime))
         link_flags += ['-Wl,-dylib_file,' + guest + ':' + str(path)]
 libraries = [runtime / 'System/Library/Frameworks/Foundation.framework/Versions/C/Foundation',
-             runtime / 'usr/lib/libobjc.A.dylib', runtime / 'usr/lib/libSystem.B.dylib']
+             runtime / 'usr/lib/libobjc.A.dylib', runtime / 'usr/lib/libSystem.B.dylib',
+             runtime / 'System/Library/Frameworks/AppKit.framework/Versions/C/AppKit',
+             runtime / 'System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics']
 commands = []
 
 def run(command):
@@ -54,10 +58,14 @@ def run(command):
         print(result.stderr[-6000:])
         raise SystemExit('command failed; see build.log and commands.json')
 
-run(compile_flags + ['-MD', '-MF', output / 'test.d', '-c', component / 'tests/layout-values.m', '-o', output / 'test.o'])
-run(link_flags + ['-o', output / 'layout-values', output / 'test.o'] + libraries)
-run(compile_flags + ['-MD', '-MF', output / 'layout.d', '-c', component / 'src/UICollectionViewCompositionalLayout.m',
-                     '-o', output / 'layout.o'])
+test = args.test_source.resolve() if args.test_source else component / 'tests/layout-values.m'
+run(compile_flags + ['-MD', '-MF', output / 'test.d', '-c', test, '-o', output / 'test.o'])
+run(link_flags + ['-o', output / test.stem, output / 'test.o'] + libraries)
+objects = []
+for implementation in sorted((component / 'src').glob('*.m')):
+    obj = output / (implementation.stem + '.o')
+    run(compile_flags + ['-MD', '-MF', obj.with_suffix('.d'), '-c', implementation, '-o', obj])
+    objects.append(obj)
 run(link_flags + ['-dynamiclib', '-install_name',
                   '/System/iOSSupport/System/Library/Frameworks/UIKit.framework/Versions/A/UIKit',
-                  '-o', output / 'UIKit', output / 'layout.o'] + libraries)
+                  '-o', output / 'UIKit'] + objects + libraries)

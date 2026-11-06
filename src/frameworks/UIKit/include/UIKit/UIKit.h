@@ -30,5 +30,7 @@
 #import <UIKit/UIWindow.h>
 #import <UIKit/UILabel.h>
 #import <UIKit/UICollectionViewCompositionalLayout.h>
+#import <UIKit/UIGeometry.h>
+#import <UIKit/UIGraphicsContext.h>
 
 #endif /* UIKIT_UIKIT_H */
