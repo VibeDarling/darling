@@ -120,3 +120,6 @@ add_framework(Network
 )
 
 reexport(Network libnetwork ${CMAKE_BINARY_DIR}/src/external/libnetwork/libnetwork.dylib)
+# Apple's Network carries its Swift API in the same image, and apps bind it there.
+set_property(TARGET Network APPEND_STRING PROPERTY
+    LINK_FLAGS " -Wl,-reexport_library,${CMAKE_SOURCE_DIR}/src/external/swift/libswiftNetwork.dylib")
