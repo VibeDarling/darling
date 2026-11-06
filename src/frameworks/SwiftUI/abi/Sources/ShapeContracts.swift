@@ -61,10 +61,12 @@ public enum ShapeRole: Hashable { case fill, stroke, separator }
 public protocol Shape: Animatable, View {
     func path(in rect: CGRect) -> Path
     static var role: ShapeRole { get }
+    var layoutDirectionBehavior: LayoutDirectionBehavior { get }
     func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize
 }
 extension Shape {
     public static var role: ShapeRole { .fill }
+    public var layoutDirectionBehavior: LayoutDirectionBehavior { .mirrors }
     public func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize { proposal.replacingUnspecifiedDimensions() }
     public static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
         let shape = _ShapeView(shape: view.value, style: ForegroundStyle())

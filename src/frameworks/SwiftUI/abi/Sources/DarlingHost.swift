@@ -479,7 +479,7 @@ private func measureStack(_ node: RenderNode, _ width: CGFloat, _ height: CGFloa
 // MARK: - Views
 
 /// Draws a shape node's path, filled with its paint.
-@objc(DarlingSwiftUIShapeView) final class ShapeView: UIView {
+@objc(DarlingSwiftUIShapeView) final class DarlingShapeUIView: UIView {
     var shape: RuntimeShape?
     var fillColor: [CGFloat] = [0, 0, 0, 1]
     override func draw(_ rect: CGRect) {
@@ -562,7 +562,7 @@ private func makeView(for kind: String) -> UIView {
     switch kind {
     case "text": return UILabel()
     case "image": return UIImageView()
-    case "shape": return ShapeView()
+    case "shape": return DarlingShapeUIView()
     case "button": return ButtonView()
     case "scroll": return UIScrollView()
     case "platform": return UIView()
@@ -609,7 +609,7 @@ private func reconcile(_ parent: UIView, _ old: UIView?, _ layout: Placed, _ fra
         imageView.image = node.image
         imageView.contentMode = .scaleToFill
     case "shape":
-        let shapeView = view as! ShapeView
+        let shapeView = view as! DarlingShapeUIView
         shapeView.shape = node.shape
         shapeView.fillColor = paint(node) ?? [0, 0, 0, 1]
         shapeView.setNeedsDisplay()
