@@ -133,6 +133,9 @@ NSString *const UITextContentTypeName = @"name";
 NSString *const UITextContentTypeUsername = @"username";
 NSString *const UITextContentTypePassword = @"password";
 NSString *const UITextContentTypeNewPassword = @"new-password";
+NSString *const UITextContentTypeGivenName = @"given-name";
+NSString *const UITextContentTypeFamilyName = @"family-name";
+NSString *const UITextContentTypeAddressCity = @"address-level2";
 
 /* UIFontWidth is a CGFloat; these are iOS's values. */
 const CGFloat UIFontWidthStandard = 0;
