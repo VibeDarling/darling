@@ -30,5 +30,11 @@
 #import <UIKit/UIWindow.h>
 #import <UIKit/UILabel.h>
 #import <UIKit/UICollectionViewCompositionalLayout.h>
+#import <UIKit/UIGeometry.h>
+#import <UIKit/UIGraphicsContext.h>
+#import <UIKit/UIImage.h>
+#import <UIKit/UIGraphicsImageContext.h>
+#import <UIKit/UISceneConfiguration.h>
+#import <UIKit/UIKeyboardNotifications.h>
 
 #endif /* UIKIT_UIKIT_H */
