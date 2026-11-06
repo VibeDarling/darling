@@ -53,3 +53,17 @@ build above), after a normal build:
 ```sh
 llvm-nm -gU <build>/src/frameworks/UIKit/UIKit | rg 'OBJC_CLASS_\$_NSCollectionLayout(Dimension|Size|Spacing|EdgeSpacing)$'
 ```
+
+## UIResponder resign and action queries
+
+`UIResponder` gains `canResignFirstResponder` (YES by default) and
+`canPerformAction:withSender:`, which answers YES when the class implements the
+action and otherwise asks `nextResponder` with the sender unchanged. It never
+invokes the action. Adapted from the Chameleon UIResponder (BSD); clean-room
+rung 3, Apple public documentation of `UIResponder`.
+
+`resignFirstResponder` does not consult `canResignFirstResponder`, and there is
+no view-chain `nextResponder`: `UIView` here is an `NSView`, not a `UIResponder`.
+`tests/responder-chain.m` takes the guest path of the built UIKit dylib as its
+only argument and uses authored runtime subclasses for the chain. It has been
+syntax-checked only; it has not been run under Darling.

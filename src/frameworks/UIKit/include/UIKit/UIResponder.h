@@ -25,9 +25,12 @@
 - (UIResponder *)nextResponder;
 
 - (BOOL)canBecomeFirstResponder;
+- (BOOL)canResignFirstResponder;
 - (BOOL)becomeFirstResponder;
 - (BOOL)isFirstResponder;
 - (BOOL)resignFirstResponder;
+
+- (BOOL)canPerformAction:(SEL)action withSender:(id)sender;
 
 @end
 
