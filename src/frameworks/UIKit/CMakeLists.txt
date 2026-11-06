@@ -10,6 +10,10 @@ add_framework(UIKit
     VERSION A
     SOURCES
         src/UICollectionViewCompositionalLayout.m
+        src/UIGeometry.m
+        src/UIGraphicsContext.m
+        src/UIImage.m
+        src/UIGraphicsImageContext.m
         src/UIResponder.m
         src/UIApplication.m
         src/UIScreen.m
@@ -22,7 +26,9 @@ add_framework(UIKit
     DEPENDENCIES
         Foundation
         AppKit
+        CoreFoundation
         CoreGraphics
+        ImageIO
         objc
         system
 )
