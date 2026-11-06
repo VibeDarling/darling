@@ -14,7 +14,7 @@
 
 #import <UIKit/UIView.h>
 
-@class UIViewController;
+@class UIViewController, UIWindowScene;
 
 /*
  * A UIWindow is a UIView so that its view hierarchy is the NSWindow's content
@@ -24,11 +24,18 @@
 @private
 	id _hostWindow;
 	UIViewController *_rootViewController;
+	__weak UIWindowScene *_uiWindowScene;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame;
 
 @property (nonatomic, strong) UIViewController *rootViewController;
+
+/* The scene whose -windows contains this window; nil until set. */
+@property (nonatomic, weak) UIWindowScene *windowScene;
+
+/* YES while the hosting NSWindow is the key window. */
+@property (nonatomic, readonly, getter=isKeyWindow) BOOL keyWindow;
 
 - (void)makeKeyAndVisible;
 - (void)makeKeyWindow;

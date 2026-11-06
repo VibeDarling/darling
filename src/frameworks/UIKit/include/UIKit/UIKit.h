@@ -28,6 +28,7 @@
 #import <UIKit/UIView.h>
 #import <UIKit/UIViewController.h>
 #import <UIKit/UIWindow.h>
+#import <UIKit/UIWindowScene.h>
 #import <UIKit/UILabel.h>
 #import <UIKit/UICollectionViewCompositionalLayout.h>
 

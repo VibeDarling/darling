@@ -12,6 +12,7 @@
 #import <UIKit/UIWindow.h>
 #import <UIKit/UIViewController.h>
 #import <UIKit/UIView.h>
+#import <UIKit/UIWindowScene.h>
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSProcessInfo.h>
 
@@ -46,6 +47,28 @@
 - (void)dealloc
 {
 	[(NSWindow *)_hostWindow setContentView:nil];
+}
+
+- (UIWindowScene *)windowScene
+{
+	return _uiWindowScene;
+}
+
+- (void)setWindowScene:(UIWindowScene *)scene
+{
+	if (_uiWindowScene == scene)
+		return;
+	UIWindowScene *old = _uiWindowScene;
+	if (old != nil)
+		[old->_uiWindows removeObjectIdenticalTo:self];
+	_uiWindowScene = scene;
+	if (scene != nil)
+		[scene->_uiWindows addObject:self];
+}
+
+- (BOOL)isKeyWindow
+{
+	return [(NSWindow *)_hostWindow isKeyWindow];
 }
 
 - (UIViewController *)rootViewController
