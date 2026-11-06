@@ -35,10 +35,13 @@ LINK_EXTRA="-framework UniformTypeIdentifiers -lswiftUniformTypeIdentifiers" \
 LINK_EXTRA="-framework UniformTypeIdentifiers -lswiftUniformTypeIdentifiers -framework SwiftUI -framework CoreTransferable -lswiftPhotosUI" \
     build _PhotosUI_SwiftUI /System/Library/Frameworks/_PhotosUI_SwiftUI.framework/Versions/A/_PhotosUI_SwiftUI \
     "$here/PhotosUISwiftUI.swift"
+LINK_EXTRA="-framework SwiftUI -framework AuthenticationServices" \
+    build _AuthenticationServices_SwiftUI /System/Library/Frameworks/_AuthenticationServices_SwiftUI.framework/Versions/A/_AuthenticationServices_SwiftUI \
+    "$here/AuthenticationServicesSwiftUI.swift"
 
 # Darling's dyld refuses an iOS image in a macOS process, and the SDK's
 # stubs only link for iOS, so mark the results macOS (see foundation/swift).
-python3 - "$OUT/libswiftPhotosUI.dylib" "$OUT/CoreTransferable" "$OUT/_PhotosUI_SwiftUI" <<'PY'
+python3 - "$OUT/libswiftPhotosUI.dylib" "$OUT/CoreTransferable" "$OUT/_PhotosUI_SwiftUI" "$OUT/_AuthenticationServices_SwiftUI" <<'PY'
 import struct, sys
 for path in sys.argv[1:]:
     with open(path, "r+b") as f:

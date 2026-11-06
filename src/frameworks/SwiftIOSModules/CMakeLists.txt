@@ -12,7 +12,7 @@ if(DARLING_IOS_SWIFT_MODULES)
         endif()
     endforeach()
     set(out "${CMAKE_CURRENT_BINARY_DIR}")
-    set(outputs "${out}/CoreTransferable" "${out}/libswiftPhotosUI.dylib" "${out}/_PhotosUI_SwiftUI")
+    set(outputs "${out}/CoreTransferable" "${out}/libswiftPhotosUI.dylib" "${out}/_PhotosUI_SwiftUI" "${out}/_AuthenticationServices_SwiftUI")
     add_custom_command(OUTPUT ${outputs}
         COMMAND ${CMAKE_COMMAND} -E env
             "OUT=${out}"
@@ -23,7 +23,7 @@ if(DARLING_IOS_SWIFT_MODULES)
             "IOS_SDK=${DARLING_FOUNDATION_SWIFT_SDK}"
             "LD_LIBRARY_PATH=${DARLING_SWIFT_HOST_LIBS}"
             bash "${CMAKE_CURRENT_SOURCE_DIR}/build.sh"
-        DEPENDS build.sh CoreTransferable.swift PhotosUI.swift PhotosUISwiftUI.swift
+        DEPENDS build.sh AuthenticationServicesSwiftUI.swift CoreTransferable.swift PhotosUI.swift PhotosUISwiftUI.swift
             "${DARLING_SWIFT_TOOLCHAIN}/bin/swiftc"
         VERBATIM COMMENT "Building source-only iOS Swift modules")
     # UIKit's Swift overlay, from src/frameworks/UIKit/swift, with the same SDK and Swift modules.
@@ -46,8 +46,8 @@ if(DARLING_IOS_SWIFT_MODULES)
     install(PROGRAMS "${uikit_overlay}" DESTINATION libexec/darling/usr/lib/swift RENAME libswiftUIKit.dylib)
 
     include(InstallSymlink)
-    foreach(framework IN ITEMS CoreTransferable _PhotosUI_SwiftUI)
-        if(framework STREQUAL "_PhotosUI_SwiftUI")
+    foreach(framework IN ITEMS CoreTransferable _PhotosUI_SwiftUI _AuthenticationServices_SwiftUI)
+        if(framework MATCHES "_SwiftUI$")
             # Beside SwiftUI, which it extends.
             set(dir "libexec/darling/System/iOSSupport/System/Library/Frameworks/${framework}.framework")
         else()
