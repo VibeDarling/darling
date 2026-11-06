@@ -44,7 +44,7 @@ public struct SignInWithAppleButton: View {
 
     public var body: some View {
         Button(action: {
-            onCompletion(.failure(NSError(domain: "ASAuthorizationErrorDomain", code: 1003)))
+            onCompletion(.failure(NSError(domain: ASAuthorizationErrorDomain, code: ASAuthorizationError.Code.notHandled.rawValue)))
         }, label: {
             Text(verbatim: label.title)
                 .foregroundColor(style.foreground)
