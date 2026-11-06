@@ -37,6 +37,9 @@
 
 @property (nonatomic, strong) UIColor *backgroundColor;
 
+/* NSView's isDescendantOf: under its UIKit name; a view is its own descendant. */
+- (BOOL)isDescendantOfView:(NSView *)view;
+
 - (void)layoutSubviews;
 - (void)setNeedsLayout;
 - (void)layoutIfNeeded;
