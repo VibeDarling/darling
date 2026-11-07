@@ -42,29 +42,6 @@ public struct AccessibilityTraits : Swift.SetAlgebra {
   public typealias Element = AccessibilityTraits
 }
 
-@available(iOS, introduced: 13.0, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
-@available(macOS, introduced: 10.15, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
-@available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
-@available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
-public struct Alert {
-  @usableFromInline internal var _abiTag: Int = 0
-  @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-  public init(title: Text, message: Text? = nil, dismissButton: Alert.Button? = nil) { self.init(_abiTag: 0); _abiInertValue("Alert") }
-  public init(title: Text, message: Text? = nil, primaryButton: Alert.Button, secondaryButton: Alert.Button) { self.init(_abiTag: 0); _abiInertValue("Alert") }
-  @available(iOS, unavailable)
-  @available(tvOS, unavailable)
-  @available(macOS, unavailable)
-  public static func sideBySideButtons(title: Text, message: Text? = nil, primaryButton: Alert.Button, secondaryButton: Alert.Button) -> Alert { _abiUnimplemented("Alert: public static func sideBySideButtons(title: Text, message: Text? = nil, primaryButton: Alert.Button, secondaryButton: Al") }
-  public struct Button {
-    @usableFromInline internal var _abiTag: Int = 0
-    @usableFromInline internal init(_abiTag: Int) { self._abiTag = _abiTag }
-    public static func `default`(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button { _abiUnimplemented("Alert: public static func `default`(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button") }
-    public static func cancel(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button { _abiUnimplemented("Alert: public static func cancel(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button") }
-    public static func cancel(_ action: (() -> Swift.Void)? = {}) -> Alert.Button { _abiUnimplemented("Alert: public static func cancel(_ action: (() -> Swift.Void)? = {}) -> Alert.Button") }
-    public static func destructive(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button { _abiUnimplemented("Alert: public static func destructive(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button") }
-  }
-}
-
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 @frozen public struct _AlignmentWritingModifier : ViewModifier {
   @usableFromInline

@@ -674,13 +674,13 @@ extension View {
   @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "use `alert(title:isPresented:presenting::actions:) instead.")
   @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "use `alert(title:isPresented:presenting::actions:) instead.")
   public func alert<Item>(item: Binding<Item?>, content: (Item) -> Alert) -> some View where Item : Swift.Identifiable {
-    _darlingIgnoredModifier(self, "alert")
+    _alertLayer(isPresented: _itemPresented(item), alert: item.wrappedValue.map(content))
   }
   @available(iOS, introduced: 13.0, deprecated: 100000.0, message: "use `alert(title:isPresented:presenting::actions:) instead.")
   @available(macOS, introduced: 10.15, deprecated: 100000.0, message: "use `alert(title:isPresented:presenting::actions:) instead.")
   @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "use `alert(title:isPresented:presenting::actions:) instead.")
   @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "use `alert(title:isPresented:presenting::actions:) instead.")
   public func alert(isPresented: Binding<Swift.Bool>, content: () -> Alert) -> some View {
-    _darlingIgnoredModifier(self, "alert")
+    _alertLayer(isPresented: isPresented, alert: isPresented.wrappedValue ? content() : nil)
   }
 }

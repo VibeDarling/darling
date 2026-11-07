@@ -110,6 +110,76 @@ struct _AlertLayer<Base: View, Actions: View, Message: View>: View {
         }
     }
 }
+@available(iOS, introduced: 13.0, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
+@available(macOS, introduced: 10.15, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
+@available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
+@available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "use `View.alert(title:isPresented:presenting::actions:) instead.")
+public struct Alert {
+  fileprivate let title: Text
+  fileprivate let message: Text?
+  fileprivate let buttons: [Button]
+  public init(title: Text, message: Text? = nil, dismissButton: Alert.Button? = nil) {
+    self.title = title
+    self.message = message
+    buttons = dismissButton.map { [$0] } ?? []
+  }
+  public init(title: Text, message: Text? = nil, primaryButton: Alert.Button, secondaryButton: Alert.Button) {
+    self.title = title
+    self.message = message
+    // Whichever button cancels goes first, as UIAlertController places it.
+    buttons = primaryButton.role != .cancel && secondaryButton.role == .cancel ? [secondaryButton, primaryButton] : [primaryButton, secondaryButton]
+  }
+  @available(iOS, unavailable)
+  @available(tvOS, unavailable)
+  @available(macOS, unavailable)
+  public static func sideBySideButtons(title: Text, message: Text? = nil, primaryButton: Alert.Button, secondaryButton: Alert.Button) -> Alert {
+    Alert(title: title, message: message, primaryButton: primaryButton, secondaryButton: secondaryButton)
+  }
+  public struct Button {
+    fileprivate let label: Text
+    fileprivate let action: (() -> Swift.Void)?
+    fileprivate let role: ButtonRole?
+    public static func `default`(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button {
+      Alert.Button(label: label, action: action, role: nil)
+    }
+    public static func cancel(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button {
+      Alert.Button(label: label, action: action, role: .cancel)
+    }
+    public static func cancel(_ action: (() -> Swift.Void)? = {}) -> Alert.Button {
+      .cancel(Text(verbatim: "Cancel"), action: action)
+    }
+    public static func destructive(_ label: Text, action: (() -> Swift.Void)? = {}) -> Alert.Button {
+      Alert.Button(label: label, action: action, role: .destructive)
+    }
+  }
+}
+private struct _AlertButton: View {
+  let button: Alert.Button
+  var body: some View {
+    Button(role: button.role, action: { button.action?() }) { button.label }
+  }
+}
+struct _AlertButtons: View {
+  fileprivate let buttons: [Alert.Button]
+  var body: some View {
+    if buttons.count == 2 {
+      HStack(spacing: 20) {
+        _AlertButton(button: buttons[0])
+        _AlertButton(button: buttons[1])
+      }
+    } else if let button = buttons.first {
+      _AlertButton(button: button)
+    }
+  }
+}
+extension View {
+    // alert is nil while nothing is presented: an app's content closure may rely on the state
+    // that presents it, so it runs only then.
+    func _alertLayer(isPresented: Binding<Bool>, alert: Alert?) -> some View {
+        _AlertLayer(base: self, title: alert?.title ?? Text(verbatim: ""), isPresented: isPresented, shown: alert != nil,
+                    actions: alert.flatMap { $0.buttons.isEmpty ? nil : _AlertButtons(buttons: $0.buttons) }, message: alert?.message)
+    }
+}
 extension View {
     public func alert<A: View, M: View>(_ titleKey: LocalizedStringKey, isPresented: Binding<Bool>,
                                       @ViewBuilder actions: () -> A, @ViewBuilder message: () -> M) -> some View {
@@ -196,7 +266,7 @@ struct _PresentedLayer<Base: View, Presented: View>: View {
     }
 }
 
-private func _itemPresented<Item>(_ item: Binding<Item?>) -> Binding<Bool> {
+func _itemPresented<Item>(_ item: Binding<Item?>) -> Binding<Bool> {
     Binding(get: { item.wrappedValue != nil }, set: { if !$0 { item.wrappedValue = nil } })
 }
 
