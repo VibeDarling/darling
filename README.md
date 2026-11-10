@@ -20,16 +20,14 @@
 
 # VibeDarling
 
-VibeDarling is a development fork of [Darling](https://github.com/darlinghq/darling),
-a compatibility layer for running macOS software on Linux without a virtual machine.
-It builds on the work of the Darling project and the open-source components it integrates.
+VibeDarling is an experimental fork of [Darling](https://github.com/darlinghq/darling)
+focused on running unmodified macOS applications on Linux without a virtual machine.
+We test everyday workflows in apps from a range of sources to find gaps in
+Darling's macOS compatibility.
 
-“Vibe” refers to **vibe coding**: AI coding agents are the primary development
-tools used in this fork. VibeDarling provides a home for that development approach,
-with its own testing and review process. Upstream Darling has
-[expressed reservations about AI-generated contributions](https://github.com/darlinghq/darling/pull/1753#issuecomment-4949512178),
-while leaving room to review smaller changes with supporting tests. Contributions
-to this fork are reviewed here; acceptance here does not imply upstream acceptance.
+The name comes from **vibe coding**. AI coding agents are a primary development
+tool in the fork. We use them to investigate app failures, try compatibility
+fixes, and turn our findings into reproducible reports and tests for Darling.
 
 ## Quick links
 
@@ -41,12 +39,17 @@ to this fork are reviewed here; acceptance here does not imply upstream acceptan
 
 ## Project status
 
-The goal of this fork is to run unmodified macOS applications distributed through
-Homebrew casks and exercise their core workflows. Work spans ARM64 and x86_64
-loading, Darwin runtime services, AppKit, Swift interoperability, and graphics.
-Application compatibility is experimental and depends on the app version,
-architecture, frameworks, and runtime build. Installing an app, resolving its
-symbols, or opening a window does not establish that its workflows work.
+Compatibility depends on the app version, architecture, and runtime build.
+We track installation, loading, launch, and completion of a tested workflow
+as separate milestones. Day-to-day development exercises ARM64, and work spans
+ARM64 and x86_64 loading, Darwin runtime services, AppKit, Swift interoperability,
+and graphics.
+
+Darling's [Q4 2026 development update](https://blog.darlinghq.org/2026/11/08/development-update-q4-2026/)
+credits VibeDarling's day-to-day ARM64 testing and describes plans to bring
+work from the forks into mainline. When an upstream fix lands, we aim to rerun
+the original app workflow and retire the overlapping fork patch once that
+workflow passes.
 
 Darling consists of a Mach-O binary loader and a userspace kernel server
 (`darlingserver`) implementing Mach IPC, POSIX, and Darwin syscall interfaces on
@@ -58,22 +61,22 @@ these remain areas of active development.
 
 See [known issues](known-issues.md) for recorded limitations and
 [Darling Applications](tools/darling-applications/README.md) for the application
-viewer and guest Homebrew integration. That integration has additional payload
-and prefix setup requirements; it is not a general-purpose Homebrew installer.
+viewer and guest Homebrew integration, including its payload and prefix setup
+requirements. The viewer runs Brewfiles using a Homebrew payload staged in
+the guest prefix.
 
 ## Getting started
 
 ### Packages
 
-See this fork's [release page](https://github.com/VibeDarling/darling/releases)
-for release notes and any attached packages. Entries may be source-only; if no
-binary package is attached, use the source setup below. Check the architecture
-and version of any package you choose: a release does not necessarily contain
-the latest changes on `master`.
+To try a VibeDarling fix, check which revision contains it and choose a build
+for your architecture. The [VibeDarling releases](https://github.com/VibeDarling/darling/releases)
+page lists tagged versions and any attached packages. Use the source setup
+below for a source-only release or a change available only on `master`.
 
-The original Darling project's [releases](https://github.com/darlinghq/darling/releases)
-and [community packages](https://docs.darlinghq.org/community/packages.html) are
-separate distribution channels. Do not assume they include VibeDarling changes.
+For changes that have landed in mainline, check which revision is included in
+[Darling's releases](https://github.com/darlinghq/darling/releases) or
+[community packages](https://docs.darlinghq.org/community/packages.html).
 
 ### Building from source
 
@@ -117,12 +120,28 @@ Read the [issue collaboration protocol](.claude/ISSUE_COLLABORATION.md) before
 picking up an issue; it describes work claims, app testing, issue linkage, and
 review requirements.
 
-For compatibility reports, include the application version and architecture,
-Linux environment, Darling and submodule revisions, reproduction commands, and
-logs. State whether the app installs, loads, launches, and completes the workflow
-you tested. Keep Homebrew and application binaries unmodified when assessing
-compatibility. The [framework-gap triage guide](docs/framework-gap-tiering.md)
+### Report an app workflow
+
+Include the app name, version, architecture, and where you obtained it.
+For a Homebrew install, include the cask name. Also include the Linux
+environment, VibeDarling and submodule revisions, reproduction steps, and
+relevant logs. State whether the app installs, loads, launches, and completes
+the workflow you tested. Use unmodified app binaries and installers when
+assessing compatibility. The [framework-gap triage guide](docs/framework-gap-tiering.md)
 can help investigate missing-library failures.
+
+### Share findings with upstream Darling
+
+Darling accepts AI-assisted contributions
+under its [clean-room and review policy](https://github.com/darlinghq/darling/blob/master/AGENTS.md).
+VibeDarling has its own [contributor rules](AGENTS.md) for work in the fork.
+
+When a workflow exposes a shared compatibility gap, keep the app reproduction
+and isolate the underlying behavior in a focused test. For an upstream patch,
+implement the API contract at the framework layer where the gap originates,
+document the evidence for any undocumented behavior, and have a human author
+who can explain the change and answer review questions. A reproduction and test
+can help upstream even when the fork's implementation needs further work.
 
 ## License
 
