@@ -22,8 +22,8 @@
 
 VibeDarling is an experimental fork of [Darling](https://github.com/darlinghq/darling)
 focused on running unmodified macOS applications on Linux without a virtual machine.
-We use apps distributed through Homebrew casks to test everyday workflows and find
-gaps in Darling's macOS compatibility.
+We test everyday workflows in apps from a range of sources to find gaps in
+Darling's macOS compatibility.
 
 The name comes from **vibe coding**. AI coding agents are a primary development
 tool in the fork. We use them to investigate app failures, try compatibility
@@ -122,11 +122,12 @@ review requirements.
 
 ### Report an app workflow
 
-Include the cask name, app version and architecture, Linux environment,
-VibeDarling and submodule revisions, reproduction steps, and relevant logs.
-State whether the app installs, loads, launches, and completes the workflow
-you tested. Keep Homebrew and application binaries unmodified when assessing
-compatibility. The [framework-gap triage guide](docs/framework-gap-tiering.md)
+Include the app name, version, architecture, and where you obtained it.
+For a Homebrew install, include the cask name. Also include the Linux
+environment, VibeDarling and submodule revisions, reproduction steps, and
+relevant logs. State whether the app installs, loads, launches, and completes
+the workflow you tested. Use unmodified app binaries and installers when
+assessing compatibility. The [framework-gap triage guide](docs/framework-gap-tiering.md)
 can help investigate missing-library failures.
 
 ### Share findings with upstream Darling
