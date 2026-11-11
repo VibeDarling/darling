@@ -1,0 +1,9 @@
+Stand-ins for the Xcode command-line tools that iOS build scripts call (xcrun, xcodebuild), for
+building iOS code on Linux against Darling's iOS SDK (tools/make-ios-sdk.sh OUT ROOT).
+
+  export DARLING_IOS_SDK=/path/to/iPhoneOS.sdk (tools/make-ios-sdk.sh) PATH=$PWD/tools/ios-sdk-bin:$PATH
+
+xcrun finds the LLVM tools that do Apple's jobs (llvm-ar, llvm-libtool-darwin, ld64.lld, ...) and
+answers SDK queries for iphoneos with DARLING_IOS_SDK. clang and clang++ here are the system clang,
+made to target Darwin when invoked with Apple's -arch flag, as Apple's clang does by default, and
+to link with ld64.lld; without -arch they are the plain host compiler.

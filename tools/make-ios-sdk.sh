@@ -1,5 +1,5 @@
 #!/bin/sh
-# make-ios-sdk.sh OUT: assemble an iPhoneOS-style SDK at OUT/DarlingiOS.sdk from Darling's own headers,
+# make-ios-sdk.sh OUT [ROOT]: assemble an iPhoneOS-style SDK at OUT/iPhoneOS.sdk from Darling's own headers,
 # for compiling iOS apps from source against Darling instead of Apple's SDK.
 #
 # Darling's SDK is a macOS one with the iOS frameworks under System/iOSSupport, like Mac Catalyst.
@@ -8,23 +8,48 @@
 # module map a generated one, so Swift can import it. The macOS SDK is not modified: Darling's macOS
 # Swift overlays rely on some frameworks having no Clang module.
 #
+# With ROOT, Darling's installed tree (.../libexec/darling), the SDK can also link: every library
+# there gets an iOS text stub at its install path (make-ios-tbds.py).
+#
 # Swift also needs the Swift overlays (Foundation, Dispatch, ...) built for an iOS target; this
 # script only provides the headers.
 set -eu
 
-out=${1:?usage: make-ios-sdk.sh OUT}
+out=${1:?usage: make-ios-sdk.sh OUT [ROOT]}
+darling_root=${2:-}
 root=$(cd "$(dirname "$0")/.." && pwd)
 mac="$root/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
-sdk="$out/DarlingiOS.sdk"
+sdk="$out/iPhoneOS.sdk"  # Xcode's name: CMake and clang tell an iOS SDK by it
 frameworks="$sdk/System/Library/Frameworks"
 
 rm -rf "$sdk"
 mkdir -p "$frameworks"
-ln -s "$mac/usr" "$sdk/usr"
+# usr/ and usr/include are directories of links into the macOS SDK, so the C++ headers can be added:
+# Apple's SDKs carry libc++'s at usr/include/c++/v1, where clang looks under a Darwin sysroot. These
+# are the libc++ Darling builds its libc++.1.dylib from.
+mkdir -p "$sdk/usr/include/c++"
+for entry in "$mac"/usr/*; do
+	[ "$(basename "$entry")" = include ] || ln -s "$entry" "$sdk/usr/"
+done
+for entry in "$mac"/usr/include/*; do
+	ln -s "$entry" "$sdk/usr/include/"
+done
+ln -s "$root/src/external/libcxx/include" "$sdk/usr/include/c++/v1"
 ln -s "$mac/Library" "$sdk/Library"
 
+# Darling's Kernel and System frameworks have all of usr/include as their Headers. CMake searches
+# frameworks first and took zlib.h from there, putting the C headers out of order: these two get
+# no Headers here.
+usr_include=$(cd "$mac/usr/include" && pwd -P)
 for framework in "$mac"/System/Library/Frameworks/*.framework; do
-	ln -s "$framework" "$frameworks/"
+	if [ "$(cd "$framework/Headers" 2>/dev/null && pwd -P)" = "$usr_include" ]; then
+		mkdir "$frameworks/$(basename "$framework")"
+		for entry in "$framework"/*; do
+			[ "$(basename "$entry")" = Headers ] || [ "$(basename "$entry")" = Versions ] || ln -s "$entry" "$frameworks/$(basename "$framework")/"
+		done
+	else
+		ln -s "$framework" "$frameworks/"
+	fi
 done
 
 generated=0
@@ -32,6 +57,7 @@ for framework in "$mac"/System/Library/Frameworks/*.framework "$mac"/System/iOSS
 	name=$(basename "$framework" .framework)
 	ios=false
 	case "$framework" in */iOSSupport/*) ios=true ;; esac
+	[ -L "$frameworks/$name.framework" ] || [ "$ios" = true ] || continue  # one of the two above
 	if [ -f "$framework/Modules/module.modulemap" ] && [ "$ios" = false ]; then
 		continue
 	fi
@@ -64,3 +90,6 @@ json.dump(settings, open(sys.argv[2], 'w'), indent=1)
 PY
 
 echo "$sdk: $generated generated module maps"
+if [ -n "$darling_root" ]; then
+	python3 "$root/tools/make-ios-tbds.py" "$darling_root" "$sdk"
+fi
