@@ -1,0 +1,65 @@
+---
+Name: AVFoundation
+Classes:
+- Name: AVCaptureDevice
+  Methods:
+  - Selector: 'defaultDeviceWithMediaType:'
+    MethodKind: Class
+    SwiftName: 'default(for:)'
+  - Selector: 'authorizationStatusForMediaType:'
+    MethodKind: Class
+    SwiftName: 'authorizationStatus(for:)'
+  - Selector: 'requestAccessForMediaType:completionHandler:'
+    MethodKind: Class
+    SwiftName: 'requestAccess(for:completionHandler:)'
+Protocols:
+- Name: AVCaptureMetadataOutputObjectsDelegate
+  Methods:
+  - Selector: 'captureOutput:didOutputMetadataObjects:fromConnection:'
+    MethodKind: Instance
+    SwiftName: 'metadataOutput(_:didOutput:from:)'
+Globals:
+- Name: AVCaptureSessionPreset3840x2160
+  SwiftName: hd4K3840x2160
+- Name: AVCaptureSessionPreset1920x1080
+  SwiftName: hd1920x1080
+- Name: AVCaptureSessionPreset1280x720
+  SwiftName: hd1280x720
+- Name: AVCaptureSessionPreset960x540
+  SwiftName: qHD960x540
+- Name: AVCaptureSessionPreset640x480
+  SwiftName: vga640x480
+- Name: AVCaptureSessionPreset352x288
+  SwiftName: cif352x288
+- Name: AVCaptureSessionPreset320x240
+  SwiftName: qvga320x240
+- Name: AVCaptureSessionPresetiFrame1280x720
+  SwiftName: iFrame1280x720
+- Name: AVCaptureSessionPresetiFrame960x540
+  SwiftName: iFrame960x540
+- Name: AVMetadataObjectTypeUPCECode
+  SwiftName: upce
+- Name: AVMetadataObjectTypeCode39Code
+  SwiftName: code39
+- Name: AVMetadataObjectTypeCode39Mod43Code
+  SwiftName: code39Mod43
+- Name: AVMetadataObjectTypeEAN13Code
+  SwiftName: ean13
+- Name: AVMetadataObjectTypeEAN8Code
+  SwiftName: ean8
+- Name: AVMetadataObjectTypeCode93Code
+  SwiftName: code93
+- Name: AVMetadataObjectTypeCode128Code
+  SwiftName: code128
+- Name: AVMetadataObjectTypePDF417Code
+  SwiftName: pdf417
+- Name: AVMetadataObjectTypeQRCode
+  SwiftName: qr
+- Name: AVMetadataObjectTypeAztecCode
+  SwiftName: aztec
+- Name: AVMetadataObjectTypeInterleaved2of5Code
+  SwiftName: interleaved2of5
+- Name: AVMetadataObjectTypeITF14Code
+  SwiftName: itf14
+- Name: AVMetadataObjectTypeDataMatrixCode
+  SwiftName: dataMatrix

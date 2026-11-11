@@ -18,11 +18,36 @@
 */
 
 #import <AVFoundation/AVCaptureDeviceInput.h>
+#import <AVFoundation/AVCaptureDevice.h>
 
 @implementation AVCaptureDeviceInput
 
+@synthesize device = _device;
+
++ (instancetype)deviceInputWithDevice:(AVCaptureDevice *)device error:(NSError **)outError {
+    return [[[self alloc] initWithDevice:device error:outError] autorelease];
+}
+
+- (instancetype)initWithDevice:(AVCaptureDevice *)device error:(NSError **)outError {
+    if (device == nil) {
+        if (outError)
+            *outError = [NSError errorWithDomain:@"AVFoundationErrorDomain" code:-11814 userInfo:nil];
+        [self release];
+        return nil;
+    }
+    if ((self = [super init]))
+        _device = [device retain];
+    return self;
+}
+
+- (void)dealloc {
+    [_device release];
+    [super dealloc];
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
+    return signature ?: [NSMethodSignature signatureWithObjCTypes: "v@:"];
 }
 
 - (void)forwardInvocation:(NSInvocation *)anInvocation {

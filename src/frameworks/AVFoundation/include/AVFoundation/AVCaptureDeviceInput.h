@@ -17,8 +17,19 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#import <AVFoundation/AVCaptureInput.h>
 
-@interface AVCaptureDeviceInput : NSObject
+@class AVCaptureDevice;
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface AVCaptureDeviceInput : AVCaptureInput
+
++ (nullable instancetype)deviceInputWithDevice:(AVCaptureDevice *)device error:(NSError **)outError;
+- (nullable instancetype)initWithDevice:(AVCaptureDevice *)device error:(NSError **)outError;
+
+@property (nonatomic, readonly) AVCaptureDevice *device;
 
 @end
+
+NS_ASSUME_NONNULL_END

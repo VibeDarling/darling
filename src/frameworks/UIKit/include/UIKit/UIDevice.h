@@ -39,10 +39,12 @@ typedef NS_ENUM(NSInteger, UIDeviceBatteryState) {
 
 extern NSString *const UIDeviceOrientationDidChangeNotification;
 
+NS_ASSUME_NONNULL_BEGIN
+
 /* Darling presents itself as an iPhone running the iOS release its UIKit
  * and WebKit correspond to. */
 @interface UIDevice : NSObject
-+ (UIDevice *)currentDevice;
+@property (class, nonatomic, readonly) UIDevice *currentDevice;
 @property (nonatomic, readonly) NSString *name;
 @property (nonatomic, readonly) NSString *model;
 @property (nonatomic, readonly) NSString *localizedModel;
@@ -55,7 +57,7 @@ extern NSString *const UIDeviceOrientationDidChangeNotification;
 @property (nonatomic, readonly) UIDeviceBatteryState batteryState;
 @property (nonatomic, getter=isBatteryMonitoringEnabled) BOOL batteryMonitoringEnabled;
 @property (nonatomic, getter=isProximityMonitoringEnabled) BOOL proximityMonitoringEnabled;
-@property (nonatomic, readonly) NSUUID *identifierForVendor;
+@property (nonatomic, readonly, nullable) NSUUID *identifierForVendor;
 @property (nonatomic, readonly, getter=isGeneratingDeviceOrientationNotifications) BOOL generatesDeviceOrientationNotifications;
 - (void)beginGeneratingDeviceOrientationNotifications;
 - (void)endGeneratingDeviceOrientationNotifications;
@@ -63,6 +65,8 @@ extern NSString *const UIDeviceOrientationDidChangeNotification;
 /* Removed from iOS in 7; old apps still call it. */
 - (NSString *)uniqueIdentifier;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #define UI_USER_INTERFACE_IDIOM() ([[UIDevice currentDevice] userInterfaceIdiom])
 

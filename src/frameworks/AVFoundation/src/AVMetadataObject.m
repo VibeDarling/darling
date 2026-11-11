@@ -21,8 +21,17 @@
 
 @implementation AVMetadataObject
 
+- (CGRect)bounds {
+    return CGRectMake(0, 0, 0, 0);
+}
+
+- (AVMetadataObjectType)type {
+    return nil;
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
+    return signature ?: [NSMethodSignature signatureWithObjCTypes: "v@:"];
 }
 
 - (void)forwardInvocation:(NSInvocation *)anInvocation {

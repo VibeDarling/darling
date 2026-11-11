@@ -376,6 +376,7 @@
 #import <AVFoundation/AVCaptureOperationDescriptorQueue.h>
 #import <AVFoundation/AVCaptureOutputInternal.h>
 #import <AVFoundation/AVCaptureOutput.h>
+#import <AVFoundation/AVCaptureMetadataOutput.h>
 #import <AVFoundation/AVCaptureScreenInputInternal.h>
 #import <AVFoundation/AVCaptureScreenInput.h>
 #import <AVFoundation/AVCaptureSessionInternal.h>

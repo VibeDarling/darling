@@ -18,15 +18,40 @@
 */
 
 #import <AVFoundation/AVCaptureVideoPreviewLayer.h>
+#import <AVFoundation/AVCaptureSession.h>
 
+// Draws nothing: there are no frames to show.
 @implementation AVCaptureVideoPreviewLayer
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+@synthesize session = _session;
+@synthesize videoGravity = _videoGravity;
+
++ (instancetype)layerWithSession:(AVCaptureSession *)session {
+    return [[[self alloc] initWithSession:session] autorelease];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (instancetype)init {
+    if ((self = [super init]))
+        _videoGravity = [AVLayerVideoGravityResizeAspect copy];
+    return self;
+}
+
+- (instancetype)initWithSession:(AVCaptureSession *)session {
+    if ((self = [self init]))
+        _session = [session retain];
+    return self;
+}
+
+- (void)dealloc {
+    [_session release];
+    [_videoGravity release];
+    [super dealloc];
+}
+
+// A preview connection exists only between a session's video input and the layer, and a
+// session here never has one.
+- (AVCaptureConnection *)connection {
+    return nil;
 }
 
 @end

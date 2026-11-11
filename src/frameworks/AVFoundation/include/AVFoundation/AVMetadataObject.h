@@ -17,8 +17,41 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#import <Foundation/Foundation.h>
+#import <CoreGraphics/CGGeometry.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+typedef NSString * AVMetadataObjectType NS_TYPED_ENUM NS_SWIFT_NAME(AVMetadataObject.ObjectType);
 
 @interface AVMetadataObject : NSObject
 
+@property (readonly) CGRect bounds;
+@property (readonly) AVMetadataObjectType type;
+
 @end
+
+extern AVMetadataObjectType const AVMetadataObjectTypeFace;
+
+extern AVMetadataObjectType const AVMetadataObjectTypeUPCECode;
+extern AVMetadataObjectType const AVMetadataObjectTypeCode39Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeCode39Mod43Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeEAN13Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeEAN8Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeCode93Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeCode128Code;
+extern AVMetadataObjectType const AVMetadataObjectTypePDF417Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeQRCode;
+extern AVMetadataObjectType const AVMetadataObjectTypeAztecCode;
+extern AVMetadataObjectType const AVMetadataObjectTypeInterleaved2of5Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeITF14Code;
+extern AVMetadataObjectType const AVMetadataObjectTypeDataMatrixCode;
+
+@interface AVMetadataMachineReadableCodeObject : AVMetadataObject
+
+@property (readonly) NSArray<NSDictionary *> *corners;
+@property (readonly, nullable) NSString *stringValue;
+
+@end
+
+NS_ASSUME_NONNULL_END

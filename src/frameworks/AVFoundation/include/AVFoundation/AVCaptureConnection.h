@@ -17,8 +17,20 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#import <Foundation/Foundation.h>
+
+typedef NS_ENUM(NSInteger, AVCaptureVideoOrientation) {
+	AVCaptureVideoOrientationPortrait           = 1,
+	AVCaptureVideoOrientationPortraitUpsideDown = 2,
+	AVCaptureVideoOrientationLandscapeRight     = 3,
+	AVCaptureVideoOrientationLandscapeLeft      = 4,
+};
 
 @interface AVCaptureConnection : NSObject
+
+@property (nonatomic, getter=isEnabled) BOOL enabled;
+@property (nonatomic, readonly, getter=isActive) BOOL active;
+@property (nonatomic, readonly, getter=isVideoOrientationSupported) BOOL supportsVideoOrientation;
+@property (nonatomic) AVCaptureVideoOrientation videoOrientation;
 
 @end

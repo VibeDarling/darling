@@ -232,6 +232,8 @@ add_framework(AVFoundation
         src/AVContentKeySession.m
         src/AVMetadataObjectInternal.m
         src/AVMetadataObject.m
+        src/AVMetadataMachineReadableCodeObject.m
+        src/AVCaptureMetadataOutput.m
         src/AVMetadataFaceObjectInternal.m
         src/AVMetadataFaceObject.m
         src/AVDispatchGroup.m
@@ -527,4 +529,5 @@ add_framework(AVFoundation
         system
         objc
         Foundation
+        QuartzCore
 )
