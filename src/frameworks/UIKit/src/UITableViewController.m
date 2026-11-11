@@ -35,7 +35,70 @@
 
 @end
 
+/*
+ * A storyboard table view with static cells: the data source holds its sections, a section its
+ * rows, a row its cell, and the table view controller is connected to it as staticDataSource.
+ * These are what OpenIB writes for one.
+ */
+@interface UITableViewRow : NSObject <NSCoding>
+@property (nonatomic, strong) UITableViewCell *cell;
+@property (nonatomic) CGFloat height;
+@end
+@implementation UITableViewRow
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ((self = [super init])) {
+		_cell = [coder decodeObjectForKey:@"UITableRowCell"];
+		_height = [coder containsValueForKey:@"UITableRowHeight"] ? [coder decodeFloatForKey:@"UITableRowHeight"] : -1;
+	}
+	return self;
+}
+- (void)encodeWithCoder:(NSCoder *)coder { }
+@end
+
+@interface UITableViewSection : NSObject <NSCoding>
+@property (nonatomic, copy) NSString *headerTitle;
+@property (nonatomic, copy) NSString *footerTitle;
+@property (nonatomic, copy) NSArray<UITableViewRow *> *rows;
+@end
+@implementation UITableViewSection
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ((self = [super init])) {
+		_headerTitle = [coder decodeObjectForKey:@"UITableSectionHeaderTitle"];
+		_footerTitle = [coder decodeObjectForKey:@"UITableSectionFooterTitle"];
+		_rows = [coder decodeObjectForKey:@"UITableSectionRows"];
+	}
+	return self;
+}
+- (void)encodeWithCoder:(NSCoder *)coder { }
+@end
+
+/* Not the protocol of the same name: the class a static table's sections are archived in. */
+@interface UITableViewDataSource : NSObject <NSCoding>
+@property (nonatomic, copy) NSArray<UITableViewSection *> *sections;
+@end
+@implementation UITableViewDataSource
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+	if ((self = [super init]))
+		_sections = [coder decodeObjectForKey:@"UITableSections"];
+	return self;
+}
+- (void)encodeWithCoder:(NSCoder *)coder { }
+- (UITableViewSection *)uikitSection:(NSInteger)section
+{
+	return section >= 0 && section < (NSInteger)[_sections count] ? _sections[section] : nil;
+}
+- (UITableViewRow *)uikitRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	NSArray *rows = [[self uikitSection:[indexPath section]] rows];
+	return [indexPath row] >= 0 && [indexPath row] < (NSInteger)[rows count] ? rows[[indexPath row]] : nil;
+}
+@end
+
 @implementation UITableViewController {
+	UITableViewDataSource *_staticDataSource;
 	UITableView *_tableView;
 	UITableViewStyle _style;
 	UIRefreshControl *_refreshControl;
@@ -115,15 +178,58 @@
 	[_tableView setEditing:editing animated:animated];
 }
 
+/* Connected by a storyboard whose table view has static cells; it then provides the table's
+ * sections, rows and cells, which subclasses may still override and call through to. */
+- (id)staticDataSource { return _staticDataSource; }
+- (void)setStaticDataSource:(id)dataSource
+{
+	_staticDataSource = [dataSource isKindOfClass:[UITableViewDataSource class]] ? dataSource : nil;
+}
+
+/* These answer for a static table only, unless a subclass implements them: UITableView asks
+ * for heights, titles and a section count only from an object that responds. */
+- (BOOL)respondsToSelector:(SEL)selector
+{
+	if (_staticDataSource == nil && (selector == @selector(numberOfSectionsInTableView:)
+	                                 || selector == @selector(tableView:heightForRowAtIndexPath:)
+	                                 || selector == @selector(tableView:titleForHeaderInSection:)
+	                                 || selector == @selector(tableView:titleForFooterInSection:)))
+		return class_getMethodImplementation([self class], selector)
+		    != class_getMethodImplementation([UITableViewController class], selector);
+	return [super respondsToSelector:selector];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
+{
+	return _staticDataSource != nil ? (NSInteger)[[_staticDataSource sections] count] : 1;
+}
+
 /* Subclasses provide the rows; these keep one that does not from crashing. */
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-	return 0;
+	return (NSInteger)[[[_staticDataSource uikitSection:section] rows] count];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-	return [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+	UITableViewCell *cell = [[_staticDataSource uikitRowAtIndexPath:indexPath] cell];
+	return cell ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	CGFloat height = [[_staticDataSource uikitRowAtIndexPath:indexPath] height];
+	return height >= 0 ? height : [tableView rowHeight];
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
+{
+	return [[_staticDataSource uikitSection:section] headerTitle];
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
+{
+	return [[_staticDataSource uikitSection:section] footerTitle];
 }
 
 @end

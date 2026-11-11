@@ -793,6 +793,12 @@ NSBundle *UIKitNibBundle(NSCoder *coder)
 
 @end
 
+/* The same, as OpenIB names it. */
+@interface UINibKeyValuePair : UIRuntimeKeyValuePair
+@end
+@implementation UINibKeyValuePair
+@end
+
 #pragma mark - UINib
 
 /* Name~iphone first, then Name; a .nib is a file, or a directory holding

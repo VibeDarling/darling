@@ -16,6 +16,8 @@
  */
 
 #import <UIKit/UITableView.h>
+#import <objc/message.h>
+#import <objc/runtime.h>
 #import <UIKit/UILabel.h>
 #import <UIKit/UIImageView.h>
 #import <UIKit/UIColor.h>
@@ -78,6 +80,26 @@ static const CGFloat UIKitDeleteButtonWidth = 82;
 @end
 
 /* The views nibs archive inside a cell. */
+/* The labels a cell style makes (textLabel, detailTextLabel), as nibs archive them. */
+@interface UITableViewLabel : UILabel
+@end
+@implementation UITableViewLabel
+@end
+
+static char UIKitSelectionSegueKey;
+
+/* A storyboard cell's selection segue (UIStoryboardSegueTemplate), performed when it is selected. */
+@interface UITableViewCell (UIKitSelectionSegue)
+@property (nonatomic, strong) id selectionSegueTemplate;
+@end
+@implementation UITableViewCell (UIKitSelectionSegue)
+- (id)selectionSegueTemplate { return objc_getAssociatedObject(self, &UIKitSelectionSegueKey); }
+- (void)setSelectionSegueTemplate:(id)segueTemplate
+{
+	objc_setAssociatedObject(self, &UIKitSelectionSegueKey, segueTemplate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+@end
+
 @interface UITableViewCellContentView : UIView
 @end
 
@@ -1484,6 +1506,10 @@ retile:;
 	[self selectRowAtIndexPath:path animated:NO scrollPosition:UITableViewScrollPositionNone];
 	if ([delegate respondsToSelector:@selector(tableView:didSelectRowAtIndexPath:)])
 		[delegate tableView:self didSelectRowAtIndexPath:path];
+	UITableViewCell *selected = [self cellForRowAtIndexPath:path];
+	id segueTemplate = [selected selectionSegueTemplate];
+	if ([segueTemplate respondsToSelector:@selector(perform:)])
+		((void (*)(id, SEL, id))objc_msgSend)(segueTemplate, @selector(perform:), selected);
 }
 
 #pragma mark Editing and updates
