@@ -40,8 +40,15 @@ typedef NS_OPTIONS(NSUInteger, UIMenuOptions) {
 	UIMenuOptionsDisplayAsPalette = 1 << 7,
 };
 
-typedef NSString *UIMenuIdentifier;
-typedef NSString *UIActionIdentifier;
+typedef NSString *UIMenuIdentifier NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(UIMenu.Identifier);
+typedef NSString *UIActionIdentifier NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(UIAction.Identifier);
+
+typedef NS_ENUM(NSInteger, UIMenuElementSize) {
+	UIMenuElementSizeSmall = 0,
+	UIMenuElementSizeMedium,
+	UIMenuElementSizeLarge,
+	UIMenuElementSizeAutomatic = -1,
+} NS_SWIFT_NAME(UIMenu.ElementSize);
 
 @interface UIMenuElement : NSObject <NSCopying, NSSecureCoding>
 @property (nonatomic, readonly) NSString *title;
@@ -49,7 +56,7 @@ typedef NSString *UIActionIdentifier;
 @property (nonatomic, readonly) UIImage *image;
 @end
 
-typedef void (^UIActionHandler)(UIAction *action);
+typedef void (^UIActionHandler)(__kindof UIAction * _Nonnull action);
 
 @interface UIAction : UIMenuElement
 + (instancetype)actionWithHandler:(UIActionHandler)handler;
@@ -70,6 +77,7 @@ typedef void (^UIActionHandler)(UIAction *action);
 + (UIMenu *)menuWithTitle:(NSString *)title image:(UIImage *)image identifier:(UIMenuIdentifier)identifier options:(UIMenuOptions)options children:(NSArray<UIMenuElement *> *)children;
 @property (nonatomic, readonly) UIMenuIdentifier identifier;
 @property (nonatomic, readonly) UIMenuOptions options;
+@property (nonatomic) UIMenuElementSize preferredElementSize;
 @property (nonatomic, readonly) NSArray<UIMenuElement *> *children;
 @property (nonatomic, readonly) NSArray<UIMenuElement *> *selectedElements;
 - (UIMenu *)menuByReplacingChildren:(NSArray<UIMenuElement *> *)newChildren;

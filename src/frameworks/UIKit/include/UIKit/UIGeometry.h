@@ -101,6 +101,16 @@ static inline CGVector UIKitCGVectorMake(CGFloat dx, CGFloat dy)
 #define CGVectorMake UIKitCGVectorMake
 #endif
 
+/* Foundation's on macOS; UIKit declares it on iOS. */
+typedef NS_OPTIONS(NSUInteger, NSDirectionalRectEdge) {
+	NSDirectionalRectEdgeNone     = 0,
+	NSDirectionalRectEdgeTop      = 1 << 0,
+	NSDirectionalRectEdgeLeading  = 1 << 1,
+	NSDirectionalRectEdgeBottom   = 1 << 2,
+	NSDirectionalRectEdgeTrailing = 1 << 3,
+	NSDirectionalRectEdgeAll      = NSDirectionalRectEdgeTop | NSDirectionalRectEdgeLeading | NSDirectionalRectEdgeBottom | NSDirectionalRectEdgeTrailing,
+};
+
 typedef NS_ENUM(NSInteger, UIInterfaceOrientation) {
 	UIInterfaceOrientationUnknown = 0,
 	UIInterfaceOrientationPortrait = 1,

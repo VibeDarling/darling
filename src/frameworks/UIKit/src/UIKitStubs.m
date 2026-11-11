@@ -160,11 +160,9 @@ UIKIT_STUB_FORWARDING
 @implementation UITabBarItemAppearance
 UIKIT_STUB_FORWARDING
 @end
-@interface UIImageConfiguration : NSObject @end
 @implementation UIImageConfiguration
 UIKIT_STUB_FORWARDING
 @end
-@interface UIImageSymbolConfiguration : UIImageConfiguration @end
 @implementation UIImageSymbolConfiguration @end
 @interface UIHoverGestureRecognizer : UIGestureRecognizer @end
 @implementation UIHoverGestureRecognizer @end
@@ -172,9 +170,22 @@ UIKIT_STUB_FORWARDING
 @implementation UIPress
 UIKIT_STUB_FORWARDING
 @end
-@interface UIPointerStyle : NSObject @end
 @implementation UIPointerStyle
+- (id)copyWithZone:(NSZone *)zone { return self; }
 UIKIT_STUB_FORWARDING
+@end
+@implementation UITargetedPreview {
+	UIView *_view;
+}
+- (instancetype)initWithView:(UIView *)view
+{
+	if ((self = [super init]))
+		_view = view;
+	return self;
+}
+- (UIView *)view { return _view; }
+- (CGSize)size { return _view.bounds.size; }
+- (id)copyWithZone:(NSZone *)zone { return self; }
 @end
 @interface UIContextualAction : NSObject @end
 @implementation UIContextualAction

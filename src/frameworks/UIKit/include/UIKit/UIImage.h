@@ -37,6 +37,14 @@ typedef NS_ENUM(NSInteger, UIImageResizingMode) {
 	UIImageResizingModeStretch,
 };
 
+NS_SWIFT_NAME(UIImage.Configuration)
+@interface UIImageConfiguration : NSObject
+@end
+
+NS_SWIFT_NAME(UIImage.SymbolConfiguration)
+@interface UIImageSymbolConfiguration : UIImageConfiguration
+@end
+
 @interface UIImage : NSObject
 
 + (UIImage *)imageNamed:(NSString *)name;

@@ -91,6 +91,9 @@
 #import <UIKit/UISearchController.h>
 #import <UIKit/UILocalNotification.h>
 #import <UIKit/UIDiffableDataSource.h>
+#import <UIKit/UIConfigurationState.h>
+#import <UIKit/UITargetedPreview.h>
+#import <UIKit/UIPointerStyle.h>
 
 extern NSString *const UIKeyboardWillShowNotification;
 extern NSString *const UIKeyboardDidShowNotification;

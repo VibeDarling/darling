@@ -4,6 +4,26 @@
 # (presentingViewController -> presenting) on its own; Apple's SDK says so in its own API notes.
 Name: UIKit
 Classes:
+- Name: UIControl
+  Methods:
+  - Selector: 'addTarget:action:forControlEvents:'
+    MethodKind: Instance
+    SwiftName: 'addTarget(_:action:for:)'
+  - Selector: 'removeTarget:action:forControlEvents:'
+    MethodKind: Instance
+    SwiftName: 'removeTarget(_:action:for:)'
+  - Selector: 'sendActionsForControlEvents:'
+    MethodKind: Instance
+    SwiftName: 'sendActions(for:)'
+  - Selector: 'addAction:forControlEvents:'
+    MethodKind: Instance
+    SwiftName: 'addAction(_:for:)'
+  - Selector: 'removeAction:forControlEvents:'
+    MethodKind: Instance
+    SwiftName: 'removeAction(_:for:)'
+  - Selector: 'removeActionForIdentifier:forControlEvents:'
+    MethodKind: Instance
+    SwiftName: 'removeAction(identifiedBy:for:)'
 - Name: UIViewController
   Properties:
   - Name: presentedViewController

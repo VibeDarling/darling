@@ -258,6 +258,12 @@ typedef NS_ENUM(NSInteger, UISemanticContentAttribute) {
  * -resignFirstResponder called by the app make the view the window's first
  * responder, or give that up, when -canBecomeFirstResponder allows it (NO by
  * default, as on iOS). See UITextInput.h for views that take typing. */
+/* UIKit's type for NSView's -autoresizingMask and -setAutoresizingMask:, which implement it
+ * (see UIViewAutoresizing). A category, so nothing is synthesized over them. */
+@interface UIView (UIViewAutoresizing)
+@property (nonatomic) UIViewAutoresizing autoresizingMask;
+@end
+
 @interface UIView (UIKitFirstResponder) <UIResponderStandardEditActions>
 @property (nonatomic, readonly) BOOL canBecomeFirstResponder;
 @property (nonatomic, readonly) BOOL isFirstResponder;
