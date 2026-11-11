@@ -371,3 +371,23 @@ CGContextRef UIGraphicsGetCurrentContext(void)
 - (void)encodeWithCoder:(NSCoder *)coder { }
 
 @end
+
+@implementation CIImage (UIKitAdditions)
+
+- (instancetype)initWithImage:(UIImage *)image
+{
+	return [self initWithImage:image options:nil];
+}
+
+/* The options (color space, orientation) have nothing to act on: Darling's CIImage holds a
+ * CGImage and nothing else. */
+- (instancetype)initWithImage:(UIImage *)image options:(NSDictionary *)options
+{
+	(void)options;
+	CGImageRef cgImage = image.CGImage;
+	if (cgImage == NULL)
+		return nil;
+	return [self initWithCGImage:cgImage];
+}
+
+@end

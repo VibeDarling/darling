@@ -18,6 +18,7 @@
 #import <CoreGraphics/CGImage.h>
 
 #import <CoreGraphics/CGContext.h>
+#import <CoreImage/CoreImage.h>
 #import <UIKit/UIGeometry.h>
 
 @class NSData, NSBundle;
@@ -73,6 +74,11 @@ typedef NS_ENUM(NSInteger, UIImageResizingMode) {
 - (void)drawAtPoint:(CGPoint)point;
 - (void)drawAtPoint:(CGPoint)point blendMode:(CGBlendMode)blendMode alpha:(CGFloat)alpha;
 
+@end
+
+@interface CIImage (UIKitAdditions)
+- (nullable instancetype)initWithImage:(UIImage *)image;
+- (nullable instancetype)initWithImage:(UIImage *)image options:(nullable NSDictionary *)options;
 @end
 
 #ifdef __cplusplus

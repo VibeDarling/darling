@@ -74,6 +74,7 @@ add_framework(UIKit
         Foundation
         AppKit
         CoreGraphics
+        CoreImage
         ImageIO
         QuartzCore
         DarlingBoard
