@@ -78,9 +78,11 @@ typedef NS_ENUM(NSInteger, UITableViewCellSeparatorStyle) {
 extern NSString *const UITableViewIndexSearch;
 extern const CGFloat UITableViewAutomaticDimension;
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface NSIndexPath (UITableView)
-+ (NSIndexPath *)indexPathForRow:(NSInteger)row inSection:(NSInteger)section;
-+ (NSIndexPath *)indexPathForItem:(NSInteger)item inSection:(NSInteger)section;
++ (instancetype)indexPathForRow:(NSInteger)row inSection:(NSInteger)section;
++ (instancetype)indexPathForItem:(NSInteger)item inSection:(NSInteger)section;
 @property (nonatomic, readonly) NSInteger section;
 @property (nonatomic, readonly) NSInteger row;
 @property (nonatomic, readonly) NSInteger item;
@@ -92,12 +94,14 @@ extern const CGFloat UITableViewAutomaticDimension;
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
 @optional
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView;
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section;
-- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section;
+- (nullable NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section;
+- (nullable NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section;
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath;
-- (NSArray *)sectionIndexTitlesForTableView:(UITableView *)tableView;
+- (nullable NSArray<NSString *> *)sectionIndexTitlesForTableView:(UITableView *)tableView;
 - (NSInteger)tableView:(UITableView *)tableView sectionForSectionIndexTitle:(NSString *)title atIndex:(NSInteger)index;
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath;
+- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath;
+- (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)sourceIndexPath toIndexPath:(NSIndexPath *)destinationIndexPath;
 @end
 
 @protocol UITableViewDelegate <UIScrollViewDelegate>
@@ -105,57 +109,60 @@ extern const CGFloat UITableViewAutomaticDimension;
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath;
 - (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section;
 - (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section;
-- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section;
-- (UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section;
+- (nullable UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section;
+- (nullable UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section;
 - (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath;
-- (NSIndexPath *)tableView:(UITableView *)tableView willSelectRowAtIndexPath:(NSIndexPath *)indexPath;
+- (nullable NSIndexPath *)tableView:(UITableView *)tableView willSelectRowAtIndexPath:(NSIndexPath *)indexPath;
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath;
-- (NSIndexPath *)tableView:(UITableView *)tableView willDeselectRowAtIndexPath:(NSIndexPath *)indexPath;
+- (nullable NSIndexPath *)tableView:(UITableView *)tableView willDeselectRowAtIndexPath:(NSIndexPath *)indexPath;
 - (void)tableView:(UITableView *)tableView didDeselectRowAtIndexPath:(NSIndexPath *)indexPath;
 - (void)tableView:(UITableView *)tableView accessoryButtonTappedForRowWithIndexPath:(NSIndexPath *)indexPath;
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath;
-- (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath;
+- (nullable NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath;
 - (NSInteger)tableView:(UITableView *)tableView indentationLevelForRowAtIndexPath:(NSIndexPath *)indexPath;
 - (BOOL)tableView:(UITableView *)tableView shouldHighlightRowAtIndexPath:(NSIndexPath *)indexPath;
+- (BOOL)tableView:(UITableView *)tableView shouldShowMenuForRowAtIndexPath:(NSIndexPath *)indexPath;
+- (BOOL)tableView:(UITableView *)tableView canPerformAction:(SEL)action forRowAtIndexPath:(NSIndexPath *)indexPath withSender:(nullable id)sender;
+- (void)tableView:(UITableView *)tableView performAction:(SEL)action forRowAtIndexPath:(NSIndexPath *)indexPath withSender:(nullable id)sender;
 @end
 
 @interface UITableView : UIScrollView
 - (instancetype)initWithFrame:(CGRect)frame style:(UITableViewStyle)style;
 @property (nonatomic, readonly) UITableViewStyle style;
-@property (nonatomic, weak) id<UITableViewDataSource> dataSource;
-@property (nonatomic, weak) id<UITableViewDelegate> delegate;
+@property (nullable, nonatomic, weak) id<UITableViewDataSource> dataSource;
+@property (nullable, nonatomic, weak) id<UITableViewDelegate> delegate;
 @property (nonatomic) CGFloat rowHeight;
 @property (nonatomic) CGFloat estimatedRowHeight;
 @property (nonatomic) CGFloat sectionHeaderHeight;
 @property (nonatomic) CGFloat sectionFooterHeight;
 @property (nonatomic) UITableViewCellSeparatorStyle separatorStyle;
-@property (nonatomic, strong) UIColor *separatorColor;
+@property (nullable, nonatomic, strong) UIColor *separatorColor;
 @property (nonatomic) UIEdgeInsets separatorInset;
-@property (nonatomic, strong) UIView *tableHeaderView;
-@property (nonatomic, strong) UIView *tableFooterView;
-@property (nonatomic, strong) UIView *backgroundView;
+@property (nullable, nonatomic, strong) UIView *tableHeaderView;
+@property (nullable, nonatomic, strong) UIView *tableFooterView;
+@property (nullable, nonatomic, strong) UIView *backgroundView;
 @property (nonatomic) BOOL allowsSelection;
 @property (nonatomic) BOOL allowsSelectionDuringEditing;
 @property (nonatomic) BOOL allowsMultipleSelection;
 @property (nonatomic, getter=isEditing) BOOL editing;
 @property (nonatomic) NSInteger sectionIndexMinimumDisplayRowCount;
-@property (nonatomic, strong) UIColor *sectionIndexColor;
-@property (nonatomic, strong) UIColor *sectionIndexBackgroundColor;
+@property (nullable, nonatomic, strong) UIColor *sectionIndexColor;
+@property (nullable, nonatomic, strong) UIColor *sectionIndexBackgroundColor;
 - (void)setEditing:(BOOL)editing animated:(BOOL)animated;
 - (void)reloadData;
 - (void)reloadSectionIndexTitles;
-- (NSInteger)numberOfSections;
+@property (nonatomic, readonly) NSInteger numberOfSections;
 - (NSInteger)numberOfRowsInSection:(NSInteger)section;
 - (CGRect)rectForSection:(NSInteger)section;
 - (CGRect)rectForHeaderInSection:(NSInteger)section;
 - (CGRect)rectForFooterInSection:(NSInteger)section;
 - (CGRect)rectForRowAtIndexPath:(NSIndexPath *)indexPath;
-- (NSIndexPath *)indexPathForRowAtPoint:(CGPoint)point;
-- (NSIndexPath *)indexPathForCell:(UITableViewCell *)cell;
-- (NSArray *)indexPathsForRowsInRect:(CGRect)rect;
-- (UITableViewCell *)cellForRowAtIndexPath:(NSIndexPath *)indexPath;
-- (NSArray *)visibleCells;
-- (NSArray *)indexPathsForVisibleRows;
+- (nullable NSIndexPath *)indexPathForRowAtPoint:(CGPoint)point;
+- (nullable NSIndexPath *)indexPathForCell:(UITableViewCell *)cell;
+- (nullable NSArray<NSIndexPath *> *)indexPathsForRowsInRect:(CGRect)rect;
+- (nullable __kindof UITableViewCell *)cellForRowAtIndexPath:(NSIndexPath *)indexPath;
+@property (nonatomic, readonly) NSArray<__kindof UITableViewCell *> *visibleCells;
+@property (nonatomic, readonly, nullable) NSArray<NSIndexPath *> *indexPathsForVisibleRows;
 - (void)scrollToRowAtIndexPath:(NSIndexPath *)indexPath atScrollPosition:(UITableViewScrollPosition)scrollPosition animated:(BOOL)animated;
 - (void)scrollToNearestSelectedRowAtScrollPosition:(UITableViewScrollPosition)scrollPosition animated:(BOOL)animated;
 - (void)beginUpdates;
@@ -163,33 +170,33 @@ extern const CGFloat UITableViewAutomaticDimension;
 - (void)insertSections:(NSIndexSet *)sections withRowAnimation:(UITableViewRowAnimation)animation;
 - (void)deleteSections:(NSIndexSet *)sections withRowAnimation:(UITableViewRowAnimation)animation;
 - (void)reloadSections:(NSIndexSet *)sections withRowAnimation:(UITableViewRowAnimation)animation;
-- (void)insertRowsAtIndexPaths:(NSArray *)indexPaths withRowAnimation:(UITableViewRowAnimation)animation;
-- (void)deleteRowsAtIndexPaths:(NSArray *)indexPaths withRowAnimation:(UITableViewRowAnimation)animation;
-- (void)reloadRowsAtIndexPaths:(NSArray *)indexPaths withRowAnimation:(UITableViewRowAnimation)animation;
-- (NSIndexPath *)indexPathForSelectedRow;
-- (NSArray *)indexPathsForSelectedRows;
-- (void)selectRowAtIndexPath:(NSIndexPath *)indexPath animated:(BOOL)animated scrollPosition:(UITableViewScrollPosition)scrollPosition;
+- (void)insertRowsAtIndexPaths:(NSArray<NSIndexPath *> *)indexPaths withRowAnimation:(UITableViewRowAnimation)animation;
+- (void)deleteRowsAtIndexPaths:(NSArray<NSIndexPath *> *)indexPaths withRowAnimation:(UITableViewRowAnimation)animation;
+- (void)reloadRowsAtIndexPaths:(NSArray<NSIndexPath *> *)indexPaths withRowAnimation:(UITableViewRowAnimation)animation;
+@property (nonatomic, readonly, nullable) NSIndexPath *indexPathForSelectedRow;
+@property (nonatomic, readonly, nullable) NSArray<NSIndexPath *> *indexPathsForSelectedRows;
+- (void)selectRowAtIndexPath:(nullable NSIndexPath *)indexPath animated:(BOOL)animated scrollPosition:(UITableViewScrollPosition)scrollPosition;
 - (void)deselectRowAtIndexPath:(NSIndexPath *)indexPath animated:(BOOL)animated;
-- (UITableViewCell *)dequeueReusableCellWithIdentifier:(NSString *)identifier;
-- (UITableViewCell *)dequeueReusableCellWithIdentifier:(NSString *)identifier forIndexPath:(NSIndexPath *)indexPath;
-- (void)registerClass:(Class)cellClass forCellReuseIdentifier:(NSString *)identifier;
+- (nullable __kindof UITableViewCell *)dequeueReusableCellWithIdentifier:(NSString *)identifier;
+- (__kindof UITableViewCell *)dequeueReusableCellWithIdentifier:(NSString *)identifier forIndexPath:(NSIndexPath *)indexPath;
+- (void)registerClass:(nullable Class)cellClass forCellReuseIdentifier:(NSString *)identifier;
 @end
 
 @interface UITableViewCell : UIView
-- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier;
-- (instancetype)initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier;
-@property (nonatomic, readonly, copy) NSString *reuseIdentifier;
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(nullable NSString *)reuseIdentifier;
+- (instancetype)initWithFrame:(CGRect)frame reuseIdentifier:(nullable NSString *)reuseIdentifier;
+@property (nullable, nonatomic, readonly, copy) NSString *reuseIdentifier;
 @property (nonatomic, readonly) UIView *contentView;
-@property (nonatomic, readonly) UILabel *textLabel;
-@property (nonatomic, readonly) UILabel *detailTextLabel;
-@property (nonatomic, readonly) UIImageView *imageView;
-@property (nonatomic, strong) UIView *backgroundView;
-@property (nonatomic, strong) UIView *selectedBackgroundView;
+@property (nullable, nonatomic, readonly) UILabel *textLabel;
+@property (nullable, nonatomic, readonly) UILabel *detailTextLabel;
+@property (nullable, nonatomic, readonly) UIImageView *imageView;
+@property (nullable, nonatomic, strong) UIView *backgroundView;
+@property (nullable, nonatomic, strong) UIView *selectedBackgroundView;
 @property (nonatomic) UITableViewCellSelectionStyle selectionStyle;
 @property (nonatomic) UITableViewCellAccessoryType accessoryType;
-@property (nonatomic, strong) UIView *accessoryView;
+@property (nullable, nonatomic, strong) UIView *accessoryView;
 @property (nonatomic) UITableViewCellAccessoryType editingAccessoryType;
-@property (nonatomic, strong) UIView *editingAccessoryView;
+@property (nullable, nonatomic, strong) UIView *editingAccessoryView;
 @property (nonatomic) NSInteger indentationLevel;
 @property (nonatomic) CGFloat indentationWidth;
 @property (nonatomic) BOOL showsReorderControl;
@@ -203,15 +210,17 @@ extern const CGFloat UITableViewAutomaticDimension;
 - (void)setEditing:(BOOL)editing animated:(BOOL)animated;
 - (void)prepareForReuse;
 /* The iPhone OS 2 API, still used by older apps. */
-@property (nonatomic, copy) NSString *text;
-@property (nonatomic, strong) UIFont *font;
-@property (nonatomic, strong) UIColor *textColor;
-@property (nonatomic, strong) UIColor *selectedTextColor;
-@property (nonatomic, strong) UIImage *image;
+@property (nullable, nonatomic, copy) NSString *text;
+@property (nullable, nonatomic, strong) UIFont *font;
+@property (nullable, nonatomic, strong) UIColor *textColor;
+@property (nullable, nonatomic, strong) UIColor *selectedTextColor;
+@property (nullable, nonatomic, strong) UIImage *image;
 @property (nonatomic) NSTextAlignment textAlignment;
 /* Private UIKit API that subclasses override and call through. */
 - (void)_updateHighlightColorsForView:(id)view highlighted:(BOOL)highlighted;
 - (float)selectionPercent;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UITABLEVIEW_H */

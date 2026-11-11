@@ -16,19 +16,34 @@
 
 @class UIResponder;
 
-@interface UIResponder : NSObject {
+NS_ASSUME_NONNULL_BEGIN
+
+/* The edit menu's actions; a responder implements those it supports. */
+@protocol UIResponderStandardEditActions <NSObject>
+@optional
+- (void)cut:(nullable id)sender;
+- (void)copy:(nullable id)sender;
+- (void)paste:(nullable id)sender;
+- (void)select:(nullable id)sender;
+- (void)selectAll:(nullable id)sender;
+- (void)delete:(nullable id)sender;
+@end
+
+@interface UIResponder : NSObject <UIResponderStandardEditActions> {
 @private
 	UIResponder *_nextResponder;
 	BOOL _firstResponder;
 }
 
-- (UIResponder *)nextResponder;
+@property (nonatomic, readonly, nullable) UIResponder *nextResponder;
 
-- (BOOL)canBecomeFirstResponder;
+@property (nonatomic, readonly) BOOL canBecomeFirstResponder;
 - (BOOL)becomeFirstResponder;
-- (BOOL)isFirstResponder;
+@property (nonatomic, readonly) BOOL isFirstResponder;
 - (BOOL)resignFirstResponder;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UIRESPONDER_H */

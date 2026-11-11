@@ -17,11 +17,22 @@
 @class UIApplication, UIWindow, UISceneSession, UISceneConnectionOptions, UISceneConfiguration, UILocalNotification;
 #import <Foundation/Foundation.h>
 
+typedef NSString *UIApplicationLaunchOptionsKey NS_TYPED_ENUM;
+typedef NSString *UIApplicationOpenURLOptionsKey NS_TYPED_ENUM;
+
+extern UIApplicationLaunchOptionsKey const UIApplicationLaunchOptionsURLKey;
+extern UIApplicationLaunchOptionsKey const UIApplicationLaunchOptionsSourceApplicationKey;
+extern UIApplicationLaunchOptionsKey const UIApplicationLaunchOptionsAnnotationKey;
+extern UIApplicationLaunchOptionsKey const UIApplicationLaunchOptionsRemoteNotificationKey;
+extern UIApplicationOpenURLOptionsKey const UIApplicationOpenURLOptionsSourceApplicationKey;
+extern UIApplicationOpenURLOptionsKey const UIApplicationOpenURLOptionsAnnotationKey;
+
 @protocol UIApplicationDelegate <NSObject>
 
 @optional
-- (BOOL)application:(UIApplication *)application willFinishLaunchingWithOptions:(NSDictionary *)launchOptions;
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions;
+- (BOOL)application:(UIApplication *)application willFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id> * _Nullable)launchOptions;
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id> * _Nullable)launchOptions;
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options;
 - (void)applicationDidFinishLaunching:(UIApplication *)application;
 - (void)applicationDidReceiveMemoryWarning:(UIApplication *)application;
 - (void)applicationDidBecomeActive:(UIApplication *)application;

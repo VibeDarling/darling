@@ -384,6 +384,23 @@ NSString *const UIMenuControllerMenuFrameDidChangeNotification = @"UIMenuControl
 - (CGRect)menuFrame { return _targetRect; }
 - (void)update { }
 
+/* iOS 13's spellings of setTargetRect:inView: with setMenuVisible:animated:. */
+- (void)showMenuFromView:(UIView *)targetView rect:(CGRect)targetRect
+{
+	[self setTargetRect:targetRect inView:targetView];
+	[self setMenuVisible:YES animated:YES];
+}
+
+- (void)hideMenuFromView:(UIView *)targetView
+{
+	[self setMenuVisible:NO animated:YES];
+}
+
+- (void)hideMenu
+{
+	[self setMenuVisible:NO animated:YES];
+}
+
 - (void)setTargetRect:(CGRect)rect inView:(UIView *)view
 {
 	_targetRect = rect;

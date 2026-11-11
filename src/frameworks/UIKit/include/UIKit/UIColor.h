@@ -18,6 +18,8 @@
 
 @class NSBundle, NSString;
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface UIColor : NSObject {
 @private
 	CGFloat _red, _green, _blue, _alpha;
@@ -26,12 +28,12 @@
 + (UIColor *)colorWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha;
 + (UIColor *)colorWithWhite:(CGFloat)white alpha:(CGFloat)alpha;
 
-+ (UIColor *)blackColor;
-+ (UIColor *)whiteColor;
-+ (UIColor *)clearColor;
-+ (UIColor *)redColor;
-+ (UIColor *)greenColor;
-+ (UIColor *)blueColor;
+@property (class, nonatomic, readonly) UIColor *blackColor;
+@property (class, nonatomic, readonly) UIColor *whiteColor;
+@property (class, nonatomic, readonly) UIColor *clearColor;
+@property (class, nonatomic, readonly) UIColor *redColor;
+@property (class, nonatomic, readonly) UIColor *greenColor;
+@property (class, nonatomic, readonly) UIColor *blueColor;
 
 - (UIColor *)colorWithAlphaComponent:(CGFloat)alpha;
 
@@ -45,61 +47,63 @@
 + (UIColor *)colorWithPatternImage:(id)image;
 - (instancetype)initWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha;
 - (instancetype)initWithWhite:(CGFloat)white alpha:(CGFloat)alpha;
-+ (UIColor *)darkGrayColor;
-+ (UIColor *)lightGrayColor;
-+ (UIColor *)grayColor;
-+ (UIColor *)cyanColor;
-+ (UIColor *)yellowColor;
-+ (UIColor *)magentaColor;
-+ (UIColor *)orangeColor;
-+ (UIColor *)purpleColor;
-+ (UIColor *)brownColor;
-+ (UIColor *)groupTableViewBackgroundColor;
-+ (UIColor *)systemBlueColor;
-+ (UIColor *)labelColor;
-+ (UIColor *)secondaryLabelColor;
-+ (UIColor *)tertiaryLabelColor;
-+ (UIColor *)quaternaryLabelColor;
-+ (UIColor *)placeholderTextColor;
-+ (UIColor *)linkColor;
-+ (UIColor *)separatorColor;
-+ (UIColor *)opaqueSeparatorColor;
-+ (UIColor *)systemBackgroundColor;
-+ (UIColor *)secondarySystemBackgroundColor;
-+ (UIColor *)tertiarySystemBackgroundColor;
-+ (UIColor *)systemGroupedBackgroundColor;
-+ (UIColor *)secondarySystemGroupedBackgroundColor;
-+ (UIColor *)tertiarySystemGroupedBackgroundColor;
-+ (UIColor *)systemFillColor;
-+ (UIColor *)secondarySystemFillColor;
-+ (UIColor *)tertiarySystemFillColor;
-+ (UIColor *)quaternarySystemFillColor;
-+ (UIColor *)systemRedColor;
-+ (UIColor *)systemGreenColor;
-+ (UIColor *)systemOrangeColor;
-+ (UIColor *)systemYellowColor;
-+ (UIColor *)systemPinkColor;
-+ (UIColor *)systemPurpleColor;
-+ (UIColor *)systemTealColor;
-+ (UIColor *)systemIndigoColor;
-+ (UIColor *)systemGrayColor;
-+ (UIColor *)systemGray2Color;
-+ (UIColor *)systemGray3Color;
-+ (UIColor *)systemGray4Color;
-+ (UIColor *)systemGray5Color;
-+ (UIColor *)systemGray6Color;
-+ (UIColor *)colorNamed:(NSString *)name;
-+ (UIColor *)colorNamed:(NSString *)name inBundle:(NSBundle *)bundle compatibleWithTraitCollection:(id)traitCollection;
+@property (class, nonatomic, readonly) UIColor *darkGrayColor;
+@property (class, nonatomic, readonly) UIColor *lightGrayColor;
+@property (class, nonatomic, readonly) UIColor *grayColor;
+@property (class, nonatomic, readonly) UIColor *cyanColor;
+@property (class, nonatomic, readonly) UIColor *yellowColor;
+@property (class, nonatomic, readonly) UIColor *magentaColor;
+@property (class, nonatomic, readonly) UIColor *orangeColor;
+@property (class, nonatomic, readonly) UIColor *purpleColor;
+@property (class, nonatomic, readonly) UIColor *brownColor;
+@property (class, nonatomic, readonly) UIColor *groupTableViewBackgroundColor;
+@property (class, nonatomic, readonly) UIColor *systemBlueColor;
+@property (class, nonatomic, readonly) UIColor *labelColor;
+@property (class, nonatomic, readonly) UIColor *secondaryLabelColor;
+@property (class, nonatomic, readonly) UIColor *tertiaryLabelColor;
+@property (class, nonatomic, readonly) UIColor *quaternaryLabelColor;
+@property (class, nonatomic, readonly) UIColor *placeholderTextColor;
+@property (class, nonatomic, readonly) UIColor *linkColor;
+@property (class, nonatomic, readonly) UIColor *separatorColor;
+@property (class, nonatomic, readonly) UIColor *opaqueSeparatorColor;
+@property (class, nonatomic, readonly) UIColor *systemBackgroundColor;
+@property (class, nonatomic, readonly) UIColor *secondarySystemBackgroundColor;
+@property (class, nonatomic, readonly) UIColor *tertiarySystemBackgroundColor;
+@property (class, nonatomic, readonly) UIColor *systemGroupedBackgroundColor;
+@property (class, nonatomic, readonly) UIColor *secondarySystemGroupedBackgroundColor;
+@property (class, nonatomic, readonly) UIColor *tertiarySystemGroupedBackgroundColor;
+@property (class, nonatomic, readonly) UIColor *systemFillColor;
+@property (class, nonatomic, readonly) UIColor *secondarySystemFillColor;
+@property (class, nonatomic, readonly) UIColor *tertiarySystemFillColor;
+@property (class, nonatomic, readonly) UIColor *quaternarySystemFillColor;
+@property (class, nonatomic, readonly) UIColor *systemRedColor;
+@property (class, nonatomic, readonly) UIColor *systemGreenColor;
+@property (class, nonatomic, readonly) UIColor *systemOrangeColor;
+@property (class, nonatomic, readonly) UIColor *systemYellowColor;
+@property (class, nonatomic, readonly) UIColor *systemPinkColor;
+@property (class, nonatomic, readonly) UIColor *systemPurpleColor;
+@property (class, nonatomic, readonly) UIColor *systemTealColor;
+@property (class, nonatomic, readonly) UIColor *systemIndigoColor;
+@property (class, nonatomic, readonly) UIColor *systemGrayColor;
+@property (class, nonatomic, readonly) UIColor *systemGray2Color;
+@property (class, nonatomic, readonly) UIColor *systemGray3Color;
+@property (class, nonatomic, readonly) UIColor *systemGray4Color;
+@property (class, nonatomic, readonly) UIColor *systemGray5Color;
+@property (class, nonatomic, readonly) UIColor *systemGray6Color;
++ (nullable UIColor *)colorNamed:(NSString *)name;
++ (nullable UIColor *)colorNamed:(NSString *)name inBundle:(nullable NSBundle *)bundle compatibleWithTraitCollection:(nullable id)traitCollection;
 + (UIColor *)colorWithDynamicProvider:(UIColor *(^)(id traitCollection))provider;
 - (instancetype)initWithDynamicProvider:(UIColor *(^)(id traitCollection))provider;
 - (UIColor *)resolvedColorWithTraitCollection:(id)traitCollection;
 @property (nonatomic, readonly) CGColorRef CGColor;
-- (BOOL)getRed:(CGFloat *)red green:(CGFloat *)green blue:(CGFloat *)blue alpha:(CGFloat *)alpha;
-- (BOOL)getWhite:(CGFloat *)white alpha:(CGFloat *)alpha;
+- (BOOL)getRed:(nullable CGFloat *)red green:(nullable CGFloat *)green blue:(nullable CGFloat *)blue alpha:(nullable CGFloat *)alpha;
+- (BOOL)getWhite:(nullable CGFloat *)white alpha:(nullable CGFloat *)alpha;
 - (void)set;
 - (void)setFill;
 - (void)setStroke;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UIColor_H */

@@ -179,7 +179,6 @@ extern UIFontTextStyle const UIFontTextStyleFootnote;
 extern UIFontTextStyle const UIFontTextStyleCaption1;
 extern UIFontTextStyle const UIFontTextStyleCaption2;
 
-typedef NSString *UIImagePickerControllerInfoKey;
 extern UIImagePickerControllerInfoKey const UIImagePickerControllerMediaType;
 extern UIImagePickerControllerInfoKey const UIImagePickerControllerOriginalImage;
 extern UIImagePickerControllerInfoKey const UIImagePickerControllerEditedImage;

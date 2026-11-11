@@ -17,6 +17,8 @@
 
 @class UIImagePickerController, UIImage;
 
+typedef NSString *UIImagePickerControllerInfoKey NS_TYPED_ENUM;
+
 typedef NS_ENUM(NSInteger, UIImagePickerControllerSourceType) {
 	UIImagePickerControllerSourceTypePhotoLibrary,
 	UIImagePickerControllerSourceTypeCamera,
@@ -48,7 +50,7 @@ typedef NS_ENUM(NSInteger, UIImagePickerControllerCameraFlashMode) {
 
 @protocol UIImagePickerControllerDelegate <NSObject>
 @optional
-- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info;
+- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> *)info;
 - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker;
 @end
 

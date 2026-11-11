@@ -21,6 +21,9 @@
 UIFontDescriptorAttributeName const UIFontDescriptorTraitsAttribute = @"NSCTFontTraitsAttribute";
 UIFontDescriptorAttributeName const UIFontDescriptorTextStyleAttribute = @"NSCTFontUIUsageAttribute";
 UIFontDescriptorAttributeName const UIFontDescriptorFixedAdvanceAttribute = @"NSCTFontFixedAdvanceAttribute";
+UIFontDescriptorAttributeName const UIFontDescriptorFeatureSettingsAttribute = @"NSCTFontFeatureSettingsAttribute";
+UIFontDescriptorFeatureKey const UIFontFeatureTypeIdentifierKey = @"CTFeatureTypeIdentifier";
+UIFontDescriptorFeatureKey const UIFontFeatureSelectorIdentifierKey = @"CTFeatureSelectorIdentifier";
 UIFontDescriptorTraitKey const UIFontSymbolicTrait = @"NSCTFontSymbolicTrait";
 UIFontDescriptorTraitKey const UIFontWeightTrait = @"NSCTFontWeightTrait";
 

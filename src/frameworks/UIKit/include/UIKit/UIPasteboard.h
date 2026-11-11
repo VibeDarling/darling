@@ -19,7 +19,7 @@
 /* Process-local for now: nothing reaches the host clipboard. Items are
  * dictionaries from type identifiers to values, as on iOS. */
 @interface UIPasteboard : NSObject
-+ (UIPasteboard *)generalPasteboard;
+@property (class, nonatomic, readonly) UIPasteboard *generalPasteboard;
 + (UIPasteboard *)pasteboardWithName:(NSString *)name create:(BOOL)create;
 + (UIPasteboard *)pasteboardWithUniqueName;
 + (void)removePasteboardWithName:(NSString *)name;
@@ -41,7 +41,7 @@
 - (NSIndexSet *)itemSetWithPasteboardTypes:(NSArray<NSString *> *)types;
 - (NSArray *)valuesForPasteboardType:(NSString *)type inItemSet:(NSIndexSet *)itemSet;
 - (NSArray *)dataForPasteboardType:(NSString *)type inItemSet:(NSIndexSet *)itemSet;
-@property (nonatomic, copy) NSString *string;
+@property (nullable, nonatomic, copy) NSString *string;
 @property (nonatomic, copy) NSArray<NSString *> *strings;
 @property (nonatomic, copy) NSURL *URL;
 @property (nonatomic, copy) NSArray<NSURL *> *URLs;

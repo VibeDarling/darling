@@ -41,8 +41,8 @@ NSString *const UIKeyboardCenterBeginUserInfoKey = @"UIKeyboardCenterBeginUserIn
 NSString *const UIKeyboardCenterEndUserInfoKey = @"UIKeyboardCenterEndUserInfoKey";
 NSString *const UIKeyboardIsLocalUserInfoKey = @"UIKeyboardIsLocalUserInfoKey";
 NSString *const UIApplicationDidReceiveMemoryWarningNotification = @"UIApplicationDidReceiveMemoryWarningNotification";
-NSString *const UIApplicationLaunchOptionsURLKey = @"UIApplicationLaunchOptionsURLKey";
-NSString *const UIApplicationLaunchOptionsSourceApplicationKey = @"UIApplicationLaunchOptionsSourceApplicationKey";
+UIApplicationLaunchOptionsKey const UIApplicationLaunchOptionsURLKey = @"UIApplicationLaunchOptionsURLKey";
+UIApplicationLaunchOptionsKey const UIApplicationLaunchOptionsSourceApplicationKey = @"UIApplicationLaunchOptionsSourceApplicationKey";
 
 const CGFloat UIScrollViewDecelerationRateNormal = 0.998;
 const CGFloat UIScrollViewDecelerationRateFast = 0.99;

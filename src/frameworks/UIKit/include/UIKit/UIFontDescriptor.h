@@ -15,9 +15,12 @@
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <UIKit/UIFont.h>
+/* The feature type and selector numbers (kNumberSpacingType, ...) that feature settings take. */
+#import <CoreText/SFNTLayoutTypes.h>
 
-typedef NSString *UIFontDescriptorAttributeName;
-typedef NSString *UIFontDescriptorTraitKey;
+typedef NSString *UIFontDescriptorAttributeName NS_TYPED_EXTENSIBLE_ENUM;
+typedef NSString *UIFontDescriptorTraitKey NS_TYPED_EXTENSIBLE_ENUM;
+typedef NSString *UIFontDescriptorFeatureKey NS_TYPED_EXTENSIBLE_ENUM;
 typedef NSString *UIFontTextStyle;
 
 typedef NS_OPTIONS(uint32_t, UIFontDescriptorSymbolicTraits) {
@@ -39,6 +42,10 @@ extern UIFontDescriptorAttributeName const UIFontDescriptorSizeAttribute;
 extern UIFontDescriptorAttributeName const UIFontDescriptorTraitsAttribute;
 extern UIFontDescriptorAttributeName const UIFontDescriptorTextStyleAttribute;
 extern UIFontDescriptorAttributeName const UIFontDescriptorFixedAdvanceAttribute;
+/* An array of dictionaries, each a feature type and selector. Recorded, not yet applied to drawing. */
+extern UIFontDescriptorAttributeName const UIFontDescriptorFeatureSettingsAttribute;
+extern UIFontDescriptorFeatureKey const UIFontFeatureTypeIdentifierKey;
+extern UIFontDescriptorFeatureKey const UIFontFeatureSelectorIdentifierKey;
 extern UIFontDescriptorTraitKey const UIFontSymbolicTrait;
 extern UIFontDescriptorTraitKey const UIFontWeightTrait;
 

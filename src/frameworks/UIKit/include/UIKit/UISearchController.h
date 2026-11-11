@@ -39,24 +39,28 @@
  * covers the window below the bar, and the updater hears of each change
  * to the text. Cancel ends it. The background is never dimmed.
  */
+NS_ASSUME_NONNULL_BEGIN
+
 @interface UISearchController : UIViewController
-- (instancetype)initWithSearchResultsController:(UIViewController *)searchResultsController;
-@property (nonatomic, weak) id<UISearchResultsUpdating> searchResultsUpdater;
+- (instancetype)initWithSearchResultsController:(nullable UIViewController *)searchResultsController;
+@property (nullable, nonatomic, weak) id<UISearchResultsUpdating> searchResultsUpdater;
 @property (nonatomic, getter=isActive) BOOL active;
-@property (nonatomic, weak) id<UISearchControllerDelegate> delegate;
+@property (nullable, nonatomic, weak) id<UISearchControllerDelegate> delegate;
 @property (nonatomic) BOOL dimsBackgroundDuringPresentation;
 @property (nonatomic) BOOL obscuresBackgroundDuringPresentation;
 @property (nonatomic) BOOL hidesNavigationBarDuringPresentation;
 @property (nonatomic) BOOL automaticallyShowsCancelButton;
 @property (nonatomic) BOOL automaticallyShowsSearchResultsController;
 @property (nonatomic) BOOL showsSearchResultsController;
-@property (nonatomic, readonly, strong) UIViewController *searchResultsController;
+@property (nullable, nonatomic, readonly, strong) UIViewController *searchResultsController;
 @property (nonatomic, readonly, strong) UISearchBar *searchBar;
 @end
 
 @interface UINavigationItem (UISearchController)
-@property (nonatomic, strong) UISearchController *searchController;
+@property (nullable, nonatomic, strong) UISearchController *searchController;
 @property (nonatomic) BOOL hidesSearchBarWhenScrolling;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UISEARCHCONTROLLER_H */

@@ -88,18 +88,20 @@ typedef NS_ENUM(NSInteger, UIButtonType) {
 	UIButtonTypeSystem = UIButtonTypeRoundedRect,
 };
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface UIButton : UIControl
 + (instancetype)buttonWithType:(UIButtonType)buttonType;
-+ (instancetype)systemButtonWithImage:(UIImage *)image target:(id)target action:(SEL)action;
++ (instancetype)systemButtonWithImage:(UIImage *)image target:(nullable id)target action:(nullable SEL)action;
 @property (nonatomic, readonly) UIButtonType buttonType;
-@property (nonatomic, readonly) UILabel *titleLabel;
-@property (nonatomic, readonly) UIImageView *imageView;
-@property (nonatomic, readonly) NSString *currentTitle;
-@property (nonatomic, readonly) NSAttributedString *currentAttributedTitle;
+@property (nullable, nonatomic, readonly) UILabel *titleLabel;
+@property (nullable, nonatomic, readonly) UIImageView *imageView;
+@property (nullable, nonatomic, readonly) NSString *currentTitle;
+@property (nullable, nonatomic, readonly) NSAttributedString *currentAttributedTitle;
 @property (nonatomic, readonly) UIColor *currentTitleColor;
-@property (nonatomic, readonly) UIColor *currentTitleShadowColor;
-@property (nonatomic, readonly) UIImage *currentImage;
-@property (nonatomic, readonly) UIImage *currentBackgroundImage;
+@property (nullable, nonatomic, readonly) UIColor *currentTitleShadowColor;
+@property (nullable, nonatomic, readonly) UIImage *currentImage;
+@property (nullable, nonatomic, readonly) UIImage *currentBackgroundImage;
 @property (nonatomic) UIEdgeInsets contentEdgeInsets;
 @property (nonatomic) UIEdgeInsets titleEdgeInsets;
 @property (nonatomic) UIEdgeInsets imageEdgeInsets;
@@ -108,24 +110,26 @@ typedef NS_ENUM(NSInteger, UIButtonType) {
 @property (nonatomic) BOOL adjustsImageWhenDisabled;
 @property (nonatomic) BOOL reversesTitleShadowWhenHighlighted;
 @property (nonatomic, strong) UIFont *font;
-- (void)setTitle:(NSString *)title forState:(UIControlState)state;
-- (void)setAttributedTitle:(NSAttributedString *)title forState:(UIControlState)state;
-- (void)setTitleColor:(UIColor *)color forState:(UIControlState)state;
-- (void)setTitleShadowColor:(UIColor *)color forState:(UIControlState)state;
-- (void)setImage:(UIImage *)image forState:(UIControlState)state;
-- (void)setBackgroundImage:(UIImage *)image forState:(UIControlState)state;
-- (NSString *)titleForState:(UIControlState)state;
-- (NSAttributedString *)attributedTitleForState:(UIControlState)state;
-- (UIColor *)titleColorForState:(UIControlState)state;
-- (UIColor *)titleShadowColorForState:(UIControlState)state;
-- (UIImage *)imageForState:(UIControlState)state;
-- (UIImage *)backgroundImageForState:(UIControlState)state;
+- (void)setTitle:(nullable NSString *)title forState:(UIControlState)state;
+- (void)setAttributedTitle:(nullable NSAttributedString *)title forState:(UIControlState)state;
+- (void)setTitleColor:(nullable UIColor *)color forState:(UIControlState)state;
+- (void)setTitleShadowColor:(nullable UIColor *)color forState:(UIControlState)state;
+- (void)setImage:(nullable UIImage *)image forState:(UIControlState)state;
+- (void)setBackgroundImage:(nullable UIImage *)image forState:(UIControlState)state;
+- (nullable NSString *)titleForState:(UIControlState)state;
+- (nullable NSAttributedString *)attributedTitleForState:(UIControlState)state;
+- (nullable UIColor *)titleColorForState:(UIControlState)state;
+- (nullable UIColor *)titleShadowColorForState:(UIControlState)state;
+- (nullable UIImage *)imageForState:(UIControlState)state;
+- (nullable UIImage *)backgroundImageForState:(UIControlState)state;
 /* Where the parts go; subclasses override these, as on iOS. */
 - (CGRect)backgroundRectForBounds:(CGRect)bounds;
 - (CGRect)contentRectForBounds:(CGRect)bounds;
 - (CGRect)titleRectForContentRect:(CGRect)contentRect;
 - (CGRect)imageRectForContentRect:(CGRect)contentRect;
 @end
+
+NS_ASSUME_NONNULL_END
 
 @interface UISwitch : UIControl
 @property (nonatomic, getter=isOn) BOOL on;

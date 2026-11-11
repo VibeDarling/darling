@@ -22,11 +22,13 @@ typedef NS_ENUM(NSInteger, UIMenuControllerArrowDirection) {
 	UIMenuControllerArrowRight,
 };
 
-extern NSString *const UIMenuControllerWillShowMenuNotification;
-extern NSString *const UIMenuControllerDidShowMenuNotification;
-extern NSString *const UIMenuControllerWillHideMenuNotification;
-extern NSString *const UIMenuControllerDidHideMenuNotification;
-extern NSString *const UIMenuControllerMenuFrameDidChangeNotification;
+extern NSNotificationName const UIMenuControllerWillShowMenuNotification;
+extern NSNotificationName const UIMenuControllerDidShowMenuNotification;
+extern NSNotificationName const UIMenuControllerWillHideMenuNotification;
+extern NSNotificationName const UIMenuControllerDidHideMenuNotification;
+extern NSNotificationName const UIMenuControllerMenuFrameDidChangeNotification;
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface UIMenuItem : NSObject
 - (instancetype)initWithTitle:(NSString *)title action:(SEL)action;
@@ -36,14 +38,19 @@ extern NSString *const UIMenuControllerMenuFrameDidChangeNotification;
 
 /* The edit menu: shown as an action sheet of the items its target takes. */
 @interface UIMenuController : NSObject
-+ (UIMenuController *)sharedMenuController;
+@property (class, nonatomic, readonly) UIMenuController *sharedMenuController;
 @property (nonatomic, getter=isMenuVisible) BOOL menuVisible;
 @property (nonatomic) UIMenuControllerArrowDirection arrowDirection;
-@property (nonatomic, copy) NSArray<UIMenuItem *> *menuItems;
+@property (nullable, nonatomic, copy) NSArray<UIMenuItem *> *menuItems;
 @property (nonatomic, readonly) CGRect menuFrame;
 - (void)setMenuVisible:(BOOL)visible animated:(BOOL)animated;
 - (void)setTargetRect:(CGRect)rect inView:(UIView *)view;
 - (void)update;
+- (void)showMenuFromView:(UIView *)targetView rect:(CGRect)targetRect;
+- (void)hideMenuFromView:(UIView *)targetView;
+- (void)hideMenu;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UIMENUCONTROLLER_H */

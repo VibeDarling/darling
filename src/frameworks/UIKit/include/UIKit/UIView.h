@@ -13,6 +13,7 @@
 #define UIKIT_UIVIEW_H
 
 #import <AppKit/NSView.h>
+#import <UIKit/UIResponder.h>
 #import <CoreGraphics/CGGeometry.h>
 
 @class UIColor, UIWindow, UIEvent, UITouch;
@@ -212,6 +213,12 @@ typedef NS_ENUM(NSInteger, UISemanticContentAttribute) {
 - (BOOL)endEditing:(BOOL)force;
 - (BOOL)isDescendantOfView:(UIView *)view;
 
+/* NSView keeps the hierarchy; these are its accessors with UIKit's types, so Swift sees
+ * UIView.superview as UIView? rather than NSView. -window is not among them: it answers the
+ * AppKit window, and the UIWindow is -uiWindow. */
+@property (nonatomic, readonly) UIView *superview;
+@property (copy) NSArray<__kindof UIView *> *subviews;
+
 /* Called as on iOS when the view moves (from NSView's own notifications). */
 - (void)willMoveToSuperview:(UIView *)superview;
 - (void)didMoveToSuperview;
@@ -251,9 +258,9 @@ typedef NS_ENUM(NSInteger, UISemanticContentAttribute) {
  * -resignFirstResponder called by the app make the view the window's first
  * responder, or give that up, when -canBecomeFirstResponder allows it (NO by
  * default, as on iOS). See UITextInput.h for views that take typing. */
-@interface UIView (UIKitFirstResponder)
-- (BOOL)canBecomeFirstResponder;
-- (BOOL)isFirstResponder;
+@interface UIView (UIKitFirstResponder) <UIResponderStandardEditActions>
+@property (nonatomic, readonly) BOOL canBecomeFirstResponder;
+@property (nonatomic, readonly) BOOL isFirstResponder;
 @end
 
 #endif /* UIKIT_UIVIEW_H */

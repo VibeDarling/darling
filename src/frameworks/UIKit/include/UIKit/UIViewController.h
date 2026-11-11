@@ -18,7 +18,10 @@
 
 @class UIView, UINavigationItem, UITabBarItem, UIBarButtonItem;
 @class UINavigationController, UITabBarController;
-@class NSString, NSArray, NSBundle;
+@class NSString, NSBundle;
+@class NSArray<ObjectType>;
+
+NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(NSInteger, UIModalPresentationStyle) {
 	UIModalPresentationFullScreen = 0,
@@ -44,11 +47,11 @@ typedef NS_ENUM(NSInteger, UIModalTransitionStyle) {
 	NSString *_title;
 }
 
-- (instancetype)initWithNibName:(NSString *)nibName bundle:(NSBundle *)bundle;
-@property (nonatomic, readonly, copy) NSString *nibName;
-@property (nonatomic, readonly, strong) NSBundle *nibBundle;
-@property (nonatomic, strong) UIView *view;
-@property (nonatomic, copy) NSString *title;
+- (instancetype)initWithNibName:(nullable NSString *)nibName bundle:(nullable NSBundle *)bundle;
+@property (nullable, nonatomic, readonly, copy) NSString *nibName;
+@property (nullable, nonatomic, readonly, strong) NSBundle *nibBundle;
+@property (null_resettable, nonatomic, strong) UIView *view;
+@property (nullable, nonatomic, copy) NSString *title;
 - (BOOL)isViewLoaded;
 - (void)loadView;
 - (void)viewDidLoad;
@@ -65,29 +68,29 @@ typedef NS_ENUM(NSInteger, UIModalTransitionStyle) {
 - (void)viewDidAppear;
 
 @property (nonatomic, readonly) UINavigationItem *navigationItem;
-@property (nonatomic, strong) UITabBarItem *tabBarItem;
-@property (nonatomic, readonly) UINavigationController *navigationController;
-@property (nonatomic, readonly) UITabBarController *tabBarController;
-@property (nonatomic, readonly) UIViewController *parentViewController;
-@property (nonatomic, readonly) NSArray *childViewControllers;
+@property (null_resettable, nonatomic, strong) UITabBarItem *tabBarItem;
+@property (nullable, nonatomic, readonly) UINavigationController *navigationController;
+@property (nullable, nonatomic, readonly) UITabBarController *tabBarController;
+@property (nullable, nonatomic, readonly) UIViewController *parentViewController;
+@property (nonatomic, readonly) NSArray<__kindof UIViewController *> *childViewControllers;
 - (void)addChildViewController:(UIViewController *)child;
 - (void)removeFromParentViewController;
-- (void)willMoveToParentViewController:(UIViewController *)parent;
-- (void)didMoveToParentViewController:(UIViewController *)parent;
+- (void)willMoveToParentViewController:(nullable UIViewController *)parent;
+- (void)didMoveToParentViewController:(nullable UIViewController *)parent;
 
-@property (nonatomic, readonly) UIViewController *presentedViewController;
-@property (nonatomic, readonly) UIViewController *presentingViewController;
-@property (nonatomic, readonly) UIViewController *modalViewController;
+@property (nullable, nonatomic, readonly) UIViewController *presentedViewController;
+@property (nullable, nonatomic, readonly) UIViewController *presentingViewController;
+@property (nullable, nonatomic, readonly) UIViewController *modalViewController;
 @property (nonatomic) UIModalPresentationStyle modalPresentationStyle;
 @property (nonatomic) UIModalTransitionStyle modalTransitionStyle;
-- (void)presentViewController:(UIViewController *)controller animated:(BOOL)animated completion:(void (^)(void))completion;
-- (void)dismissViewControllerAnimated:(BOOL)animated completion:(void (^)(void))completion;
+- (void)presentViewController:(UIViewController *)controller animated:(BOOL)animated completion:(void (^ __nullable)(void))completion;
+- (void)dismissViewControllerAnimated:(BOOL)animated completion:(void (^ __nullable)(void))completion;
 - (void)presentModalViewController:(UIViewController *)controller animated:(BOOL)animated;
 - (void)dismissModalViewControllerAnimated:(BOOL)animated;
 
 @property (nonatomic, getter=isEditing) BOOL editing;
 - (void)setEditing:(BOOL)editing animated:(BOOL)animated;
-- (UIBarButtonItem *)editButtonItem;
+@property (nonatomic, readonly) UIBarButtonItem *editButtonItem;
 
 @property (nonatomic) BOOL hidesBottomBarWhenPushed;
 @property (nonatomic) BOOL wantsFullScreenLayout;
@@ -95,13 +98,15 @@ typedef NS_ENUM(NSInteger, UIModalTransitionStyle) {
 @property (nonatomic) NSUInteger edgesForExtendedLayout;
 @property (nonatomic) CGSize contentSizeForViewInPopover;
 @property (nonatomic) CGSize preferredContentSize;
-@property (nonatomic, copy) NSArray *toolbarItems;
-- (void)setToolbarItems:(NSArray *)items animated:(BOOL)animated;
+@property (nullable, nonatomic, copy) NSArray<__kindof UIBarButtonItem *> *toolbarItems;
+- (void)setToolbarItems:(nullable NSArray<UIBarButtonItem *> *)items animated:(BOOL)animated;
 
 @property (nonatomic, readonly) UIInterfaceOrientation interfaceOrientation;
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation;
 - (BOOL)shouldAutorotate;
 - (NSUInteger)supportedInterfaceOrientations;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UIVIEWCONTROLLER_H */

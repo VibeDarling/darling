@@ -17,6 +17,8 @@
 
 @class UITextField;
 
+NS_ASSUME_NONNULL_BEGIN
+
 typedef NS_ENUM(NSInteger, UIAlertActionStyle) {
 	UIAlertActionStyleDefault = 0,
 	UIAlertActionStyleCancel,
@@ -29,8 +31,8 @@ typedef NS_ENUM(NSInteger, UIAlertControllerStyle) {
 };
 
 @interface UIAlertAction : NSObject <NSCopying>
-+ (instancetype)actionWithTitle:(NSString *)title style:(UIAlertActionStyle)style handler:(void (^)(UIAlertAction *action))handler;
-@property (nonatomic, readonly) NSString *title;
++ (instancetype)actionWithTitle:(nullable NSString *)title style:(UIAlertActionStyle)style handler:(void (^ __nullable)(UIAlertAction *action))handler;
+@property (nullable, nonatomic, readonly) NSString *title;
 @property (nonatomic, readonly) UIAlertActionStyle style;
 @property (nonatomic, getter=isEnabled) BOOL enabled;
 @end
@@ -41,15 +43,17 @@ typedef NS_ENUM(NSInteger, UIAlertControllerStyle) {
  * the action's handler.
  */
 @interface UIAlertController : UIViewController
-+ (instancetype)alertControllerWithTitle:(NSString *)title message:(NSString *)message preferredStyle:(UIAlertControllerStyle)preferredStyle;
++ (instancetype)alertControllerWithTitle:(nullable NSString *)title message:(nullable NSString *)message preferredStyle:(UIAlertControllerStyle)preferredStyle;
 - (void)addAction:(UIAlertAction *)action;
 @property (nonatomic, readonly) NSArray<UIAlertAction *> *actions;
-@property (nonatomic, strong) UIAlertAction *preferredAction;
-- (void)addTextFieldWithConfigurationHandler:(void (^)(UITextField *textField))configurationHandler;
-@property (nonatomic, readonly) NSArray<UITextField *> *textFields;
-@property (nonatomic, copy) NSString *title;
-@property (nonatomic, copy) NSString *message;
+@property (nullable, nonatomic, strong) UIAlertAction *preferredAction;
+- (void)addTextFieldWithConfigurationHandler:(void (^ __nullable)(UITextField *textField))configurationHandler;
+@property (nullable, nonatomic, readonly) NSArray<UITextField *> *textFields;
+@property (nullable, nonatomic, copy) NSString *title;
+@property (nullable, nonatomic, copy) NSString *message;
 @property (nonatomic, readonly) UIAlertControllerStyle preferredStyle;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UIALERTCONTROLLER_H */

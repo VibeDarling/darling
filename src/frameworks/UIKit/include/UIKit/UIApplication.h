@@ -42,7 +42,7 @@ extern NSString *const UIApplicationWillTerminateNotification;
  */
 @interface UIApplication : UIResponder
 
-+ (UIApplication *)sharedApplication;
+@property (class, nonatomic, readonly) UIApplication *sharedApplication;
 
 @property (nonatomic, assign) id<UIApplicationDelegate> delegate;
 @property (nonatomic, readonly) UIApplicationState applicationState;

@@ -15,21 +15,25 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIViewController.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface UIStoryboardSegue : NSObject
-+ (instancetype)segueWithIdentifier:(NSString *)identifier source:(UIViewController *)source destination:(UIViewController *)destination performHandler:(void (^)(void))performHandler;
-- (instancetype)initWithIdentifier:(NSString *)identifier source:(UIViewController *)source destination:(UIViewController *)destination;
-@property (nonatomic, readonly) NSString *identifier;
++ (instancetype)segueWithIdentifier:(nullable NSString *)identifier source:(UIViewController *)source destination:(UIViewController *)destination performHandler:(void (^)(void))performHandler;
+- (instancetype)initWithIdentifier:(nullable NSString *)identifier source:(UIViewController *)source destination:(UIViewController *)destination;
+@property (nullable, nonatomic, readonly) NSString *identifier;
 @property (nonatomic, readonly) __kindof UIViewController *sourceViewController;
 @property (nonatomic, readonly) __kindof UIViewController *destinationViewController;
 - (void)perform;
 @end
 
 @interface UIViewController (UIStoryboardSegue)
-- (void)performSegueWithIdentifier:(NSString *)identifier sender:(id)sender;
-- (BOOL)shouldPerformSegueWithIdentifier:(NSString *)identifier sender:(id)sender;
-- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender;
-- (void)showViewController:(UIViewController *)controller sender:(id)sender;
-- (void)showDetailViewController:(UIViewController *)controller sender:(id)sender;
+- (void)performSegueWithIdentifier:(NSString *)identifier sender:(nullable id)sender;
+- (BOOL)shouldPerformSegueWithIdentifier:(NSString *)identifier sender:(nullable id)sender;
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(nullable id)sender;
+- (void)showViewController:(UIViewController *)controller sender:(nullable id)sender;
+- (void)showDetailViewController:(UIViewController *)controller sender:(nullable id)sender;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* UIKIT_UISTORYBOARDSEGUE_H */
