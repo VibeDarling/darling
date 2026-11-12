@@ -14,6 +14,7 @@
 #import <AppKit/NSWindow.h>
 #import <UIKit/UIColor.h>
 #import <UIKit/UIWindow.h>
+#import <UIKit/UIScreen.h>
 #import <AppKit/NSGraphics.h>
 
 #import "UIKitPrivate.h"
@@ -48,6 +49,86 @@
 - (UIWindow *)uiWindow
 {
 	return _uiWindow;
+}
+
+/* A new size goes to the layer too. */
+- (void)setFrame:(NSRect)frame
+{
+	[super setFrame:frame];
+	[_uiLayer setBounds:NSRectToCGRect([self bounds])];
+}
+
+- (void)setFrameSize:(NSSize)size
+{
+	[super setFrameSize:size];
+	[_uiLayer setBounds:NSRectToCGRect([self bounds])];
+}
+
+/* The screen's, until the app sets its own (as GL views do, to draw at it). */
+- (CGFloat)contentScaleFactor
+{
+	if (_uiContentScaleFactor > 0)
+		return _uiContentScaleFactor;
+	return [[UIScreen mainScreen] scale];
+}
+
+- (void)setContentScaleFactor:(CGFloat)factor
+{
+	_uiContentScaleFactor = factor;
+	[_uiLayer setContentsScale:[self contentScaleFactor]];
+}
+
+/*
+ * Every iOS view has a layer, of its class's +layerClass. Here views draw themselves as AppKit's
+ * do, so a layer holds only what the app puts in it: UIKit draws its contents (an image, such as a
+ * video frame AVSampleBufferDisplayLayer was given) under the view's own drawing.
+ */
++ (Class)layerClass
+{
+	return [CALayer class];
+}
+
+- (CALayer *)layer
+{
+	if (_uiLayer == nil) {
+		_uiLayer = [[[self class] layerClass] new];
+		[_uiLayer setDelegate:(id)self];
+		[_uiLayer setBounds:NSRectToCGRect([self bounds])];
+		[_uiLayer setContentsScale:[self contentScaleFactor]];
+	}
+	return _uiLayer;
+}
+
+/* The layer's contents, a CGImage, placed by its contentsGravity: filling the view, or scaled to fit
+   or fill it keeping its aspect, centred. */
+- (void)uikitDrawLayerContents
+{
+	id contents = [_uiLayer contents];
+	/* Cocotron's CGImages are O2Images. */
+	if (contents == nil || ![contents isKindOfClass:NSClassFromString(@"O2Image")])
+		return;
+	CGImageRef image = (__bridge CGImageRef)contents;
+	CGContextRef context = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+	CGRect bounds = NSRectToCGRect([self bounds]);
+	NSString *gravity = [_uiLayer contentsGravity];
+	CGFloat width = CGImageGetWidth(image), height = CGImageGetHeight(image);
+	BOOL fit = [gravity isEqualToString:kCAGravityResizeAspect], fill = [gravity isEqualToString:kCAGravityResizeAspectFill];
+	if ((fit || fill) && width > 0 && height > 0) {
+		CGFloat sx = bounds.size.width / width, sy = bounds.size.height / height;
+		CGFloat scale = fit ? MIN(sx, sy) : MAX(sx, sy);
+		CGRect placed = CGRectMake(0, 0, width * scale, height * scale);
+		placed.origin.x = CGRectGetMidX(bounds) - placed.size.width / 2;
+		placed.origin.y = CGRectGetMidY(bounds) - placed.size.height / 2;
+		bounds = placed;
+	}
+	CGContextSaveGState(context);
+	if (fill)
+		CGContextClipToRect(context, NSRectToCGRect([self bounds]));
+	/* Drawn in the flipped view, an image comes out upside down: turned back about its rect. */
+	CGContextTranslateCTM(context, 0, bounds.origin.y * 2 + bounds.size.height);
+	CGContextScaleCTM(context, 1, -1);
+	CGContextDrawImage(context, bounds, image);
+	CGContextRestoreGState(context);
 }
 
 /* iOS's: the UIWindow the view is in. The AppKit window that hosts it is -_appKitWindow. */
@@ -132,9 +213,7 @@ static BOOL drawsInOwnBuffer(UIView *view)
 		[self drawRect:rect];
 		return;
 	}
-	CGFloat scale = [[self _appKitWindow] backingScaleFactor];
-	if (!(scale > 0))
-		scale = 1;
+	CGFloat scale = [self contentScaleFactor] > 0 ? [self contentScaleFactor] : 1;
 	size_t width = (size_t)ceil(rect.size.width * scale), height = (size_t)ceil(rect.size.height * scale);
 	if (width == 0 || height == 0)
 		return;
@@ -177,6 +256,8 @@ static BOOL drawsInOwnBuffer(UIView *view)
 		[_uiBackgroundColor setFill];
 		NSRectFill(rect);
 	}
+	if (_uiLayer != nil)
+		[self uikitDrawLayerContents];
 }
 
 @end

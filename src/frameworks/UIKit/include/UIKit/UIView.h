@@ -14,6 +14,7 @@
 
 #import <AppKit/NSView.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <QuartzCore/CALayer.h>
 
 @class UIColor, UIWindow;
 
@@ -30,6 +31,8 @@
 	UIColor *_uiBackgroundColor;
 	UIWindow *_uiWindow;
 	BOOL _uiNeedsLayout;
+	CALayer *_uiLayer;
+	CGFloat _uiContentScaleFactor;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame;
@@ -39,6 +42,10 @@
 #pragma clang diagnostic ignored "-Wincompatible-property-type"
 @property (nonatomic, readonly) UIWindow *window;
 #pragma clang diagnostic pop
+
+/* Every view has a layer, of its class's +layerClass (NSView declares -layer). */
+@property (class, nonatomic, readonly) Class layerClass;
+@property (nonatomic) CGFloat contentScaleFactor;
 
 - (void)layoutSubviews;
 - (void)setNeedsLayout;
