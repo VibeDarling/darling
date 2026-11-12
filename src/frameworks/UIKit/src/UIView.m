@@ -10,6 +10,8 @@
 */
 
 #import <UIKit/UIView.h>
+#import <AppKit/NSGraphicsContext.h>
+#import <AppKit/NSWindow.h>
 #import <UIKit/UIColor.h>
 #import <UIKit/UIWindow.h>
 #import <AppKit/NSGraphics.h>
@@ -44,6 +46,12 @@
 }
 
 - (UIWindow *)uiWindow
+{
+	return _uiWindow;
+}
+
+/* iOS's: the UIWindow the view is in. The AppKit window that hosts it is -_appKitWindow. */
+- (UIWindow *)window
 {
 	return _uiWindow;
 }
@@ -87,6 +95,80 @@
 		_uiNeedsLayout = NO;
 		[self layoutSubviews];
 	}
+}
+
+/*
+ * On iOS a view draws into a layer of its own, composited over what is behind it, so its
+ * drawRect: may clear what it draws on (VLC's subtitle view does, over the whole video). Here views
+ * share the window's backing store: a non-opaque view whose class has its own drawRect: draws into a
+ * transparent bitmap first, which then goes over what is behind it. UIKit's own views are written
+ * for the shared store and draw into it directly.
+ */
+static BOOL drawsInOwnBuffer(UIView *view)
+{
+	static NSMapTable *decisions;
+	static NSBundle *uikit;
+	if (decisions == nil) {
+		decisions = [[NSMapTable alloc] initWithKeyOptions:NSPointerFunctionsOpaqueMemory | NSPointerFunctionsOpaquePersonality
+			valueOptions:NSPointerFunctionsStrongMemory capacity:16];
+		uikit = [NSBundle bundleForClass:[UIView class]];
+	}
+	Class cls = [view class];
+	NSNumber *decision = [decisions objectForKey:cls];
+	if (decision == nil) {
+		IMP draw = [cls instanceMethodForSelector:@selector(drawRect:)];
+		Class owner = cls;
+		while ([owner superclass] != Nil && [[owner superclass] instanceMethodForSelector:@selector(drawRect:)] == draw)
+			owner = [owner superclass];
+		decision = @(draw != [UIView instanceMethodForSelector:@selector(drawRect:)] && [NSBundle bundleForClass:owner] != uikit);
+		[decisions setObject:decision forKey:cls];
+	}
+	return [decision boolValue] && ![view isOpaque];
+}
+
+- (void)_drawRectForDisplay:(NSRect)rect
+{
+	if (!drawsInOwnBuffer(self)) {
+		[self drawRect:rect];
+		return;
+	}
+	CGFloat scale = [[self _appKitWindow] backingScaleFactor];
+	if (!(scale > 0))
+		scale = 1;
+	size_t width = (size_t)ceil(rect.size.width * scale), height = (size_t)ceil(rect.size.height * scale);
+	if (width == 0 || height == 0)
+		return;
+	CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+	CGContextRef bitmap = CGBitmapContextCreate(NULL, width, height, 8, width * 4, space,
+		kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+	CGColorSpaceRelease(space);
+	if (bitmap == NULL) {
+		[self drawRect:rect];
+		return;
+	}
+	/* The view's coordinates, flipped as the view is, rect's origin at the bitmap's top left. */
+	CGContextTranslateCTM(bitmap, 0, height);
+	CGContextScaleCTM(bitmap, scale, -scale);
+	CGContextTranslateCTM(bitmap, -rect.origin.x, -rect.origin.y);
+	NSGraphicsContext *outer = [NSGraphicsContext currentContext];
+	[NSGraphicsContext saveGraphicsState];
+	[NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithGraphicsPort:bitmap flipped:YES]];
+	@try {
+		[self drawRect:rect];
+	} @finally {
+		[NSGraphicsContext restoreGraphicsState];
+		[NSGraphicsContext setCurrentContext:outer];
+	}
+	CGImageRef image = CGBitmapContextCreateImage(bitmap);
+	CGContextRelease(bitmap);
+	CGContextRef port = (CGContextRef)[outer graphicsPort];
+	CGContextSaveGState(port);
+	/* In the flipped view an image comes out upside down: turned back about rect. */
+	CGContextTranslateCTM(port, 0, rect.origin.y * 2 + rect.size.height);
+	CGContextScaleCTM(port, 1, -1);
+	CGContextDrawImage(port, NSRectToCGRect(rect), image);
+	CGContextRestoreGState(port);
+	CGImageRelease(image);
 }
 
 - (void)drawRect:(NSRect)rect

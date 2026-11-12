@@ -22,9 +22,8 @@
  * tree *is* the window's content view tree.  Its coordinate system is flipped
  * to match UIKit (origin top-left).
  *
- * Deviation from iOS: NSView already declares -window (NSWindow *) and its own
- * ivars, so the UIKit hosting window is exposed internally as -uiWindow rather
- * than shadowing -window with an incompatible type.
+ * -window answers the UIWindow, as on iOS; the AppKit window hosting it is
+ * NSView's -_appKitWindow. iOS code sees neither NSView's -window nor its ivars.
  */
 @interface UIView : NSView {
 @package
@@ -36,6 +35,10 @@
 - (instancetype)initWithFrame:(CGRect)frame;
 
 @property (nonatomic, strong) UIColor *backgroundColor;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wincompatible-property-type"
+@property (nonatomic, readonly) UIWindow *window;
+#pragma clang diagnostic pop
 
 - (void)layoutSubviews;
 - (void)setNeedsLayout;
