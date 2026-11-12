@@ -90,6 +90,17 @@ json.dump(settings, open(sys.argv[2], 'w'), indent=1)
 PY
 
 echo "$sdk: $generated generated module maps"
+
+# Apple's clang links libclang_rt.ios.a from its toolchain into every iOS binary: the runtime half
+# of @available among others. Darling's is the os_version_check.c its Swift binaries link, which
+# answers with the versions Darling presents. It goes beside the SDK, where Xcode's toolchain is;
+# the clang in ios-sdk-bin links it.
+rt="$out/toolchain/lib/darwin"
+mkdir -p "$rt"
+clang --target=arm64-apple-ios9.0 -O2 -c "$root/src/frameworks/SwiftUI/backend/os_version_check.c" -o "$rt/os_version_check.o"
+rm -f "$rt/libclang_rt.ios.a"
+llvm-ar rcs "$rt/libclang_rt.ios.a" "$rt/os_version_check.o"
+rm "$rt/os_version_check.o"
 if [ -n "$darling_root" ]; then
 	python3 "$root/tools/make-ios-tbds.py" "$darling_root" "$sdk"
 fi

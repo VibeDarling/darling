@@ -7,7 +7,8 @@ framework's binary gets a .tbd at the same path under SDK, with its macOS target
 ones: Darling serves iOS apps from these same images, but ld64.lld refuses to link an iOS target
 against a library built for macOS.
 """
-import json, os, subprocess, sys, tempfile
+import json
+import re, os, subprocess, sys, tempfile
 
 root, sdk = sys.argv[1:3]
 MACHO = (b'\xcf\xfa\xed\xfe', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca')
@@ -36,6 +37,21 @@ def candidates():
 def ios(target):
     arch, _, platform = target.partition('-')
     return f'{arch}-ios' if platform == 'macos' else None
+
+FRAMEWORK_PATH = re.compile(r'^(?:/System/iOSSupport)?(/System/Library/(?:Private)?Frameworks/(?:[^/]+\.framework/)*'
+                            r'([^/]+)\.framework)/Versions/[^/]+/\2$')
+
+def ios_name(name):
+    """The name iOS gives a library: frameworks are shallow there (UIKit.framework/UIKit), and
+    UIKit and its kin are not under /System/iOSSupport, where Darling installs them. dyld looks in
+    /System/iOSSupport first for an iOS binary, so Darling finds them under either name; App Store
+    binaries name them this way."""
+    m = FRAMEWORK_PATH.match(name)
+    if m:
+        return m.group(1) + '/' + m.group(2)
+    if name.startswith('/System/iOSSupport/'):
+        return name[len('/System/iOSSupport'):]
+    return name
 
 def real_dirs(path):
     """Make every directory from SDK down to PATH a real one: the SDK links to the macOS SDK's
@@ -80,6 +96,10 @@ with tempfile.TemporaryDirectory() as tmp:
                 for entry in lib.get(key, []):
                     if 'targets' in entry:
                         entry['targets'] += [ios(t) for t in entry['targets'] if ios(t)]
+            for entry in lib.get('install_names', []):
+                entry['name'] = ios_name(entry['name'])
+            for entry in lib.get('reexported_libraries', []):
+                entry['names'] = [ios_name(n) for n in entry['names']]
         name = data['main_library']['install_names'][0]['name']
         if not name.startswith('/'):
             name = '/usr/lib/' + os.path.basename(name)  # @rpath Swift libraries

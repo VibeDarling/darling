@@ -19,13 +19,27 @@ if [ -n "$apple" ]; then
 		esac
 	done
 fi
+# Linking for iOS takes the toolchain's libclang_rt.ios.a, as Apple's driver does: make-ios-sdk.sh
+# puts it beside the SDK.
+rt=
+if [ -n "$apple" ] && [ -n "$link" ]; then
+	sysroot=$SDKROOT
+	ios=
+	prev=
+	for a in "$@"; do
+		[ "$prev" = -isysroot ] && sysroot=$a
+		case "$a" in -mios-version-min=*|-miphoneos-version-min=*|*-apple-ios*) ios=yes ;; esac
+		prev=$a
+	done
+	[ -n "$ios" ] && [ -f "$sysroot/../toolchain/lib/darwin/libclang_rt.ios.a" ] && rt="$sysroot/../toolchain/lib/darwin/libclang_rt.ios.a"
+fi
 if [ "$apple" = yes ]; then
 	arch=
 	prev=
 	for a in "$@"; do [ "$prev" = -arch ] && arch=$a; prev=$a; done
-	exec "$real" --target="$arch-apple-darwin" $link "$@"
+	exec "$real" --target="$arch-apple-darwin" $link "$@" $rt
 fi
 if [ "$apple" = explicit ]; then
-	for a in "$@"; do case "$a" in *apple*) exec "$real" $link "$@" ;; esac; done
+	for a in "$@"; do case "$a" in *apple*) exec "$real" $link "$@" $rt ;; esac; done
 fi
 exec "$real" "$@"
