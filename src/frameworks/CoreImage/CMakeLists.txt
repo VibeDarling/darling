@@ -445,4 +445,5 @@ add_framework(CoreImage
         objc
         Foundation
         CoreGraphics
+        CoreVideo
 )

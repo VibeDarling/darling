@@ -22,6 +22,12 @@
 #define _AVKit_H_
 
 #import <Foundation/Foundation.h>
+#import <TargetConditionals.h>
+
+#import <AVKit/AVPictureInPictureController.h>
+
+/* The rest is macOS's AVKit: its views are AppKit's. */
+#if !TARGET_OS_IPHONE
 
 #import <AVKit/AVCaptureControllerDelegate.h>
 #import <AVKit/AVControlsContainerViewControllerContent.h>
@@ -303,5 +309,7 @@ void* makeTrimView(void);
 void* makeVolumeControl(void);
 void* makeZoomHorizontallyButton(void);
 void* makeZoomVerticallyButton(void);
+
+#endif /* !TARGET_OS_IPHONE */
 
 #endif

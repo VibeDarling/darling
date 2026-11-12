@@ -34,6 +34,10 @@ extern const CFStringRef kCVPixelBufferPoolMaximumBufferAgeKey;
 extern const CFStringRef kCVPixelBufferPoolMinimumBufferCountKey;
 extern const CFStringRef kCVPixelBufferPoolAllocationThresholdKey;
 
+typedef CF_OPTIONS(CVOptionFlags, CVPixelBufferPoolFlushFlags) {
+	kCVPixelBufferPoolFlushExcessBuffers = 1,
+};
+
 CV_EXPORT CFTypeID CVPixelBufferPoolGetTypeID(void);
 CV_EXPORT CVPixelBufferPoolRef CVPixelBufferPoolRetain(CVPixelBufferPoolRef pixelBufferPool);
 CV_EXPORT void CVPixelBufferPoolRelease(CVPixelBufferPoolRef pixelBufferPool);
@@ -57,6 +61,10 @@ CV_EXPORT CVReturn CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(
 	CFDictionaryRef auxAttributes,
 	CVPixelBufferRef *pixelBufferOut
 );
+
+CV_EXPORT CFDictionaryRef CVPixelBufferPoolGetAttributes(CVPixelBufferPoolRef pool);
+CV_EXPORT CFDictionaryRef CVPixelBufferPoolGetPixelBufferAttributes(CVPixelBufferPoolRef pool);
+CV_EXPORT void CVPixelBufferPoolFlush(CVPixelBufferPoolRef pool, CVPixelBufferPoolFlushFlags options);
 
 __END_DECLS
 

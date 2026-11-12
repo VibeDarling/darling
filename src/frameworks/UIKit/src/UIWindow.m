@@ -19,6 +19,12 @@
 
 @implementation UIWindow
 
+/* A window is in itself, as on iOS. */
+- (UIWindow *)window
+{
+	return self;
+}
+
 - (instancetype)initWithFrame:(CGRect)frame
 {
 	self = [super initWithFrame:frame];

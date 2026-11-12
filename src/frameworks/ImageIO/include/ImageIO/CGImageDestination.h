@@ -1,3 +1,6 @@
+#ifndef IMAGEIO_CGIMAGEDESTINATION_H
+#define IMAGEIO_CGIMAGEDESTINATION_H
+
 #include <ImageIO/ImageIOBase.h>
 
 typedef struct CF_BRIDGED_TYPE(id) O2ImageDestination *CGImageDestinationRef;
@@ -38,3 +41,5 @@ IMAGEIO_EXTERN bool CGImageMetadataSetTagWithPath(CGMutableImageMetadataRef meta
 IMAGEIO_EXTERN bool CGImageDestinationFinalize(CGImageDestinationRef self);
 
 CF_IMPLICIT_BRIDGING_DISABLED
+
+#endif
