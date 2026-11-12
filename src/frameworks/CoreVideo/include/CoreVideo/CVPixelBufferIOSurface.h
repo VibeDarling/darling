@@ -26,6 +26,8 @@
 __BEGIN_DECLS
 
 extern const CFStringRef kCVPixelBufferIOSurfaceOpenGLTextureCompatibilityKey;
+extern const CFStringRef kCVPixelBufferIOSurfaceOpenGLESTextureCompatibilityKey;
+extern const CFStringRef kCVPixelBufferIOSurfaceOpenGLESFBOCompatibilityKey;
 
 __END_DECLS
 

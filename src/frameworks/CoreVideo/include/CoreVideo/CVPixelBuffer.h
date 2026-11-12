@@ -78,6 +78,9 @@ enum
 
 extern const CFStringRef kCVPixelBufferIOSurfacePropertiesKey;
 extern const CFStringRef kCVPixelBufferOpenGLCompatibilityKey;
+extern const CFStringRef kCVPixelBufferOpenGLESCompatibilityKey;
+extern const CFStringRef kCVPixelBufferCGBitmapContextCompatibilityKey;
+extern const CFStringRef kCVPixelBufferCGImageCompatibilityKey;
 extern const CFStringRef kCVPixelBufferPixelFormatTypeKey;
 extern const CFStringRef kCVPixelBufferMetalCompatibilityKey;
 extern const CFStringRef kCVPixelBufferBytesPerRowAlignmentKey;
@@ -86,6 +89,9 @@ extern const CFStringRef kCVPixelBufferWidthKey;
 
 typedef CVImageBufferRef CVPixelBufferRef;
 typedef CVOptionFlags CVPixelBufferLockFlags;
+enum {
+	kCVPixelBufferLock_ReadOnly = 0x00000001,
+};
 typedef void (*CVPixelBufferReleaseBytesCallback)(void *releaseRefCon, const void *baseAddress);
 typedef void (*CVPixelBufferReleasePlanarBytesCallback)(void *releaseRefCon, const void *dataPtr, size_t dataSize,
 	size_t numberOfPlanes, const void *planeAddresses[]);

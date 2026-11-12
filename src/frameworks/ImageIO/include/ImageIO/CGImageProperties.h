@@ -6,6 +6,9 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#ifndef IMAGEIO_CGIMAGEPROPERTIES_H
+#define IMAGEIO_CGIMAGEPROPERTIES_H
+
 #include <ImageIO/ImageIOBase.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -14,6 +17,17 @@ IMAGEIO_EXTERN const CFStringRef kCGImagePropertyDPIHeight;
 IMAGEIO_EXTERN const CFStringRef kCGImagePropertyPixelHeight;
 IMAGEIO_EXTERN const CFStringRef kCGImagePropertyPixelWidth;
 IMAGEIO_EXTERN const CFStringRef kCGImagePropertyOrientation;
+
+typedef CF_CLOSED_ENUM(uint32_t, CGImagePropertyOrientation) {
+	kCGImagePropertyOrientationUp = 1,
+	kCGImagePropertyOrientationUpMirrored,
+	kCGImagePropertyOrientationDown,
+	kCGImagePropertyOrientationDownMirrored,
+	kCGImagePropertyOrientationLeftMirrored,
+	kCGImagePropertyOrientationRight,
+	kCGImagePropertyOrientationRightMirrored,
+	kCGImagePropertyOrientationLeft,
+};
 
 IMAGEIO_EXTERN const CFStringRef kCGImagePropertyTIFFDictionary;
 IMAGEIO_EXTERN const CFStringRef kCGImagePropertyExifDictionary;
@@ -44,3 +58,5 @@ IMAGEIO_EXTERN const CFStringRef kCGImagePropertyAPNGUnclampedDelayTime;
 
 IMAGEIO_EXTERN const CFStringRef kCGImageMetadataNamespaceExif;
 IMAGEIO_EXTERN const CFStringRef kCGImageMetadataPrefixExif;
+
+#endif
