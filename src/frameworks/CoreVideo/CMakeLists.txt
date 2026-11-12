@@ -22,6 +22,7 @@ add_framework(CoreVideo
     SOURCES
 	    src/constants.c
 	    src/CVPixelBuffer.c
+	    src/CVOpenGLESTextureCache.c
 	    src/stubs.c
         src/CVDisplayLink.mm
 
