@@ -42,8 +42,10 @@ OSStatus dispatchCall(AudioComponentInstance inUnit, SInt16 sel, Args... args)
     {
         AudioComponentPlugInInterface* iface = AudioComponentManager::instance()->instanceInterface(inUnit);
         AudioComponentMethod method = iface->Lookup(sel);
+        // AudioComponentMethod is variadic, the methods are not: on arm64 Apple's ABI passes
+        // variadic arguments on the stack, so they are called as what they are.
         if (method != nullptr)
-            return method(iface, args...);
+            return reinterpret_cast<OSStatus (*)(void*, Args...)>(method)(iface, args...);
         else
             return badComponentSelector;
     }
