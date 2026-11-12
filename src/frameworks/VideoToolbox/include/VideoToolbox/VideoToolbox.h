@@ -21,11 +21,19 @@
 #ifndef _VideoToolbox_H_
 #define _VideoToolbox_H_
 
-#import <Foundation/Foundation.h>
+// A C API, as Apple's is: C files include it (VLC's codec/vt_utils.h).
+#include <VideoToolbox/VTBase.h>
+#include <VideoToolbox/VTErrors.h>
+#include <VideoToolbox/VTSession.h>
+#include <VideoToolbox/VTCompressionProperties.h>
+#include <VideoToolbox/VTDecompressionProperties.h>
+#include <VideoToolbox/VTDecompressionSession.h>
+#include <VideoToolbox/VTCompressionSession.h>
+#include <VideoToolbox/VTPixelTransferSession.h>
 
+#ifdef __OBJC__
 #import <VideoToolbox/FigMetalTransferHelper.h>
-#import <VideoToolbox/VTCompressionProperties.h>
-#import <VideoToolbox/VTDecompressionProperties.h>
+#endif
 
 void* COLOR_Y2R24(void);
 void* COLOR_Y2R32(void);
@@ -41,19 +49,12 @@ void* VCH263VideoEncoder_CreateInstance(void);
 void* VTBuildPixelBufferPools(void);
 void* VTBuildPixelBufferPools2(void);
 void* VTCompressionSessionBeginPass(void);
-void* VTCompressionSessionCompleteFrames(void);
 void* VTCompressionSessionCopyProperty(void);
 void* VTCompressionSessionCopySerializableProperties(void);
 void* VTCompressionSessionCopySupportedPropertyDictionary(void);
-void* VTCompressionSessionCreate(void);
-void* VTCompressionSessionEncodeFrame(void);
 void* VTCompressionSessionEncodeFrameWithOutputHandler(void);
 void* VTCompressionSessionEndPass(void);
-void* VTCompressionSessionGetPixelBufferPool(void);
 void* VTCompressionSessionGetTimeRangesForNextPass(void);
-void* VTCompressionSessionGetTypeID(void);
-void* VTCompressionSessionInvalidate(void);
-void* VTCompressionSessionPrepareToEncodeFrames(void);
 void* VTCompressionSessionRelease(void);
 void* VTCompressionSessionSetProperties(void);
 void* VTCompressionSessionSetProperty(void);
@@ -75,23 +76,15 @@ void* VTDecoderSessionGetDestinationPixelBufferAttributes(void);
 void* VTDecoderSessionGetPixelBufferPool(void);
 void* VTDecoderSessionSetPixelBufferAttributes(void);
 void* VTDecoderSessionTrace(void);
-void* VTDecompressionSessionCanAcceptFormatDescription(void);
-void* VTDecompressionSessionCopyBlackPixelBuffer(void);
 void* VTDecompressionSessionCopyProperty(void);
 void* VTDecompressionSessionCopySerializableProperties(void);
 void* VTDecompressionSessionCopySupportedPropertyDictionary(void);
-void* VTDecompressionSessionCreate(void);
 void* VTDecompressionSessionCreateWithOptions(void);
-void* VTDecompressionSessionDecodeFrame(void);
 void* VTDecompressionSessionDecodeFrameWithOutputHandler(void);
-void* VTDecompressionSessionFinishDelayedFrames(void);
 void* VTDecompressionSessionGetMinAndMaxOutputPresentationTimeStampOfFramesBeingDecoded(void);
 void* VTDecompressionSessionGetMinOutputPresentationTimeStampOfFramesBeingDecoded(void);
-void* VTDecompressionSessionGetTypeID(void);
-void* VTDecompressionSessionInvalidate(void);
 void* VTDecompressionSessionSetProperties(void);
 void* VTDecompressionSessionSetProperty(void);
-void* VTDecompressionSessionWaitForAsynchronousFrames(void);
 void* VTDistributedCompressionGetSegmentRanges(void);
 void* VTDistributedCompressionGetSegmentsToReencode(void);
 void* VTDistributedPreprocessingGetOverlap(void);
@@ -133,7 +126,6 @@ void* VTImageRotationSessionSetProperties(void);
 void* VTImageRotationSessionSetProperty(void);
 void* VTImageRotationSessionTransferImage(void);
 void* VTImageRotationSessionTransferSubImage(void);
-void* VTIsHardwareDecodeSupported(void);
 void* VTIsMetalDeviceExternal(void);
 void* VTIsMetalDeviceSlotted(void);
 void* VTMakeMovedRectWithDictionaryRepresentation(void);
@@ -176,13 +168,9 @@ void* VTPixelTransferSessionCanTransfer(void);
 void* VTPixelTransferSessionCopyProperty(void);
 void* VTPixelTransferSessionCopySerializableProperties(void);
 void* VTPixelTransferSessionCopySupportedPropertyDictionary(void);
-void* VTPixelTransferSessionCreate(void);
 void* VTPixelTransferSessionCreateScalingParameters(void);
-void* VTPixelTransferSessionGetTypeID(void);
-void* VTPixelTransferSessionInvalidate(void);
 void* VTPixelTransferSessionSetProperties(void);
 void* VTPixelTransferSessionSetProperty(void);
-void* VTPixelTransferSessionTransferImage(void);
 void* VTPreprocessingSessionAddResolution(void);
 void* VTPreprocessingSessionCompleteFrames(void);
 void* VTPreprocessingSessionCopyProperty(void);
@@ -198,7 +186,6 @@ void* VTRegisterGVAPixelTransferCapability(void);
 void* VTRegisterPixelTransferCapability(void);
 void* VTRegisterProfessionalVideoWorkflowVideoDecoders(void);
 void* VTRegisterProfessionalVideoWorkflowVideoEncoders(void);
-void* VTRegisterSupplementalVideoDecoderIfAvailable(unsigned int codecType);
 void* VTRegisterVideoDecoder(void);
 void* VTRegisterVideoDecoderBundleDirectory(void);
 void* VTRegisterVideoDecoderWithInfo(void);
@@ -212,13 +199,9 @@ void* VTRemoteVideoEncoderGetClassID(void);
 void* VTSelectAndCreateTemporalFilterInstance(void);
 void* VTSelectAndCreateVideoDecoderInstance(void);
 void* VTSelectAndCreateVideoEncoderInstance(void);
-void* VTSessionCopyProperty(void);
 void* VTSessionCopySerializableProperties(void);
-void* VTSessionCopySupportedPropertyDictionary(void);
 void* VTSessionGetCallbacksWithTypeID(void);
 void* VTSessionRegisterCallbacksForTypeID(void);
-void* VTSessionSetProperties(void);
-void* VTSessionSetProperty(void);
 void* VTTemporalFilterPluginGetCMBaseObject(void);
 void* VTTemporalFilterPluginGetClassID(void);
 void* VTTemporalFilterPluginGetTypeID(void);

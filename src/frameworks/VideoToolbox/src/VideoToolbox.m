@@ -165,12 +165,6 @@ void* VTCompressionSessionBeginPass(void)
     return NULL;
 }
 
-void* VTCompressionSessionCompleteFrames(void)
-{
-    if (verbose) puts("STUB: VTCompressionSessionCompleteFrames called");
-    return NULL;
-}
-
 void* VTCompressionSessionCopyProperty(void)
 {
     if (verbose) puts("STUB: VTCompressionSessionCopyProperty called");
@@ -189,18 +183,6 @@ void* VTCompressionSessionCopySupportedPropertyDictionary(void)
     return NULL;
 }
 
-void* VTCompressionSessionCreate(void)
-{
-    if (verbose) puts("STUB: VTCompressionSessionCreate called");
-    return NULL;
-}
-
-void* VTCompressionSessionEncodeFrame(void)
-{
-    if (verbose) puts("STUB: VTCompressionSessionEncodeFrame called");
-    return NULL;
-}
-
 void* VTCompressionSessionEncodeFrameWithOutputHandler(void)
 {
     if (verbose) puts("STUB: VTCompressionSessionEncodeFrameWithOutputHandler called");
@@ -213,33 +195,9 @@ void* VTCompressionSessionEndPass(void)
     return NULL;
 }
 
-void* VTCompressionSessionGetPixelBufferPool(void)
-{
-    if (verbose) puts("STUB: VTCompressionSessionGetPixelBufferPool called");
-    return NULL;
-}
-
 void* VTCompressionSessionGetTimeRangesForNextPass(void)
 {
     if (verbose) puts("STUB: VTCompressionSessionGetTimeRangesForNextPass called");
-    return NULL;
-}
-
-void* VTCompressionSessionGetTypeID(void)
-{
-    if (verbose) puts("STUB: VTCompressionSessionGetTypeID called");
-    return NULL;
-}
-
-void* VTCompressionSessionInvalidate(void)
-{
-    if (verbose) puts("STUB: VTCompressionSessionInvalidate called");
-    return NULL;
-}
-
-void* VTCompressionSessionPrepareToEncodeFrames(void)
-{
-    if (verbose) puts("STUB: VTCompressionSessionPrepareToEncodeFrames called");
     return NULL;
 }
 
@@ -369,18 +327,6 @@ void* VTDecoderSessionTrace(void)
     return NULL;
 }
 
-void* VTDecompressionSessionCanAcceptFormatDescription(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionCanAcceptFormatDescription called");
-    return NULL;
-}
-
-void* VTDecompressionSessionCopyBlackPixelBuffer(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionCopyBlackPixelBuffer called");
-    return NULL;
-}
-
 void* VTDecompressionSessionCopyProperty(void)
 {
     if (verbose) puts("STUB: VTDecompressionSessionCopyProperty called");
@@ -399,33 +345,15 @@ void* VTDecompressionSessionCopySupportedPropertyDictionary(void)
     return NULL;
 }
 
-void* VTDecompressionSessionCreate(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionCreate called");
-    return NULL;
-}
-
 void* VTDecompressionSessionCreateWithOptions(void)
 {
     if (verbose) puts("STUB: VTDecompressionSessionCreateWithOptions called");
     return NULL;
 }
 
-void* VTDecompressionSessionDecodeFrame(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionDecodeFrame called");
-    return NULL;
-}
-
 void* VTDecompressionSessionDecodeFrameWithOutputHandler(void)
 {
     if (verbose) puts("STUB: VTDecompressionSessionDecodeFrameWithOutputHandler called");
-    return NULL;
-}
-
-void* VTDecompressionSessionFinishDelayedFrames(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionFinishDelayedFrames called");
     return NULL;
 }
 
@@ -441,18 +369,6 @@ void* VTDecompressionSessionGetMinOutputPresentationTimeStampOfFramesBeingDecode
     return NULL;
 }
 
-void* VTDecompressionSessionGetTypeID(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionGetTypeID called");
-    return NULL;
-}
-
-void* VTDecompressionSessionInvalidate(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionInvalidate called");
-    return NULL;
-}
-
 void* VTDecompressionSessionSetProperties(void)
 {
     if (verbose) puts("STUB: VTDecompressionSessionSetProperties called");
@@ -462,12 +378,6 @@ void* VTDecompressionSessionSetProperties(void)
 void* VTDecompressionSessionSetProperty(void)
 {
     if (verbose) puts("STUB: VTDecompressionSessionSetProperty called");
-    return NULL;
-}
-
-void* VTDecompressionSessionWaitForAsynchronousFrames(void)
-{
-    if (verbose) puts("STUB: VTDecompressionSessionWaitForAsynchronousFrames called");
     return NULL;
 }
 
@@ -714,12 +624,6 @@ void* VTImageRotationSessionTransferImage(void)
 void* VTImageRotationSessionTransferSubImage(void)
 {
     if (verbose) puts("STUB: VTImageRotationSessionTransferSubImage called");
-    return NULL;
-}
-
-void* VTIsHardwareDecodeSupported(void)
-{
-    if (verbose) puts("STUB: VTIsHardwareDecodeSupported called");
     return NULL;
 }
 
@@ -975,27 +879,9 @@ void* VTPixelTransferSessionCopySupportedPropertyDictionary(void)
     return NULL;
 }
 
-void* VTPixelTransferSessionCreate(void)
-{
-    if (verbose) puts("STUB: VTPixelTransferSessionCreate called");
-    return NULL;
-}
-
 void* VTPixelTransferSessionCreateScalingParameters(void)
 {
     if (verbose) puts("STUB: VTPixelTransferSessionCreateScalingParameters called");
-    return NULL;
-}
-
-void* VTPixelTransferSessionGetTypeID(void)
-{
-    if (verbose) puts("STUB: VTPixelTransferSessionGetTypeID called");
-    return NULL;
-}
-
-void* VTPixelTransferSessionInvalidate(void)
-{
-    if (verbose) puts("STUB: VTPixelTransferSessionInvalidate called");
     return NULL;
 }
 
@@ -1008,12 +894,6 @@ void* VTPixelTransferSessionSetProperties(void)
 void* VTPixelTransferSessionSetProperty(void)
 {
     if (verbose) puts("STUB: VTPixelTransferSessionSetProperty called");
-    return NULL;
-}
-
-void* VTPixelTransferSessionTransferImage(void)
-{
-    if (verbose) puts("STUB: VTPixelTransferSessionTransferImage called");
     return NULL;
 }
 
@@ -1107,12 +987,6 @@ void* VTRegisterProfessionalVideoWorkflowVideoEncoders(void)
     return NULL;
 }
 
-void* VTRegisterSupplementalVideoDecoderIfAvailable(unsigned int codecType)
-{
-    if (verbose) puts("STUB: VTRegisterSupplementalVideoDecoderIfAvailable called");
-    return NULL;
-}
-
 void* VTRegisterVideoDecoder(void)
 {
     if (verbose) puts("STUB: VTRegisterVideoDecoder called");
@@ -1191,21 +1065,9 @@ void* VTSelectAndCreateVideoEncoderInstance(void)
     return NULL;
 }
 
-void* VTSessionCopyProperty(void)
-{
-    if (verbose) puts("STUB: VTSessionCopyProperty called");
-    return NULL;
-}
-
 void* VTSessionCopySerializableProperties(void)
 {
     if (verbose) puts("STUB: VTSessionCopySerializableProperties called");
-    return NULL;
-}
-
-void* VTSessionCopySupportedPropertyDictionary(void)
-{
-    if (verbose) puts("STUB: VTSessionCopySupportedPropertyDictionary called");
     return NULL;
 }
 
@@ -1218,18 +1080,6 @@ void* VTSessionGetCallbacksWithTypeID(void)
 void* VTSessionRegisterCallbacksForTypeID(void)
 {
     if (verbose) puts("STUB: VTSessionRegisterCallbacksForTypeID called");
-    return NULL;
-}
-
-void* VTSessionSetProperties(void)
-{
-    if (verbose) puts("STUB: VTSessionSetProperties called");
-    return NULL;
-}
-
-void* VTSessionSetProperty(void)
-{
-    if (verbose) puts("STUB: VTSessionSetProperty called");
     return NULL;
 }
 
