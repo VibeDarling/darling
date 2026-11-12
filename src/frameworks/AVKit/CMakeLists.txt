@@ -20,6 +20,7 @@ add_framework(AVKit
 
     SOURCES
         src/AVKit.m
+        src/AVPictureInPictureController.m
         src/AVTrimView.m
         src/AVFunctionBarVideoTrackView.m
         src/AVTrimSelectionEndFocusRingView.m

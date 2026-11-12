@@ -531,4 +531,7 @@ add_framework(AVFoundation
         Foundation
         QuartzCore
         CoreMedia
+        CoreVideo
+        CoreGraphics
+        AudioToolbox
 )
