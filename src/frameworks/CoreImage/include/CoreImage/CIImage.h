@@ -17,8 +17,15 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef COREIMAGE_CIIMAGE_H
+#define COREIMAGE_CIIMAGE_H
+
 #include <Foundation/Foundation.h>
 #include <CoreGraphics/CoreGraphics.h>
+#include <CoreVideo/CoreVideo.h>
+#include <ImageIO/CGImageProperties.h>
+
+typedef NSString *CIImageOption NS_TYPED_ENUM;
 
 typedef int CIFormat;
 
@@ -37,9 +44,28 @@ extern const CIFormat kCIFormatRGBAf;
 }
 
 + (CIImage *) emptyImage;
++ (CIImage *) imageWithCGImage: (CGImageRef) image;
 
 - initWithCGImage: (CGImageRef) cgImage;
+
++ (CIImage *) imageWithCVPixelBuffer: (CVPixelBufferRef) pixelBuffer;
++ (CIImage *) imageWithCVPixelBuffer: (CVPixelBufferRef) pixelBuffer options: (NSDictionary<CIImageOption, id> *) options;
++ (CIImage *) imageWithCVImageBuffer: (CVImageBufferRef) imageBuffer;
++ (CIImage *) imageWithCVImageBuffer: (CVImageBufferRef) imageBuffer options: (NSDictionary<CIImageOption, id> *) options;
+- (instancetype) initWithCVPixelBuffer: (CVPixelBufferRef) pixelBuffer;
+- (instancetype) initWithCVPixelBuffer: (CVPixelBufferRef) pixelBuffer options: (NSDictionary<CIImageOption, id> *) options;
+- (instancetype) initWithCVImageBuffer: (CVImageBufferRef) imageBuffer;
+- (instancetype) initWithCVImageBuffer: (CVImageBufferRef) imageBuffer options: (NSDictionary<CIImageOption, id> *) options;
+
+@property (readonly) CGImageRef CGImage;
+
+- (CIImage *) imageByApplyingOrientation: (int) orientation;
+- (CIImage *) imageByApplyingCGOrientation: (CGImagePropertyOrientation) orientation;
+- (CGAffineTransform) imageTransformForOrientation: (int) orientation;
+- (CGAffineTransform) imageTransformForCGOrientation: (CGImagePropertyOrientation) orientation;
 
 - (CGRect) extent;
 
 @end
+
+#endif
