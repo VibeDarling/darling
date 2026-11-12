@@ -8,7 +8,20 @@
 extern "C" {
 #endif
 
-typedef struct AUGraphData* AUGraph;
+typedef struct OpaqueAUGraph *AUGraph;
+
+enum {
+	kAUGraphErr_NodeNotFound = -10860,
+	kAUGraphErr_InvalidConnection = -10861,
+	kAUGraphErr_OutputNodeErr = -10862,
+	kAUGraphErr_CannotDoInCurrentContext = -10863,
+	kAUGraphErr_InvalidAudioUnit = -10864,
+};
+
+enum {
+	kAUNodeInteraction_Connection = 1,
+	kAUNodeInteraction_InputCallback = 2,
+};
 typedef SInt32 AUNode;
 
 struct AudioUnitNodeConnection
