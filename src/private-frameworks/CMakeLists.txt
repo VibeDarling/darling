@@ -81,6 +81,14 @@ if (COMPONENT_gui)
 	set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "gui")
 
 	add_subdirectory(AppleSRP)
+	add_subdirectory(FrontBoardServices)
+	add_subdirectory(Celestial)
+	add_subdirectory(DarlingBoard)
+	add_subdirectory(GraphicsServices)
+	add_subdirectory(Preferences)
+	add_subdirectory(RunningBoardServices)
+	add_subdirectory(SpringBoardServices)
+	add_subdirectory(WebKitLegacy)
 endif()
 
 # this is for all the other stubbed frameworks

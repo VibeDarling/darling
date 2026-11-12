@@ -18,11 +18,94 @@
 */
 
 #import <AVFoundation/AVCaptureSession.h>
+#import <AVFoundation/AVCaptureInput.h>
+#import <AVFoundation/AVCaptureOutput.h>
 
-@implementation AVCaptureSession
+// There is no capture hardware: a session keeps its configuration, and running it delivers nothing.
+@implementation AVCaptureSession {
+    NSMutableArray *_inputs;
+    NSMutableArray *_outputs;
+}
+
+@synthesize sessionPreset = _sessionPreset;
+
+- (instancetype)init {
+    if ((self = [super init])) {
+        _inputs = [[NSMutableArray alloc] init];
+        _outputs = [[NSMutableArray alloc] init];
+        _sessionPreset = [AVCaptureSessionPresetHigh copy];
+    }
+    return self;
+}
+
+- (void)dealloc {
+    [_inputs release];
+    [_outputs release];
+    [_sessionPreset release];
+    [super dealloc];
+}
+
+- (BOOL)canSetSessionPreset:(AVCaptureSessionPreset)preset {
+    return preset != nil;
+}
+
+- (NSArray *)inputs {
+    return [[_inputs copy] autorelease];
+}
+
+- (BOOL)canAddInput:(AVCaptureInput *)input {
+    return input != nil && ![_inputs containsObject:input];
+}
+
+- (void)addInput:(AVCaptureInput *)input {
+    if ([self canAddInput:input])
+        [_inputs addObject:input];
+}
+
+- (void)removeInput:(AVCaptureInput *)input {
+    [_inputs removeObject:input];
+}
+
+- (NSArray *)outputs {
+    return [[_outputs copy] autorelease];
+}
+
+- (BOOL)canAddOutput:(AVCaptureOutput *)output {
+    return output != nil && ![_outputs containsObject:output];
+}
+
+- (void)addOutput:(AVCaptureOutput *)output {
+    if ([self canAddOutput:output])
+        [_outputs addObject:output];
+}
+
+- (void)removeOutput:(AVCaptureOutput *)output {
+    [_outputs removeObject:output];
+}
+
+- (void)beginConfiguration {
+}
+
+- (void)commitConfiguration {
+}
+
+- (BOOL)isRunning {
+    return NO;
+}
+
+- (BOOL)isInterrupted {
+    return NO;
+}
+
+- (void)startRunning {
+}
+
+- (void)stopRunning {
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
+    return signature ?: [NSMethodSignature signatureWithObjCTypes: "v@:"];
 }
 
 - (void)forwardInvocation:(NSInvocation *)anInvocation {

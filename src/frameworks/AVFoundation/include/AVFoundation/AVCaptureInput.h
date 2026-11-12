@@ -17,8 +17,7 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#import <Foundation/Foundation.h>
 
 @interface AVCaptureInput : NSObject
-
 @end

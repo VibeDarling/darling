@@ -1,0 +1,331 @@
+# Darling Pocket: iOS apps on Android phones
+
+Goal: an ordinary Android app (`darling-pocket`) that runs unmodified arm64 iOS
+apps (`.ipa`) on an arm64 phone, fullscreen and touch-driven, on top of this
+Darling tree. It is a phone runtime, not a desktop: no window chrome, no menus,
+no pointer-first UI. Mac software is not a goal of this branch.
+
+This branch (`ios` on Kreijstal/darling) carries the iOS layer. The Android
+app, its build of the host binaries and its display bridge live in a separate
+`darling-pocket` repository that pins this branch as a submodule, the way
+[aosp-pocket](https://github.com/Kreijstal/aosp-pocket) pins its sources.
+Generic iOS work (UIKit classes, loader fixes) should also go upstream to
+VibeDarling, so this branch stays a thin layer over it.
+
+## What already holds
+
+- **The loader takes iOS binaries.** Darling's dyld is Apple's, including the
+  path that runs iPhone apps on Apple Silicon Macs: on arm64 an executable
+  built for `PLATFORM_IOS` is accepted, macOS dylibs may load into it, and
+  `/System/iOSSupport` becomes a root path (`src/external/dyld/dyld3/MachOFile.cpp`,
+  `loadableIntoProcess`; `src/external/dyld/src/dyld2.cpp`, the platform switch
+  that sets `rootPaths`). Darling installs UIKit there.
+- **Measured on x86_64:** the ios-android-runtime Hello World sample, unmodified
+  source, built for Mac Catalyst and linked against
+  `/System/Library/Frameworks/UIKit.framework/UIKit`, runs: dyld redirects UIKit
+  to `/System/iOSSupport`, `didFinishLaunching` and `viewDidLoad` run, and the X11
+  backend under Xvfb shows the centred label in a frameless window. The same
+  binary marked `PLATFORM_IOS` fails to find UIKit on x86_64, as the code above
+  predicts (the iOS root path is arm64-only).
+- **Measured on arm64: an unmodified iOS IPA runs.** The same sample's IPA as
+  Theos built it (arm64, `PLATFORM_IOS`, iOS 14 deployment target, SDK 16.5,
+  `LC_DYLD_INFO_ONLY` binds) runs on a Raspberry Pi 4 under this tree
+  cross-built from x86_64: dyld loads UIKit from `/System/iOSSupport`,
+  `didFinishLaunching` and `viewDidLoad` run and the label is drawn centred
+  (X11 backend, display tunnelled from Xvfb). It took three fixes: a generic
+  ARMv8.0 CPU baseline for compiled Mach-O code (`DARLING_ARM64_CPU`), dyld2
+  instead of closure mode for iOS executables (darling-dyld), and the iOS
+  `NSTextAlignment` numbering on arm64 (darling-cocotron).
+
+  ![Unmodified Hello World IPA on a Raspberry Pi 4](images/ios-hello-world-pi4.png)
+- **Non-root mode for Android exists** (`src/startup/darling.c`: no namespaces,
+  the prefix a plain directory, the real procfs), along with bionic/Termux build
+  support in mldr, darlingserver and the launcher. Termux is an ordinary app
+  sandbox, which is the strongest evidence so far that darlingserver's
+  `process_vm_readv`/`process_vm_writev` work for an app UID. It has not been
+  measured inside our own APK yet.
+- **Graphics building blocks:** IOSurface in `iokitd`, Metal to Vulkan through
+  Indium and mslc, and Android has Vulkan.
+
+## Phases
+
+Each phase ends with a run of a real binary, not only a build.
+
+### 1. arm64 iOS binaries on arm64 Linux
+
+- Done: cross build on x86_64 against a copy of the target's `/usr` as sysroot,
+  with a CMake toolchain file for `aarch64-unknown-linux-gnu` and
+  `-DTARGET_ARM64=ON -DTARGET_x86_64=OFF -DTARGET_i386=OFF`; the Theos-built
+  Hello World IPA runs unmodified (above).
+- Next: the chained-fixups variant of the same IPA
+  (`make package FIXUP_CHAINS=1`), and the multi-image and table-view samples.
+- Add an `.app` launcher: take the executable from `CFBundleExecutable`, give
+  the app an iOS-shaped container (`Documents`, `Library`, `tmp`) as its home,
+  and make `[NSBundle mainBundle]` work with the **flat iOS bundle layout**
+  (`Info.plist` at the bundle root, no `Contents/`). Check Foundation's NSBundle
+  for that layout first.
+
+### 2. UIKit for a phone
+
+UIKit sits on AppKit: a UIView is an NSView, and a UIWindow hosts a
+borderless NSWindow. This stays for now, because it gives working drawing,
+text and a display backend today. What changes is what the app sees. Phase 2
+is done except where marked:
+
+- **Screen.** `UIScreen` reports the phone's size and scale from the host
+  (`DARLING_UISCREEN=390x844@3`), not the desktop's NSScreen. The safe area
+  comes from the host too (`DARLING_UISAFEAREA=47,0,34,0`, for a notch and a
+  home indicator). The status bar is as tall as the notch, and each view's
+  `safeAreaInsets` and `safeAreaLayoutGuide` follow where it is in its
+  window (`tests/ios-phone.m`).
+- **Touch.** Every finger is a `UITouch`, and all of them are in one
+  `UIEvent`. They are delivered through `touchesBegan:`/`Moved`/`Ended`/
+  `Cancelled` and gesture recognizers (multiple touch, pinch, rotation),
+  from AppKit's `NSTouchPost`. The X11 backend feeds it from XInput 2.2
+  touch screens and the Wayland one from `wl_touch`. A phone host calls it
+  directly (`tests/ios-touch.m`).
+- **Lifecycle.** frontboardd turns foreground and background into
+  `applicationDidBecomeActive`/`WillResignActive`/`DidEnterBackground`
+  (below). A phone host reports its activity's resume and pause to
+  frontboardd.
+- **Classes.** These work, in the order apps need them: `UIButton`,
+  `UIImageView`, `UIScrollView`, `UITableView`, `UINavigationController`,
+  `UITabBarController`, and the classes file managers use
+  (`tests/ios-uikit-classes.m`). `UITextField` and `UISearchBar` take the
+  host keyboard and tell their delegates of each change.
+- **Nibs and storyboards.** Compiled nibs (ibtool's NIBArchive format, iOS
+  6 and later) and compiled storyboards load:
+  - outlets and actions;
+  - app classes made with `initWithCoder:`, then `awakeFromNib`;
+  - constraints and images;
+  - cells from registered nibs;
+  - a view controller's nib found by its class's name;
+  - scenes and segues;
+  - Info.plist's `UIMainStoryboardFile` and `NSMainNibFile`.
+
+  `tests/ios-nib.m` checks these. Every nib in FileBrowser and Filza loads,
+  and FileBrowser's main screen (its file list and cells) comes from its
+  nibs. Not yet checked against Xcode output: storyboards with navigation
+  or tab bar controllers (relationship segues).
+- Later: UIView backed by CALayer instead of NSView, once QuartzCore can
+  composite. Animation and apps that use layers directly need it.
+
+System services, the part of SpringBoard that apps talk to. Darling's own
+interface for them is DarlingBoard (`src/private-frameworks/DarlingBoard`),
+whose names are Darling's and not Apple's: no guest app links it, so there is
+nothing to imitate. With no frontboardd running, each call does its work in
+the calling process (`tests/ios-board-services.m` covers this):
+
+- `DBApplicationService` finds an installed app by bundle identifier in
+  `/Applications`, `/var/containers/Bundle/Application/*/` and
+  `~/Applications`, launches it with `posix_spawn`, gives its pid, and
+  terminates it. Running apps are found through `kern.proc.all` and
+  `proc_pidpath`, with the bundle taken from the executable's enclosing
+  `.app`.
+- GraphicsServices, FrontBoardServices and RunningBoardServices export
+  nothing. They exist so that apps that link them load: Cydia links
+  GraphicsServices (`llvm-otool -L`) while binding no symbol from it
+  (`llvm-nm -u -m`), and upstream scans of macOS stock apps (VibeDarling
+  issues #446, #460, #572) find apps loading all three.
+- `frontboardd` (FrontBoard-lite) owns the application lifecycle. It
+  launches installed apps, keeps at most one in the foreground, and tells
+  each app when it moves between foreground and background or should
+  terminate. DarlingBoard forwards to it whenever it runs. UIKit checks
+  in with it (`DBAppConnection`) after `didFinishLaunching` and turns its
+  events into `applicationDidBecomeActive:`, `WillResignActive:`,
+  `DidEnterBackground:`, `WillEnterForeground:` and `WillTerminate:`,
+  plus the notifications.
+  `applicationState` follows them, and a backgrounded app's windows go off
+  screen. Without frontboardd an app becomes active after launching.
+  `tests/ios-frontboard-lite.m` switches two apps on x86_64 and on the Pi:
+
+  ![A, then B, then A in front](images/frontboard-lite-switches.png)
+
+  It draws nothing itself. Clients use its socket: open, home, list,
+  terminate, and Home button presses. frontboardd itself still has to be
+  started by hand or by the host (a LaunchDaemon plist would do it).
+  Suspension (stopping background apps) and scenes are not done.
+- SpringBoard-lite (`src/SpringBoard`, installed as
+  `/System/Library/CoreServices/SpringBoard.app`, bundle identifier
+  `com.apple.springboard`) is the home screen. To frontboardd it is the system
+  app:
+  - frontboardd launches it at startup (unless given `--no-system-app`) and
+    relaunches it if it dies;
+  - it is in front whenever no other app is;
+  - it hears each Home button press, and two presses within 400 ms count as
+    a double press.
+
+  The home screen shows `DBInstalledApplications()` as pages of rounded
+  icons with names, laid out 4 columns wide in portrait and 6 in landscape.
+  An app's own PNG icon is used if it has one; otherwise a colored monogram.
+  Around the grid are a status bar clock, page dots, a dock and a dot under
+  each running app.
+  - Tapping an icon opens the app; swiping turns the page.
+  - On a phone the Home button comes from the host; under X11 it is the
+    keyboard's Home key, which every UIKit app forwards to frontboardd.
+  - A double press opens the app switcher. Tapping a card brings that app
+    back; tapping its × terminates it.
+  - The dock holds the apps listed in the `SBDockApplications` default.
+
+  Behind this, UIKit gained pointer-driven touches (`UITouch`, `UIEvent`,
+  `touches*:withEvent:` passed up the superview chain), `UIImage` (with
+  `CGImage`) and `UIGraphicsGetCurrentContext`. Darling's Core Graphics
+  clips to a path's bounding box only, so the rounded corners are drawn as
+  rectangle-clipped strips.
+
+  Drawing is all software, so SpringBoard draws each icon, switcher card
+  and the wallpaper once into an offscreen bitmap and then only copies it:
+  Core Graphics copies an unscaled image at a whole-pixel offset quickly,
+  while each fill or clip is a pass of its rasterizer. AppKit used to push
+  the whole window to the screen once per view it drew (each push a
+  texture upload and a `glFinish`); now `-[NSView unlockFocus]` flushes
+  through `-[NSWindow flushWindow]`, which waits for the end of the display
+  pass. And the tree builds without optimization unless a build type is
+  set, which made Core Graphics' pixel loops 3 to 6 times slower, so the
+  Cocotron frameworks are now built with `-O2` regardless. On the Pi 4
+  over a forwarded X display, the first full home screen went from about
+  15 s to under 0.5 s; a tap, Home and the clock redraw in tens of
+  milliseconds, and the switcher opens in about 0.1 s (switcher cards are
+  kept per app). Most of what is left is per-view overhead in Foundation
+  and the Objective-C runtime, which are still built at `-O0`. Checked by hand with xdotool on x86_64 (home screen and switcher
+  below) and on the Pi 4, where it launches the unmodified Hello World IPA:
+
+  ![SpringBoard-lite: home screen and app switcher](images/springboard-lite.png)
+
+  Not done yet: rearranging icons and deleting apps (the wiggle mode),
+  folders, search, notifications and lock screen.
+
+- Cydia packages. Procursus' rootless bootstrap tools are iOS arm64
+  binaries, and they run unmodified under this tree: placed at `/var/jb`
+  (`/var/jb` a link to `/private/var/jb`), `dpkg` 1.22.6 installs a real
+  `.deb`. It needs GNU `tar` ahead of Darling's bsdtar on `PATH`, and
+  `libreadline8` and `libncursesw6` for `bash`, because libiosexec sends
+  maintainer scripts' `#!/bin/bash` to `/var/jb/bin/bash`. On the Pi 4,
+  `dpkg -i --force-all cydia_1.1.30_iphoneos-arm.deb` unpacks
+  `/Applications/Cydia.app`, and its native postinst runs until an iOS-only
+  call (`setnsfpn`). SpringBoard-lite then lists Cydia with its own icon.
+  That needed Onyx2D to decode Apple's CgBI PNGs, which every
+  Xcode-built app ships and which libpng rejects. Cydia now runs: with
+  SpringBoardServices, iOS WebCore and WebKit (UIWebView, drawn by
+  WebKitGTK in `tools/darling-webhost`), it shows its pages and installs
+  packages. Tweaks load through this tree's own Cydia Substrate
+  (`src/CydiaSubstrate`). Those that hook Apple's SpringBoard classes do
+  nothing, since SpringBoard-lite does not have them.
+
+- JavaScriptCore. The in-tree JavaScriptCore (WebKit 608, iOS 13 era) builds
+  for arm64 with the `jsc` component and runs an iOS test binary on the Pi 4
+  with the JIT on: the C and Objective-C APIs, `JSExport`, blocks, Promise jobs
+  (`tests/ios-javascriptcore.m`). It needed the arm64 `sys_icache_invalidate`
+  to clean the dcache (Apple's cores don't need that, the A72 does: JIT code
+  raised SIGILL), a Foundation map-table fix (keys read as weak values), and
+  client definitions of the `JSC_API_AVAILABLE` macros. On x86_64 it also
+  passes, after fixing NSInvocation's float, double and small-struct results. It is the first step
+  towards WebKit: WKWebView/UIWebView still need WebCore, which needs
+  CoreText, QuartzCore, IOSurface and CFNetwork to be far more complete here.
+
+### 3. Android display backend
+
+**Done on Linux; the Android side of it is phase 4.** AppKit has a third
+backend next to `X11.backend` and `Wayland.backend`:
+`src/external/cocotron/AppKit/Pocket.backend`. AppKit picks it when
+`DARLING_POCKET_DISPLAY` names a phone host's socket.
+
+- **The wire protocol** is `PocketProtocol.h`, plain C so the Android app's
+  native code includes it as is. Each app connects to the host's Unix
+  socket.
+  - The host first describes its screen: pixels, scale, and the pixels a
+    notch, a status bar or a navigation bar cover.
+  - Each window is a shared memory buffer (a memfd, passed with
+    SCM_RIGHTS). Onyx2D draws at the screen's scale and copies each frame
+    into it.
+  - The app does not touch the buffer again until the host releases it, so
+    the host reads in its own time and nothing tears.
+- **Input:**
+  - Touches go to `NSTouchPost`, so UIKit's multitouch path gets them.
+  - Keys come as Mac key codes, and input method text as UTF-8.
+  - The app asks the host to show the soft keyboard while a text view or
+    field is editing, and to hide it afterwards.
+- **UIKit takes the screen from AppKit's.** `NSScreen` has
+  `safeAreaInsets` (macOS 12) now, so no `DARLING_UISCREEN` or
+  `DARLING_UISAFEAREA` is needed.
+- **The backend needs no X server.** It subclasses `X11Display` for fonts and
+  colours only. CoreGraphics' X11 backend is not used without `DISPLAY`.
+- **`tools/pocket-host`** is the host on Linux: a framebuffer, input from
+  stdin commands, PNG screenshots.
+- **Tested:** `tests/ios-pocket-display.m` passes 15/15 in the arm64 VM.
+  - It checks the screen and safe area from the host, a tap, a drag, two
+    fingers, input method text and Delete, and Return.
+  - It also checks the keyboard requests, and that the host's pixels are
+    what the app drew, at 2x.
+  - FileBrowser runs on it too.
+
+Left (the first two are done in phase 4, not yet run):
+- the host side in the Android app: copy each frame into a `SurfaceView`'s
+  `ANativeWindow`, and send `MotionEvent`s and the IME's text;
+- the back button;
+- moving old-SDK apps (FileBrowser) below the status bar, as iOS 7 does
+  for apps linked against iOS 6. They draw their bars under the notch now;
+- fontconfig and freetype built with the NDK (done in phase 4).
+
+The X11 and Wayland ELF wrappers are not built for Android. The X11 backend
+bundle still loads, since its host libraries are opened lazily.
+
+### 4. darling-pocket APK
+
+**Built, not yet run on a phone.** The app is in its own repository,
+`darling-pocket`, local for now; its README has the details.
+
+- **Host programs:** the launcher, `mldr` and `darlingserver` build with the
+  NDK (`COMPONENTS=core`, libucontext for darlingserver's contexts). They ship
+  as `libdarling.so`, `libmldr.so` and `libdarlingserver.so` in the APK's
+  native library directory, since Android executes nothing else. This tree
+  learned three things for that:
+  - `DARLING_MLDR_PATH` and `DARLING_SERVER_PATH` say where those programs
+    are (the launcher and darlingserver);
+  - darlingserver names itself `darlingserver`, which the launcher checks,
+    whatever its file is called;
+  - on Android, `DARLING_SHM_DIR` names the host directory for shared memory
+    (Android before 11 has no `memfd_create` in libc).
+- **Host libraries:** FreeType, fontconfig, libpng, libjpeg, libtiff and giflib
+  are built with the NDK, under the names the Mach-O wrappers `dlopen()`.
+- **The runtime:** the Mach-O tree (`libexec/darling`) is the arm64 Linux one,
+  packed as a tar.gz (148 MB; 700 MB unpacked, still built at -O0 with debug
+  information).
+  - The APK accepts only the archive whose sha256 it was built with.
+  - On the first start it is unpacked into the app's files, with
+    `private/tmp` pointed at the app's cache. The container is created then.
+- **The display host:** `tools/pocket-host/pocket-server.c` is the Pocket
+  protocol's host side, used by `pocket-host` and the app.
+  - The app composes frames into a `SurfaceView`, sends `MotionEvent`s as
+    touches, and holds the IME while an app edits text.
+  - The status bar, the navigation bar and the cutout are the apps' safe area.
+  - Back sends the screen to the background, as the Home button does.
+- **A foreground service** keeps the display and the running app alive. A
+  manager activity installs the runtime and IPAs.
+- **Tested off the phone:**
+  - `ios-pocket-display` passes 15/15 in the arm64 VM with `pocket-host` on the
+    shared server.
+  - It passes 15/15 again with Darling started as the app starts it: the host
+    programs only in a separate directory under `lib*.so` names, and the
+    install tree's own copies moved away.
+  - The app's tar and IPA installers reproduce the runtime tree and install
+    real IPAs, on a desktop JVM.
+  - `make verify` checks the APK's libraries: arm64, 16 KB pages, only
+    Android's public libraries, and the JNI symbols.
+- **Next:** run it on the Pi's Cuttlefish or a phone. The first measurement is
+  still darlingserver's cross-process memory calls under `untrusted_app`.
+
+### 5. Breadth
+
+Swift apps (the Swift runtime is in-tree), Metal through Indium on Android
+Vulkan, audio through AAudio instead of PulseAudio, networking and the
+keychain.
+
+## Limits to state up front
+
+- **App Store IPAs are FairPlay-encrypted.** Their code cannot run anywhere but
+  an iPhone that holds the keys. Darling Pocket runs decrypted, ad hoc,
+  development or open-source IPAs. Apple's binaries are never shipped.
+- arm64e (pointer authentication) is out of scope; plain arm64 apps only.
+- The guest runs as the host app's UID with no isolation between guest
+  processes, like aosp-pocket.

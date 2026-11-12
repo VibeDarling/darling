@@ -18,17 +18,105 @@
 */
 
 #import <StoreKit/SKPaymentQueue.h>
+#import <objc/runtime.h>
 
-@implementation SKPaymentQueue
+extern NSString *const SKErrorDomain;
+
+@implementation SKPaymentQueue {
+    NSMutableArray *_observers;
+}
+
++ (instancetype)defaultQueue
+{
+    static SKPaymentQueue *queue;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        queue = [[SKPaymentQueue alloc] init];
+    });
+    return queue;
+}
+
++ (BOOL)canMakePayments
+{
+    return NO;
+}
+
+- (instancetype)init
+{
+    if ((self = [super init]) != nil)
+        _observers = [[NSMutableArray alloc] init];
+    return self;
+}
+
+- (void)dealloc
+{
+    [_observers release];
+    [super dealloc];
+}
+
+- (NSArray *)transactions
+{
+    return @[];
+}
+
+// Observers are not retained, as on iOS.
+- (void)addTransactionObserver:(id)observer
+{
+    if (observer != nil && [_observers indexOfObjectIdenticalTo:observer] == NSNotFound)
+        [_observers addObject:[NSValue valueWithNonretainedObject:observer]];
+}
+
+- (void)removeTransactionObserver:(id)observer
+{
+    for (NSValue *value in [[_observers copy] autorelease])
+        if ([value nonretainedObjectValue] == observer)
+            [_observers removeObject:value];
+}
+
+- (void)addPayment:(SKPayment *)payment
+{
+    NSLog(@"SKPaymentQueue: there is no App Store to buy %@ from", payment);
+}
+
+- (void)restoreCompletedTransactions
+{
+    NSError *error = [NSError errorWithDomain:SKErrorDomain code:0 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot connect to the App Store." }];
+    NSArray *observers = [[_observers copy] autorelease];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        for (NSValue *value in observers) {
+            id observer = [value nonretainedObjectValue];
+            if ([observer respondsToSelector:@selector(paymentQueue:restoreCompletedTransactionsFailedWithError:)])
+                [observer paymentQueue:self restoreCompletedTransactionsFailedWithError:error];
+        }
+    });
+}
+
+- (void)restoreCompletedTransactionsWithApplicationUsername:(NSString *)username
+{
+    [self restoreCompletedTransactions];
+}
+
+- (void)finishTransaction:(SKPaymentTransaction *)transaction
+{
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
+    if (signature != nil)
+        return signature;
+    NSMutableString *types = [NSMutableString stringWithString:@"@@:"];
+    for (const char *c = sel_getName(aSelector); *c != '\0'; c++)
+        if (*c == ':')
+            [types appendString:@"@"];
+    return [NSMethodSignature signatureWithObjCTypes:[types UTF8String]];
 }
 
 - (void)forwardInvocation:(NSInvocation *)anInvocation
 {
     NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    id nothing = nil;
+    [anInvocation setReturnValue:&nothing];
 }
 
 @end

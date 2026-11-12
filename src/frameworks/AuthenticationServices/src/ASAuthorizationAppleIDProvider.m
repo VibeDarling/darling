@@ -18,8 +18,14 @@
 */
 
 #import <AuthenticationServices/ASAuthorizationAppleIDProvider.h>
+#import <AuthenticationServices/ASAuthorizationAppleIDRequest.h>
 
 @implementation ASAuthorizationAppleIDProvider
+
+- (ASAuthorizationAppleIDRequest *)createRequest
+{
+    return [[[ASAuthorizationAppleIDRequest alloc] init] autorelease];
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {

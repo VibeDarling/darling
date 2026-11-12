@@ -94,7 +94,8 @@
 #ifdef __IPHONE_OS_VERSION_MIN_REQUIRED
     /* make sure a default max version is set */
     #ifndef __IPHONE_OS_VERSION_MAX_ALLOWED
-        #define __IPHONE_OS_VERSION_MAX_ALLOWED     __IPHONE_13_0
+        /* the iOS SDK that tools/make-ios-sdk.sh makes is iOS 16.0 */
+        #define __IPHONE_OS_VERSION_MAX_ALLOWED     __IPHONE_16_0
     #endif
     /* make sure a valid min is set */
     #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_2_0

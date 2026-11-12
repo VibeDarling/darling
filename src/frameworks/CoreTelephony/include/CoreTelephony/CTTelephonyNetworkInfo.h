@@ -19,6 +19,32 @@
 
 #include <Foundation/Foundation.h>
 
-@interface CTTelephonyNetworkInfo : NSObject
+@class CTCarrier;
 
+extern NSString *const CTRadioAccessTechnologyDidChangeNotification;
+extern NSString *const CTServiceRadioAccessTechnologyDidChangeNotification;
+extern NSString *const CTRadioAccessTechnologyGPRS;
+extern NSString *const CTRadioAccessTechnologyEdge;
+extern NSString *const CTRadioAccessTechnologyWCDMA;
+extern NSString *const CTRadioAccessTechnologyHSDPA;
+extern NSString *const CTRadioAccessTechnologyHSUPA;
+extern NSString *const CTRadioAccessTechnologyCDMA1x;
+extern NSString *const CTRadioAccessTechnologyCDMAEVDORev0;
+extern NSString *const CTRadioAccessTechnologyCDMAEVDORevA;
+extern NSString *const CTRadioAccessTechnologyCDMAEVDORevB;
+extern NSString *const CTRadioAccessTechnologyeHRPD;
+extern NSString *const CTRadioAccessTechnologyLTE;
+extern NSString *const CTRadioAccessTechnologyNRNSA;
+extern NSString *const CTRadioAccessTechnologyNR;
+
+/* There is no cellular radio: no technology, no carrier. */
+@interface CTTelephonyNetworkInfo : NSObject
+@property (nonatomic, readonly) NSString *currentRadioAccessTechnology;
+@property (nonatomic, readonly) NSDictionary<NSString *, NSString *> *serviceCurrentRadioAccessTechnology;
+@property (nonatomic, readonly) CTCarrier *subscriberCellularProvider;
+@property (nonatomic, readonly) NSDictionary<NSString *, CTCarrier *> *serviceSubscriberCellularProviders;
+@property (nonatomic, readonly) NSString *dataServiceIdentifier;
+@property (nonatomic, assign) id delegate;
+@property (nonatomic, copy) void (^subscriberCellularProviderDidUpdateNotifier)(CTCarrier *carrier);
+@property (nonatomic, copy) void (^serviceSubscriberCellularProvidersDidUpdateNotifier)(NSString *identifier);
 @end

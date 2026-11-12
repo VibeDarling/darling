@@ -20,6 +20,8 @@
 #include <Foundation/Foundation.h>
 #include <AVFoundation/AVMediaFormat.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 typedef NS_ENUM(NSInteger, AVAuthorizationStatus) {
 	AVAuthorizationStatusNotDetermined = 0,
 	AVAuthorizationStatusRestricted = 1,
@@ -27,28 +29,32 @@ typedef NS_ENUM(NSInteger, AVAuthorizationStatus) {
 	AVAuthorizationStatusAuthorized = 3,
 };
 
-extern NSString *const AVCaptureDeviceTypeBuiltInWideAngleCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInTelephotoCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInUltraWideCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInDualCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInDualWideCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInTripleCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInTrueDepthCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInLiDARDepthCamera;
-extern NSString *const AVCaptureDeviceTypeBuiltInMicrophone;
-extern NSString *const AVCaptureDeviceTypeMicrophone;
-extern NSString *const AVCaptureDeviceTypeExternalUnknown;
-extern NSString *const AVCaptureDeviceTypeExternal;
-extern NSString *const AVCaptureDeviceTypeContinuityCamera;
-extern NSString *const AVCaptureDeviceTypeDeskViewCamera;
+typedef NSString * AVCaptureDeviceType NS_TYPED_ENUM NS_SWIFT_NAME(AVCaptureDevice.DeviceType);
+
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInWideAngleCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInTelephotoCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInUltraWideCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInDualCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInDualWideCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInTripleCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInTrueDepthCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInLiDARDepthCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeBuiltInMicrophone;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeMicrophone;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeExternalUnknown;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeExternal;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeContinuityCamera;
+extern AVCaptureDeviceType const AVCaptureDeviceTypeDeskViewCamera;
 
 @interface AVCaptureDevice : NSObject
 
-+ (NSArray *)devices;
-+ (NSArray *)devicesWithMediaType:(AVMediaType)mediaType;
-+ (AVCaptureDevice *)defaultDeviceWithMediaType:(AVMediaType)mediaType;
++ (NSArray<AVCaptureDevice *> *)devices;
++ (NSArray<AVCaptureDevice *> *)devicesWithMediaType:(AVMediaType)mediaType;
++ (nullable AVCaptureDevice *)defaultDeviceWithMediaType:(AVMediaType)mediaType;
 
 + (AVAuthorizationStatus)authorizationStatusForMediaType:(AVMediaType)mediaType;
 + (void)requestAccessForMediaType:(AVMediaType)mediaType completionHandler:(void (^)(BOOL granted))handler;
 
 @end
+
+NS_ASSUME_NONNULL_END

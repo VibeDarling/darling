@@ -142,3 +142,18 @@ NSString *const AVCaptureDeviceTypeDeskViewCamera = @"AVCaptureDeviceTypeDeskVie
     return [[self alloc] init];
 }
 @end
+
+const AVMetadataObjectType AVMetadataObjectTypeFace = @"face";
+const AVMetadataObjectType AVMetadataObjectTypeUPCECode = @"org.gs1.UPC-E";
+const AVMetadataObjectType AVMetadataObjectTypeCode39Code = @"org.iso.Code39";
+const AVMetadataObjectType AVMetadataObjectTypeCode39Mod43Code = @"org.iso.Code39Mod43";
+const AVMetadataObjectType AVMetadataObjectTypeEAN13Code = @"org.gs1.EAN-13";
+const AVMetadataObjectType AVMetadataObjectTypeEAN8Code = @"org.gs1.EAN-8";
+const AVMetadataObjectType AVMetadataObjectTypeCode93Code = @"com.intermec.Code93";
+const AVMetadataObjectType AVMetadataObjectTypeCode128Code = @"org.iso.Code128";
+const AVMetadataObjectType AVMetadataObjectTypePDF417Code = @"org.iso.PDF417";
+const AVMetadataObjectType AVMetadataObjectTypeQRCode = @"org.iso.QRCode";
+const AVMetadataObjectType AVMetadataObjectTypeAztecCode = @"org.iso.Aztec";
+const AVMetadataObjectType AVMetadataObjectTypeInterleaved2of5Code = @"org.ansi.Interleaved2of5";
+const AVMetadataObjectType AVMetadataObjectTypeITF14Code = @"org.gs1.ITF14";
+const AVMetadataObjectType AVMetadataObjectTypeDataMatrixCode = @"org.iso.DataMatrix";

@@ -18,7 +18,20 @@
 */
 
 #include <Foundation/Foundation.h>
+#include <CoreGraphics/CoreGraphics.h>
 
-@protocol ISImageDescriptor
-
+/* How an icon is to be drawn: its size in points, the scale and the look. */
+@interface ISImageDescriptor : NSObject <NSCopying>
+@property (nonatomic, assign) CGSize size;
+@property (nonatomic, assign) CGFloat scale;
+@property (nonatomic, assign) NSUInteger shape;
+@property (nonatomic, assign) NSInteger appearance;
+@property (nonatomic, assign) NSInteger appearanceVariant;
+@property (nonatomic, assign) NSUInteger specialIconOptions;
+@property (nonatomic, assign) NSUInteger variantOptions;
+@property (nonatomic, assign) BOOL drawBorder;
+@property (atomic, assign) BOOL ignoreCache;
+@property (nonatomic, retain) id tintColor;
++ (instancetype)imageDescriptorNamed:(NSString *)name;
+- (instancetype)initWithSize:(CGSize)size scale:(CGFloat)scale;
 @end

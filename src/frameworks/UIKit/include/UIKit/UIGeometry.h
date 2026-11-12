@@ -1,0 +1,156 @@
+/*
+ This file is part of Darling.
+
+ Copyright (C) 2026 Darling Team
+
+ Darling is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+*/
+
+#ifndef UIKIT_UIGEOMETRY_H
+#define UIKIT_UIGEOMETRY_H
+
+#import <Foundation/NSObjCRuntime.h>
+#import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGAffineTransform.h>
+#ifdef __OBJC__
+#import <Foundation/NSCoder.h>
+#import <Foundation/NSValue.h>
+#endif
+
+@class NSString;
+
+typedef struct UIEdgeInsets {
+	CGFloat top, left, bottom, right;
+} UIEdgeInsets;
+
+static inline UIEdgeInsets UIEdgeInsetsMake(CGFloat top, CGFloat left, CGFloat bottom, CGFloat right)
+{
+	UIEdgeInsets insets = { top, left, bottom, right };
+	return insets;
+}
+
+static inline CGRect UIEdgeInsetsInsetRect(CGRect rect, UIEdgeInsets insets)
+{
+	rect.origin.x += insets.left;
+	rect.origin.y += insets.top;
+	rect.size.width -= insets.left + insets.right;
+	rect.size.height -= insets.top + insets.bottom;
+	return rect;
+}
+
+extern const UIEdgeInsets UIEdgeInsetsZero;
+
+typedef struct UIOffset {
+	CGFloat horizontal, vertical;
+} UIOffset;
+
+static inline UIOffset UIOffsetMake(CGFloat horizontal, CGFloat vertical)
+{
+	UIOffset offset = { horizontal, vertical };
+	return offset;
+}
+
+static inline BOOL UIOffsetEqualToOffset(UIOffset a, UIOffset b)
+{
+	return a.horizontal == b.horizontal && a.vertical == b.vertical;
+}
+
+extern const UIOffset UIOffsetZero;
+
+static inline BOOL UIEdgeInsetsEqualToEdgeInsets(UIEdgeInsets a, UIEdgeInsets b)
+{
+	return a.top == b.top && a.left == b.left && a.bottom == b.bottom && a.right == b.right;
+}
+
+/* As on iOS: "{x, y}", "{{x, y}, {w, h}}", "{top, left, bottom, right}". */
+#ifdef __cplusplus
+extern "C" {
+#endif
+NSString *NSStringFromCGPoint(CGPoint point);
+NSString *NSStringFromCGSize(CGSize size);
+NSString *NSStringFromCGRect(CGRect rect);
+NSString *NSStringFromCGAffineTransform(CGAffineTransform transform);
+NSString *NSStringFromUIEdgeInsets(UIEdgeInsets insets);
+CGPoint CGPointFromString(NSString *string);
+CGSize CGSizeFromString(NSString *string);
+CGRect CGRectFromString(NSString *string);
+CGAffineTransform CGAffineTransformFromString(NSString *string);
+UIEdgeInsets UIEdgeInsetsFromString(NSString *string);
+#ifdef __cplusplus
+}
+#endif
+
+/* Core Graphics' vector, which this Core Graphics may lack. */
+#ifndef CGVECTOR_DEFINED
+struct CGVector {
+	CGFloat dx;
+	CGFloat dy;
+};
+typedef struct CGVector CGVector;
+#define CGVECTOR_DEFINED 1
+#endif
+#ifndef CGVectorMake
+static inline CGVector UIKitCGVectorMake(CGFloat dx, CGFloat dy)
+{
+	CGVector vector = { dx, dy };
+	return vector;
+}
+#define CGVectorMake UIKitCGVectorMake
+#endif
+
+/* Foundation's on macOS; UIKit declares it on iOS. */
+typedef NS_OPTIONS(NSUInteger, NSDirectionalRectEdge) {
+	NSDirectionalRectEdgeNone     = 0,
+	NSDirectionalRectEdgeTop      = 1 << 0,
+	NSDirectionalRectEdgeLeading  = 1 << 1,
+	NSDirectionalRectEdgeBottom   = 1 << 2,
+	NSDirectionalRectEdgeTrailing = 1 << 3,
+	NSDirectionalRectEdgeAll      = NSDirectionalRectEdgeTop | NSDirectionalRectEdgeLeading | NSDirectionalRectEdgeBottom | NSDirectionalRectEdgeTrailing,
+};
+
+typedef NS_ENUM(NSInteger, UIInterfaceOrientation) {
+	UIInterfaceOrientationUnknown = 0,
+	UIInterfaceOrientationPortrait = 1,
+	UIInterfaceOrientationPortraitUpsideDown = 2,
+	UIInterfaceOrientationLandscapeRight = 3,
+	UIInterfaceOrientationLandscapeLeft = 4,
+};
+
+#define UIInterfaceOrientationIsPortrait(orientation) ((orientation) == UIInterfaceOrientationPortrait || (orientation) == UIInterfaceOrientationPortraitUpsideDown)
+#define UIInterfaceOrientationIsLandscape(orientation) ((orientation) == UIInterfaceOrientationLandscapeLeft || (orientation) == UIInterfaceOrientationLandscapeRight)
+
+#ifdef __OBJC__
+/* Geometry in keyed archives: as strings ("{{x, y}, {w, h}}"), and in
+ * compiled nibs as the nib's own arrays of numbers. */
+@interface NSCoder (UIGeometryKeyedCoding)
+- (void)encodeCGPoint:(CGPoint)point forKey:(NSString *)key;
+- (void)encodeCGSize:(CGSize)size forKey:(NSString *)key;
+- (void)encodeCGRect:(CGRect)rect forKey:(NSString *)key;
+- (void)encodeCGAffineTransform:(CGAffineTransform)transform forKey:(NSString *)key;
+- (void)encodeUIEdgeInsets:(UIEdgeInsets)insets forKey:(NSString *)key;
+- (void)encodeUIOffset:(UIOffset)offset forKey:(NSString *)key;
+- (CGPoint)decodeCGPointForKey:(NSString *)key;
+- (CGSize)decodeCGSizeForKey:(NSString *)key;
+- (CGRect)decodeCGRectForKey:(NSString *)key;
+- (CGAffineTransform)decodeCGAffineTransformForKey:(NSString *)key;
+- (UIEdgeInsets)decodeUIEdgeInsetsForKey:(NSString *)key;
+- (UIOffset)decodeUIOffsetForKey:(NSString *)key;
+@end
+
+/* Foundation implements these. */
+@interface NSValue (UIGeometryKitAdditions)
++ (NSValue *)valueWithCGPoint:(CGPoint)point;
++ (NSValue *)valueWithCGSize:(CGSize)size;
++ (NSValue *)valueWithCGRect:(CGRect)rect;
++ (NSValue *)valueWithCGAffineTransform:(CGAffineTransform)transform;
+- (CGPoint)CGPointValue;
+- (CGSize)CGSizeValue;
+- (CGRect)CGRectValue;
+- (CGAffineTransform)CGAffineTransformValue;
+@end
+#endif
+
+#endif /* UIKIT_UIGEOMETRY_H */

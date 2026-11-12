@@ -21,12 +21,28 @@
 
 @implementation CIQRCodeFeature
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (NSString *)type {
+    return CIFeatureTypeQRCode;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (CGPoint)topLeft {
+    return CGPointMake(0, 0);
+}
+
+- (CGPoint)topRight {
+    return CGPointMake(0, 0);
+}
+
+- (CGPoint)bottomLeft {
+    return CGPointMake(0, 0);
+}
+
+- (CGPoint)bottomRight {
+    return CGPointMake(0, 0);
+}
+
+- (NSString *)messageString {
+    return nil;
 }
 
 @end

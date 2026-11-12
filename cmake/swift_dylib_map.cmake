@@ -27,6 +27,22 @@ FUNCTION(add_swift_dylib_map target)
 		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/usr/lib/swift/${gen_name}:${gen_path} -Wl,-dylib_file,@rpath/${gen_name}:${gen_path}")
 	endforeach()
 
+	# Foundation reexports this optional source-built library. Its consumers
+	# must resolve the guest install name to the build output too.
+	if (DARLING_FOUNDATION_SWIFT_SUPPLEMENT)
+		set(supplement_path "${CMAKE_BINARY_DIR}/src/external/foundation/swift/libDarlingFoundationSupplement.dylib")
+		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/usr/lib/swift/libDarlingFoundationSupplement.dylib:${supplement_path} -Wl,-dylib_file,@rpath/libDarlingFoundationSupplement.dylib:${supplement_path}")
+		# It was linked against the SDK, under the unversioned framework
+		# paths: targets linked without the SDK (Ruby's bundles) need them too.
+		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/System/Library/Frameworks/Foundation.framework/Foundation:${CMAKE_BINARY_DIR}/src/external/foundation/Foundation -Wl,-dylib_file,/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation:${CMAKE_BINARY_DIR}/src/external/corefoundation/CoreFoundation")
+	endif()
+
+	# CoreData's source-built generic Swift API is reexported to SDK clients.
+	if (DARLING_COREDATA_SWIFT_SUPPLEMENT)
+		set(supplement_path "${CMAKE_BINARY_DIR}/src/external/cocotron/CoreData/swift/libDarlingCoreDataSupplement.dylib")
+		set(SWIFT_DYLIB_MAP "${SWIFT_DYLIB_MAP} -Wl,-dylib_file,/usr/lib/swift/libDarlingCoreDataSupplement.dylib:${supplement_path} -Wl,-dylib_file,@rpath/libDarlingCoreDataSupplement.dylib:${supplement_path}")
+	endif()
+
 	# Pre-staged dylibs in source tree (skipping any generated dylibs to prevent duplicate mappings)
 	file(GLOB DARLING_SWIFT_SRC_DYLIBS "${CMAKE_SOURCE_DIR}/src/external/swift/libswift*.dylib")
 	foreach(swift_dylib ${DARLING_SWIFT_SRC_DYLIBS})

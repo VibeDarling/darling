@@ -17,6 +17,23 @@
 
 @class NSString;
 
+typedef CGFloat UIFontWeight;
+extern const UIFontWeight UIFontWeightUltraLight;
+extern const UIFontWeight UIFontWeightThin;
+extern const UIFontWeight UIFontWeightLight;
+extern const UIFontWeight UIFontWeightRegular;
+extern const UIFontWeight UIFontWeightMedium;
+extern const UIFontWeight UIFontWeightSemibold;
+extern const UIFontWeight UIFontWeightBold;
+extern const UIFontWeight UIFontWeightHeavy;
+extern const UIFontWeight UIFontWeightBlack;
+
+typedef CGFloat UIFontWidth;
+extern const UIFontWidth UIFontWidthCompressed;
+extern const UIFontWidth UIFontWidthCondensed;
+extern const UIFontWidth UIFontWidthStandard;
+extern const UIFontWidth UIFontWidthExpanded;
+
 @interface UIFont : NSObject {
 @private
 	CGFloat _pointSize;
@@ -28,6 +45,22 @@
 + (UIFont *)boldSystemFontOfSize:(CGFloat)size;
 + (UIFont *)fontWithName:(NSString *)name size:(CGFloat)size;
 
++ (UIFont *)italicSystemFontOfSize:(CGFloat)size;
+/* The system font has a regular and a bold face: weights from semibold up
+   are bold. Its digits are all one width already. */
++ (UIFont *)systemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight;
++ (UIFont *)systemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight width:(UIFontWidth)width;
++ (UIFont *)monospacedDigitSystemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight;
+@property (class, nonatomic, readonly) CGFloat systemFontSize;
+@property (class, nonatomic, readonly) CGFloat smallSystemFontSize;
+@property (class, nonatomic, readonly) CGFloat labelFontSize;
+@property (class, nonatomic, readonly) CGFloat buttonFontSize;
+- (UIFont *)fontWithSize:(CGFloat)size;
+@property (nonatomic, readonly) CGFloat lineHeight;
+@property (nonatomic, readonly) CGFloat leading;
+@property (nonatomic, readonly) CGFloat capHeight;
+@property (nonatomic, readonly) CGFloat xHeight;
+@property (nonatomic, readonly) NSString *familyName;
 @property (nonatomic, readonly) CGFloat pointSize;
 @property (nonatomic, readonly) NSString *fontName;
 @property (nonatomic, readonly) CGFloat ascender;

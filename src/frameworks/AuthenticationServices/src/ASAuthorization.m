@@ -19,6 +19,10 @@
 
 #import <AuthenticationServices/ASAuthorization.h>
 
+NSErrorDomain const ASAuthorizationErrorDomain = @"com.apple.AuthenticationServices.AuthorizationError";
+NSString * const ASAuthorizationScopeFullName = @"full_name";
+NSString * const ASAuthorizationScopeEmail = @"email";
+
 @implementation ASAuthorization
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector

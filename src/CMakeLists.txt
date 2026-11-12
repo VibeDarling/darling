@@ -260,6 +260,23 @@ set(CMAKE_ASM_FLAGS "-target ${APPLE_TARGET_TRIPLET_PRIMARY} ${CMAKE_ASM_FLAGS}"
 set(CMAKE_OBJC_FLAGS "-target ${APPLE_TARGET_TRIPLET_PRIMARY} ${CMAKE_OBJC_FLAGS} -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
 
 add_definitions(-target ${APPLE_TARGET_TRIPLET_PRIMARY})
+
+# clang's default CPU for an arm64 Darwin target is the Apple M1, so without this
+# the Mach-O code uses ARMv8.4+ instructions (e.g. stlur from LRCPC2) and dies with
+# SIGILL on most non-Apple arm64 hosts: a Raspberry Pi 4 (Cortex-A72, ARMv8.0) or
+# Android phones with Cortex-A76/A78 cores (ARMv8.2). ARMv8.0 is what Linux and
+# Android guarantee; raise it to trade portability for speed. It has to be -mcpu:
+# for Darwin triples -march leaves "-target-cpu apple-m1" in place, and the CPU's
+# features still apply. Hand-written assembly is left alone: it states its own
+# instructions (and may check for them at run time), the CPU only gates what the
+# assembler accepts.
+if (TARGET_ARM64)
+	set(DARLING_ARM64_CPU "generic" CACHE STRING "Baseline -mcpu for compiled arm64 Mach-O code")
+	foreach(lang C CXX OBJC OBJCXX)
+		set(CMAKE_${lang}_FLAGS "${CMAKE_${lang}_FLAGS} -mcpu=${DARLING_ARM64_CPU}")
+	endforeach()
+endif()
+
 include(darling_lib)
 include(darling_static_lib)
 include(darling_bundle)
@@ -513,6 +530,14 @@ if (COMPONENT_gui)
 	add_subdirectory(CoreAudio)
 	add_subdirectory(external/cups)
 	add_subdirectory(pboard)
+	add_subdirectory(frontboardd)
+	add_subdirectory(installd)
+	add_subdirectory(usernotificationsd)
+	add_subdirectory(SpringBoard)
+	add_subdirectory(Terminal)
+	add_subdirectory(Settings)
+	add_subdirectory(MobileTimer)
+	add_subdirectory(CydiaSubstrate)
 
 	# not currently used by anything we build
 	add_subdirectory(external/dbuskit)
@@ -573,6 +598,12 @@ add_subdirectory(tools)
 # these have their own component checks on a per-framework basis
 add_subdirectory(frameworks)
 add_subdirectory(private-frameworks)
+
+# A SwiftUI app; after frameworks/, since it uses SwiftUI's module directory.
+if (COMPONENT_gui AND TARGET_ARM64)
+	set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "gui")
+	add_subdirectory(HelloSwiftUI)
+endif()
 
 # /Applications
 #add_subdirectory(external/TextEdit)

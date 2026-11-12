@@ -71,6 +71,7 @@ NSString *const AVAudioSessionPortLineIn = @"AVAudioSessionPortLineIn";
 NSString *const AVAudioSessionPortLineOut = @"AVAudioSessionPortLineOut";
 NSString *const AVAudioSessionPortHDMI = @"AVAudioSessionPortHDMI";
 NSString *const AVAudioSessionPortDisplayPort = @"AVAudioSessionPortDisplayPort";
+NSString *const AVAudioSessionPortUSBAudio = @"AVAudioSessionPortUSBAudio";
 
 /* Orientations */
 NSString *const AVAudioSessionOrientationBack = @"AVAudioSessionOrientationBack";
@@ -92,6 +93,89 @@ NSString *const AVAudioSessionPolarPatternSubcardioid = @"AVAudioSessionPolarPat
 static NSString *g_category = nil;
 static NSString *g_mode = nil;
 static BOOL g_active = NO;
+static AVAudioSessionCategoryOptions g_categoryOptions = 0;
+static AVAudioSessionRouteSharingPolicy g_routeSharingPolicy = AVAudioSessionRouteSharingPolicyDefault;
+static BOOL g_supportsMultichannelContent = NO;
+
+@implementation AVAudioSessionPortDescription {
+    NSString *_portType;
+    NSString *_portName;
+    NSString *_UID;
+}
+
+- (instancetype)_initWithType:(NSString *)type name:(NSString *)name UID:(NSString *)uid
+{
+    if ((self = [super init]) != nil) {
+        _portType = [type copy];
+        _portName = [name copy];
+        _UID = [uid copy];
+    }
+    return self;
+}
+
+- (void)dealloc
+{
+    [_portType release];
+    [_portName release];
+    [_UID release];
+    [super dealloc];
+}
+
+- (NSString *)portType { return _portType; }
+- (NSString *)portName { return _portName; }
+- (NSString *)UID { return _UID; }
+- (BOOL)hasHardwareVoiceCallProcessing { return NO; }
+- (BOOL)isSpatialAudioEnabled { return NO; }
+- (NSArray *)channels { return nil; }
+- (NSArray *)dataSources { return nil; }
+- (id)selectedDataSource { return nil; }
+- (id)preferredDataSource { return nil; }
+
+- (BOOL)setPreferredDataSource:(id)dataSource error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<%@: %p, type = %@; name = %@; UID = %@; selectedDataSource = (null)>",
+            [self class], self, _portType, _portName, _UID];
+}
+
+@end
+
+static AVAudioSessionPortDescription *builtInMicrophone(void)
+{
+    static AVAudioSessionPortDescription *port;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        port = [[AVAudioSessionPortDescription alloc] _initWithType:AVAudioSessionPortBuiltInMic name:@"iPhone Microphone" UID:@"Built-In Microphone"];
+    });
+    return port;
+}
+
+static AVAudioSessionPortDescription *builtInSpeaker(void)
+{
+    static AVAudioSessionPortDescription *port;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        port = [[AVAudioSessionPortDescription alloc] _initWithType:AVAudioSessionPortBuiltInSpeaker name:@"Speaker" UID:@"Speaker"];
+    });
+    return port;
+}
+
+@implementation AVAudioSessionRouteDescription
+
+- (NSArray *)inputs { return @[ builtInMicrophone() ]; }
+- (NSArray *)outputs { return @[ builtInSpeaker() ]; }
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<%@: %p, \ninputs = %@; \noutputs = %@>", [self class], self, [self inputs], [self outputs]];
+}
+
+@end
 
 @implementation AVAudioSession
 
@@ -115,7 +199,7 @@ static BOOL g_active = NO;
     return YES;
 }
 
-- (BOOL)setActive:(BOOL)active withOptions:(NSUInteger)options error:(NSError **)outError
+- (BOOL)setActive:(BOOL)active withOptions:(AVAudioSessionSetActiveOptions)options error:(NSError **)outError
 {
     (void)options;
     return [self setActive:active error:outError];
@@ -129,6 +213,36 @@ static BOOL g_active = NO;
     }
     if (outError) *outError = nil;
     return YES;
+}
+
+/* iOS's: the options (mixing with others, ducking, the speaker) change nothing here. */
+- (BOOL)setCategory:(NSString *)category withOptions:(AVAudioSessionCategoryOptions)options error:(NSError **)outError
+{
+    g_categoryOptions = options;
+    return [self setCategory:category error:outError];
+}
+
+- (BOOL)setCategory:(NSString *)category mode:(NSString *)mode options:(AVAudioSessionCategoryOptions)options error:(NSError **)outError
+{
+    g_categoryOptions = options;
+    return [self setCategory:category error:outError] && [self setMode:mode error:outError];
+}
+
+/* The policy is recorded and reported back; there is no AirPlay to route long-form audio to. */
+- (BOOL)setCategory:(NSString *)category mode:(NSString *)mode routeSharingPolicy:(AVAudioSessionRouteSharingPolicy)policy options:(AVAudioSessionCategoryOptions)options error:(NSError **)outError
+{
+    g_routeSharingPolicy = policy;
+    return [self setCategory:category mode:mode options:options error:outError];
+}
+
+- (AVAudioSessionCategoryOptions)categoryOptions
+{
+    return g_categoryOptions;
+}
+
+- (AVAudioSessionRouteSharingPolicy)routeSharingPolicy
+{
+    return g_routeSharingPolicy;
 }
 
 - (NSString *)category
@@ -164,6 +278,99 @@ static BOOL g_active = NO;
 - (NSInteger)outputNumberOfChannels
 {
     return 2;
+}
+
+/* The built-in route is a mono microphone and a stereo speaker. Like iOS, a preference beyond
+   what the route has succeeds but leaves the channel count as it is. */
+- (BOOL)setPreferredInputNumberOfChannels:(NSInteger)count error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (NSInteger)preferredInputNumberOfChannels { return 1; }
+
+- (BOOL)setPreferredOutputNumberOfChannels:(NSInteger)count error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (NSInteger)preferredOutputNumberOfChannels { return 2; }
+- (NSInteger)maximumInputNumberOfChannels { return 1; }
+- (NSInteger)maximumOutputNumberOfChannels { return 2; }
+
+- (BOOL)setSupportsMultichannelContent:(BOOL)inValue error:(NSError **)outError
+{
+    g_supportsMultichannelContent = inValue;
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (BOOL)supportsMultichannelContent
+{
+    return g_supportsMultichannelContent;
+}
+
+- (AVAudioSessionRouteDescription *)currentRoute
+{
+    return [[[AVAudioSessionRouteDescription alloc] init] autorelease];
+}
+
+- (NSArray *)availableInputs
+{
+    return @[ builtInMicrophone() ];
+}
+
+- (float)outputVolume { return 0.5f; }
+- (NSTimeInterval)IOBufferDuration { return 1024 / 44100.0; }
+- (NSTimeInterval)outputLatency { return 0.01; }
+- (NSTimeInterval)inputLatency { return 0.01; }
+- (double)preferredSampleRate { return 0; }
+- (NSTimeInterval)preferredIOBufferDuration { return 0; }
+- (BOOL)isOtherAudioPlaying { return NO; }
+- (BOOL)secondaryAudioShouldBeSilencedHint { return NO; }
+- (BOOL)isInputAvailable { return YES; }
+
+/* Recording is not wired to a microphone: permission is never granted. */
+- (AVAudioSessionRecordPermission)recordPermission
+{
+    return AVAudioSessionRecordPermissionDenied;
+}
+
+- (void)requestRecordPermission:(void (^)(BOOL granted))response
+{
+    if (response == nil)
+        return;
+    void (^copy)(BOOL) = [response copy];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        copy(NO);
+        [copy release];
+    });
+}
+
+- (BOOL)setPreferredSampleRate:(double)sampleRate error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (BOOL)setPreferredIOBufferDuration:(NSTimeInterval)duration error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
+}
+
+- (BOOL)overrideOutputAudioPort:(AVAudioSessionPortOverride)portOverride error:(NSError **)outError
+{
+    if (outError) *outError = nil;
+    return YES;
 }
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector

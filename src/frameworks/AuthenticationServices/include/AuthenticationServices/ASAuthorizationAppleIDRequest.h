@@ -19,6 +19,10 @@
 
 #include <Foundation/Foundation.h>
 
-@interface ASAuthorizationAppleIDRequest : NSObject
+#import <AuthenticationServices/ASAuthorizationOpenIDRequest.h>
+
+@interface ASAuthorizationAppleIDRequest : ASAuthorizationOpenIDRequest
+
+@property (nonatomic, copy) NSString *user;
 
 @end

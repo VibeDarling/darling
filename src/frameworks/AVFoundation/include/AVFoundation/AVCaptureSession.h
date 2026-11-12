@@ -17,16 +17,20 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <Foundation/Foundation.h>
+#import <Foundation/Foundation.h>
 
-typedef NSString *AVCaptureSessionPreset;
+@class AVCaptureInput, AVCaptureOutput;
+
+NS_ASSUME_NONNULL_BEGIN
+
+typedef NSString * AVCaptureSessionPreset NS_TYPED_ENUM NS_SWIFT_NAME(AVCaptureSession.Preset);
 
 extern NSString *const AVCaptureDeviceWasConnectedNotification;
 extern NSString *const AVCaptureDeviceWasDisconnectedNotification;
-extern NSString *const AVCaptureSessionDidStartRunningNotification;
-extern NSString *const AVCaptureSessionDidStopRunningNotification;
+extern NSNotificationName const AVCaptureSessionDidStartRunningNotification;
+extern NSNotificationName const AVCaptureSessionDidStopRunningNotification;
 extern NSString *const AVCaptureSessionErrorKey;
-extern NSString *const AVCaptureSessionRuntimeErrorNotification;
+extern NSNotificationName const AVCaptureSessionRuntimeErrorNotification;
 
 extern const AVCaptureSessionPreset AVCaptureSessionPreset3840x2160;
 extern const AVCaptureSessionPreset AVCaptureSessionPreset1920x1080;
@@ -43,4 +47,27 @@ extern const AVCaptureSessionPreset AVCaptureSessionPresetMedium;
 
 @interface AVCaptureSession : NSObject
 
+- (BOOL)canSetSessionPreset:(AVCaptureSessionPreset)preset;
+@property (nonatomic, copy) AVCaptureSessionPreset sessionPreset;
+
+@property (nonatomic, readonly) NSArray<__kindof AVCaptureInput *> *inputs;
+- (BOOL)canAddInput:(AVCaptureInput *)input;
+- (void)addInput:(AVCaptureInput *)input;
+- (void)removeInput:(AVCaptureInput *)input;
+
+@property (nonatomic, readonly) NSArray<__kindof AVCaptureOutput *> *outputs;
+- (BOOL)canAddOutput:(AVCaptureOutput *)output;
+- (void)addOutput:(AVCaptureOutput *)output;
+- (void)removeOutput:(AVCaptureOutput *)output;
+
+- (void)beginConfiguration;
+- (void)commitConfiguration;
+
+@property (nonatomic, readonly, getter=isRunning) BOOL running;
+@property (nonatomic, readonly, getter=isInterrupted) BOOL interrupted;
+- (void)startRunning;
+- (void)stopRunning;
+
 @end
+
+NS_ASSUME_NONNULL_END

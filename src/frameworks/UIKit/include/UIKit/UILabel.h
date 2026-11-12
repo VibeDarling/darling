@@ -14,10 +14,12 @@
 
 #import <UIKit/UIView.h>
 #import <AppKit/NSText.h>
+#import <AppKit/NSParagraphStyle.h>
 
 @class NSString;
 @class UIColor;
 @class UIFont;
+@class NSAttributedString;
 
 @interface UILabel : UIView {
 @private
@@ -28,9 +30,22 @@
 }
 
 @property (nonatomic, copy) NSString *text;
+/* Ranges without a font or color use the label's. */
+@property (nonatomic, copy) NSAttributedString *attributedText;
 @property (nonatomic, strong) UIColor *textColor;
 @property (nonatomic, strong) UIFont *font;
 @property (nonatomic) NSTextAlignment textAlignment;
+@property (nonatomic) NSLineBreakMode lineBreakMode;
+@property (nonatomic) NSInteger numberOfLines;
+@property (nonatomic) CGFloat preferredMaxLayoutWidth;
+@property (nonatomic, strong) UIColor *highlightedTextColor;
+@property (nonatomic, getter=isHighlighted) BOOL highlighted;
+@property (nonatomic, getter=isEnabled) BOOL enabled;
+@property (nonatomic) BOOL adjustsFontSizeToFitWidth;
+@property (nonatomic) CGFloat minimumFontSize;
+@property (nonatomic) CGFloat minimumScaleFactor;
+@property (nonatomic, strong) UIColor *shadowColor;
+@property (nonatomic) CGSize shadowOffset;
 
 /* Convenience matching the size the text needs at the current font. */
 - (CGSize)sizeThatFits:(CGSize)size;

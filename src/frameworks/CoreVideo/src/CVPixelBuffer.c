@@ -344,6 +344,11 @@ CFTypeRef CVBufferGetAttachment(CVBufferRef buffer, CFStringRef key, CVAttachmen
 	return CFDictionaryGetValue(buffer->attachments, key);
 }
 
+Boolean CVBufferHasAttachment(CVBufferRef buffer, CFStringRef key)
+{
+	return CVBufferGetAttachment(buffer, key, NULL) != NULL;
+}
+
 CFTypeRef CVBufferCopyAttachment(CVBufferRef buffer, CFStringRef key, CVAttachmentMode *attachmentMode)
 {
 	CFTypeRef val = CVBufferGetAttachment(buffer, key, attachmentMode);
@@ -597,6 +602,21 @@ CVReturn CVPixelBufferPoolCreate(
 
 	*poolOut = pool;
 	return kCVReturnSuccess;
+}
+
+CFDictionaryRef CVPixelBufferPoolGetAttributes(CVPixelBufferPoolRef pool)
+{
+	return pool ? pool->poolAttributes : NULL;
+}
+
+CFDictionaryRef CVPixelBufferPoolGetPixelBufferAttributes(CVPixelBufferPoolRef pool)
+{
+	return pool ? pool->pixelBufferAttributes : NULL;
+}
+
+/* The pool keeps no buffers to flush: each one it makes is a new allocation. */
+void CVPixelBufferPoolFlush(CVPixelBufferPoolRef pool, CVPixelBufferPoolFlushFlags options)
+{
 }
 
 CVReturn CVPixelBufferPoolCreatePixelBuffer(

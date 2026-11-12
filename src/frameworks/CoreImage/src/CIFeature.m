@@ -19,10 +19,24 @@
 
 #import <CoreImage/CIFeature.h>
 
+NSString *const CIFeatureTypeFace = @"Face";
+NSString *const CIFeatureTypeRectangle = @"Rectangle";
+NSString *const CIFeatureTypeQRCode = @"QRCode";
+NSString *const CIFeatureTypeText = @"Text";
+
 @implementation CIFeature
 
+- (NSString *)type {
+    return nil;
+}
+
+- (CGRect)bounds {
+    return CGRectMake(0, 0, 0, 0);
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
+    return signature ?: [NSMethodSignature signatureWithObjCTypes: "v@:"];
 }
 
 - (void)forwardInvocation:(NSInvocation *)anInvocation {

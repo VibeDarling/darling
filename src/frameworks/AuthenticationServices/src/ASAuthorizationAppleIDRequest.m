@@ -21,6 +21,12 @@
 
 @implementation ASAuthorizationAppleIDRequest
 
+- (void)dealloc
+{
+    [_user release];
+    [super dealloc];
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];

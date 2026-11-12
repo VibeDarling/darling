@@ -1,0 +1,1 @@
+void AuthoredDirectoryStage(int stage);

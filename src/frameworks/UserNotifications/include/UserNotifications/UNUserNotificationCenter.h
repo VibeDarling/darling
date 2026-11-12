@@ -1,7 +1,7 @@
 /*
  This file is part of Darling.
 
- Copyright (C) 2021 Lubos Dolezel
+ Copyright (C) 2026 Darling Developers
 
  Darling is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,23 @@
 #import <Foundation/Foundation.h>
 
 @protocol UNUserNotificationCenterDelegate;
-@class UNNotificationSettings, UNNotificationRequest, UNNotificationCategory;
+@class UNNotificationSettings, UNNotificationRequest, UNNotificationCategory, UNNotification, UNNotificationResponse;
+
+extern NSString * const UNErrorDomain;
+
+typedef NS_ENUM(NSInteger, UNErrorCode) {
+    UNErrorCodeNotificationsNotAllowed = 1,
+    UNErrorCodeAttachmentInvalidURL = 100,
+    UNErrorCodeAttachmentUnrecognizedType,
+    UNErrorCodeAttachmentInvalidFileSize,
+    UNErrorCodeAttachmentNotInDataStore,
+    UNErrorCodeAttachmentMoveIntoDataStoreFailed,
+    UNErrorCodeAttachmentCorrupt,
+    UNErrorCodeNotificationInvalidNoDate = 1400,
+    UNErrorCodeNotificationInvalidNoContent,
+    UNErrorCodeContentProvidingObjectNotAllowed = 1500,
+    UNErrorCodeContentProvidingInvalid,
+};
 
 typedef NS_OPTIONS(NSUInteger, UNAuthorizationOptions) {
     UNAuthorizationOptionBadge = (1 << 0),
@@ -33,17 +49,33 @@ typedef NS_OPTIONS(NSUInteger, UNAuthorizationOptions) {
     UNAuthorizationOptionCriticalAlert = (1 << 4),
     UNAuthorizationOptionProvidesAppNotificationSettings = (1 << 5),
     UNAuthorizationOptionProvisional = (1 << 6),
-    UNAuthorizationOptionAnnouncement = (1 << 7)
+    UNAuthorizationOptionAnnouncement = (1 << 7),
+    UNAuthorizationOptionTimeSensitive = (1 << 8),
 };
 
-@interface UNUserNotificationCenter : NSObject {
-    id<UNUserNotificationCenterDelegate> _delegate;
-}
+typedef NS_OPTIONS(NSUInteger, UNNotificationPresentationOptions) {
+    UNNotificationPresentationOptionBadge = (1 << 0),
+    UNNotificationPresentationOptionSound = (1 << 1),
+    UNNotificationPresentationOptionAlert = (1 << 2),
+    UNNotificationPresentationOptionList = (1 << 3),
+    UNNotificationPresentationOptionBanner = (1 << 4),
+};
+
+static const UNNotificationPresentationOptions UNNotificationPresentationOptionNone = 0;
+
+/* Notifications are kept and delivered by usernotificationsd; SpringBoard
+   shows them. One that comes while its app is in front goes to the
+   delegate's userNotificationCenter:willPresentNotification:..., which
+   decides whether it is shown too. Opening one (or picking one of its
+   actions) launches or resumes the app and tells the delegate. */
+@interface UNUserNotificationCenter : NSObject
 
 + (UNUserNotificationCenter *) currentNotificationCenter;
 
-@property(assign) id<UNUserNotificationCenterDelegate> delegate;
-@property(readonly) BOOL supportsContentExtensions;
+- (instancetype) init NS_UNAVAILABLE;
+
+@property (weak) id<UNUserNotificationCenterDelegate> delegate;
+@property (readonly) BOOL supportsContentExtensions;
 
 - (void) requestAuthorizationWithOptions: (UNAuthorizationOptions) options
                        completionHandler: (void (^)(BOOL granted, NSError *error)) completionHandler;
@@ -53,11 +85,34 @@ typedef NS_OPTIONS(NSUInteger, UNAuthorizationOptions) {
 - (void) addNotificationRequest: (UNNotificationRequest *) request
           withCompletionHandler: (void (^)(NSError *error)) completionHandler;
 
+- (void) getPendingNotificationRequestsWithCompletionHandler: (void (^)(NSArray<UNNotificationRequest *> *requests)) completionHandler;
+- (void) removePendingNotificationRequestsWithIdentifiers: (NSArray<NSString *> *) identifiers;
 - (void) removeAllPendingNotificationRequests;
+
+- (void) getDeliveredNotificationsWithCompletionHandler: (void (^)(NSArray<UNNotification *> *notifications)) completionHandler;
+- (void) removeDeliveredNotificationsWithIdentifiers: (NSArray<NSString *> *) identifiers;
 - (void) removeAllDeliveredNotifications;
 
 - (void) setNotificationCategories: (NSSet<UNNotificationCategory *> *) categories;
 - (void) getNotificationCategoriesWithCompletionHandler: (void (^)(NSSet<UNNotificationCategory *> *categories)) completionHandler;
+
+- (void) setBadgeCount: (NSInteger) newBadgeCount withCompletionHandler: (void (^)(NSError *error)) completionHandler;
+
+@end
+
+@protocol UNUserNotificationCenterDelegate <NSObject>
+@optional
+
+- (void) userNotificationCenter: (UNUserNotificationCenter *) center
+        willPresentNotification: (UNNotification *) notification
+          withCompletionHandler: (void (^)(UNNotificationPresentationOptions options)) completionHandler;
+
+- (void) userNotificationCenter: (UNUserNotificationCenter *) center
+ didReceiveNotificationResponse: (UNNotificationResponse *) response
+          withCompletionHandler: (void (^)(void)) completionHandler;
+
+- (void) userNotificationCenter: (UNUserNotificationCenter *) center
+    openSettingsForNotification: (UNNotification *) notification;
 
 @end
 

@@ -33,6 +33,7 @@
 
 @end
 
+const double kCLDistanceFilterNone = -1.0;
 const CLLocationAccuracy kCLLocationAccuracyBestForNavigation = -2.0;
 const CLLocationAccuracy kCLLocationAccuracyBest = -1.0;
 const CLLocationAccuracy kCLLocationAccuracyNearestTenMeters = 10.0;

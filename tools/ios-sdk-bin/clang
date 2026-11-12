@@ -1,0 +1,45 @@
+#!/bin/sh
+# clang that, given Apple's -arch flag, targets Darwin and links with ld64.lld (see README).
+driver=${0##*/}
+apple=
+link=-fuse-ld=lld
+for a in "$@"; do
+	case "$a" in -target|--target=*|-target=*) apple=explicit ;; -arch) [ "$apple" = explicit ] || apple=yes ;; esac
+	# No link step: an unused -fuse-ld would fail builds that make that warning an error.
+	case "$a" in -c|-S|-E|-M|-MM|-fsyntax-only|-emit-llvm|--precompile) link= ;; esac
+done
+real=$(command -v "/usr/bin/$driver" || command -v "$driver-real")
+# Build systems that see plain Clang, not AppleClang, pass ELF linker flags: give ld64 its own.
+if [ -n "$apple" ]; then
+	for a in "$@"; do
+		shift
+		case "$a" in
+		-Wl,--gc-sections) set -- "$@" -Wl,-dead_strip ;;
+		*) set -- "$@" "$a" ;;
+		esac
+	done
+fi
+# Linking for iOS takes the toolchain's libclang_rt.ios.a, as Apple's driver does: make-ios-sdk.sh
+# puts it beside the SDK.
+rt=
+if [ -n "$apple" ] && [ -n "$link" ]; then
+	sysroot=$SDKROOT
+	ios=
+	prev=
+	for a in "$@"; do
+		[ "$prev" = -isysroot ] && sysroot=$a
+		case "$a" in -mios-version-min=*|-miphoneos-version-min=*|*-apple-ios*) ios=yes ;; esac
+		prev=$a
+	done
+	[ -n "$ios" ] && [ -f "$sysroot/../toolchain/lib/darwin/libclang_rt.ios.a" ] && rt="$sysroot/../toolchain/lib/darwin/libclang_rt.ios.a"
+fi
+if [ "$apple" = yes ]; then
+	arch=
+	prev=
+	for a in "$@"; do [ "$prev" = -arch ] && arch=$a; prev=$a; done
+	exec "$real" --target="$arch-apple-darwin" $link "$@" $rt
+fi
+if [ "$apple" = explicit ]; then
+	for a in "$@"; do case "$a" in *apple*) exec "$real" $link "$@" $rt ;; esac; done
+fi
+exec "$real" "$@"

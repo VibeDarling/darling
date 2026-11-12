@@ -19,16 +19,42 @@
 
 #import <StoreKit/SKRequest.h>
 
-@implementation SKRequest
+extern NSString *const SKErrorDomain;
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+// There is no App Store: a request answers on the main queue once started, and a cancelled
+// request answers nothing. Subclasses decide the answer in -_respond.
+@implementation SKRequest {
+    BOOL _cancelled;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+@synthesize delegate = _delegate;
+
+- (void)_respond
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    if ([_delegate respondsToSelector:@selector(requestDidFinish:)])
+        [_delegate requestDidFinish:self];
+}
+
+- (void)_failWithCode:(NSInteger)code description:(NSString *)description
+{
+    NSError *error = [NSError errorWithDomain:SKErrorDomain code:code userInfo:@{ NSLocalizedDescriptionKey: description }];
+    if ([_delegate respondsToSelector:@selector(request:didFailWithError:)])
+        [_delegate request:self didFailWithError:error];
+}
+
+- (void)start
+{
+    [self retain];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!_cancelled)
+            [self _respond];
+        [self release];
+    });
+}
+
+- (void)cancel
+{
+    _cancelled = YES;
 }
 
 @end

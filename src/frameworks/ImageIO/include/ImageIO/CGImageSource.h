@@ -6,6 +6,9 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#ifndef IMAGEIO_CGIMAGESOURCE_H
+#define IMAGEIO_CGIMAGESOURCE_H
+
 #import <ImageIO/ImageIOBase.h>
 #import <CoreFoundation/CFDictionary.h>
 #import <CoreFoundation/CFURL.h>
@@ -18,6 +21,12 @@ typedef struct CF_BRIDGED_TYPE(id) O2ImageSource *CGImageSourceRef;
 CF_IMPLICIT_BRIDGING_ENABLED
 
 IMAGEIO_EXTERN const CFStringRef kCGImageSourceShouldAllowFloat;
+IMAGEIO_EXTERN const CFStringRef kCGImageSourceShouldCache;
+IMAGEIO_EXTERN const CFStringRef kCGImageSourceShouldCacheImmediately;
+IMAGEIO_EXTERN const CFStringRef kCGImageSourceCreateThumbnailFromImageIfAbsent;
+IMAGEIO_EXTERN const CFStringRef kCGImageSourceCreateThumbnailFromImageAlways;
+IMAGEIO_EXTERN const CFStringRef kCGImageSourceThumbnailMaxPixelSize;
+IMAGEIO_EXTERN const CFStringRef kCGImageSourceCreateThumbnailWithTransform;
 
 IMAGEIO_EXTERN CGImageSourceRef CGImageSourceCreateWithData(CFDataRef data, CFDictionaryRef options);
 IMAGEIO_EXTERN CGImageSourceRef CGImageSourceCreateWithURL(CFURLRef url, CFDictionaryRef options);
@@ -27,9 +36,12 @@ IMAGEIO_EXTERN CFStringRef CGImageSourceGetType(CGImageSourceRef self);
 IMAGEIO_EXTERN size_t CGImageSourceGetCount(CGImageSourceRef self);
 
 IMAGEIO_EXTERN CGImageRef CGImageSourceCreateImageAtIndex(CGImageSourceRef self, size_t index, CFDictionaryRef options);
+IMAGEIO_EXTERN CGImageRef CGImageSourceCreateThumbnailAtIndex(CGImageSourceRef self, size_t index, CFDictionaryRef options);
 IMAGEIO_EXTERN CFDictionaryRef CGImageSourceCopyPropertiesAtIndex(CGImageSourceRef self, size_t index, CFDictionaryRef options);
 IMAGEIO_EXTERN CFDictionaryRef CGImageSourceCopyProperties(CGImageSourceRef self, CFDictionaryRef options);
 
 IMAGEIO_EXTERN CGImageSourceRef CGImageSourceCreateWithDataProvider(CGDataProviderRef provider, CFDictionaryRef options);
 
 CF_IMPLICIT_BRIDGING_DISABLED
+
+#endif

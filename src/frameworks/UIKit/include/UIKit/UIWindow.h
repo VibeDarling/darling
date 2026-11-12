@@ -14,12 +14,17 @@
 
 #import <UIKit/UIView.h>
 
-@class UIViewController;
+@class UIViewController, UIScreen;
 
 /*
  * A UIWindow is a UIView so that its view hierarchy is the NSWindow's content
  * view hierarchy, exactly one hosting window per UIKit root.
  */
+extern NSString *const UIWindowDidBecomeVisibleNotification;
+extern NSString *const UIWindowDidBecomeHiddenNotification;
+extern NSString *const UIWindowDidBecomeKeyNotification;
+extern NSString *const UIWindowDidResignKeyNotification;
+
 @interface UIWindow : UIView {
 @private
 	id _hostWindow;
@@ -32,7 +37,23 @@
 
 - (void)makeKeyAndVisible;
 - (void)makeKeyWindow;
+@property (nonatomic) CGFloat windowLevel;
+@property (nonatomic, readonly, getter=isKeyWindow) BOOL keyWindow;
+@property (nonatomic, strong) UIScreen *screen;
+- (void)sendEvent:(UIEvent *)event;
+/* iPhone OS 2's spellings (private UIKit API). */
+- (void)orderFront:(id)sender;
+- (void)makeKey:(id)sender;
+- (id)firstResponder;
 
+@end
+
+@class UIWindowScene;
+
+@interface UIWindow (UIWindowScene)
+- (instancetype)initWithWindowScene:(UIWindowScene *)windowScene;
+/* Weak, as on iOS: the scene keeps no window alive. */
+@property (nonatomic, weak) UIWindowScene *windowScene;
 @end
 
 #endif /* UIKIT_UIWINDOW_H */

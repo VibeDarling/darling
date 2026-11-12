@@ -8,6 +8,9 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <string.h>
+#if defined(__aarch64__) || defined(__arm64__)
+uintptr_t __darling_arm64_tsd_slot_offset(void);
+#endif
 
 #include "loader.h"
 
@@ -380,6 +383,10 @@ no_slide:
 					void* patch_ptr = (void*)page_base;
 					if (mprotect(patch_ptr, patch_len, PROT_READ | PROT_WRITE) == 0)
 					{
+						// The TSD base lives in our own TLS slot; [tp, #64] is someone else's on Android.
+						uintptr_t slot = __darling_arm64_tsd_slot_offset();
+						if (slot < 16 || slot > 32760 || (slot & 7))
+							slot = 64;
 						uint32_t* insns = (uint32_t*) seg_addr;
 						size_t count = seg->filesize / sizeof(uint32_t);
 						for (size_t k = 0; k < count; k++)
@@ -391,7 +398,7 @@ no_slide:
 								if (k + 1 < count && ((insns[k+1] & 0xFFC00000U) == 0x92400000U) &&
 								    ((insns[k+1] & 0x1FU) == rt) && (((insns[k+1] >> 5) & 0x1FU) == rt))
 								{
-									insns[k+1] = 0xF9402000U | (rt << 5) | rt; // ldr Xt, [Xt, #64]
+									insns[k+1] = 0xF9400000U | ((uint32_t)(slot / 8) << 10) | (rt << 5) | rt; // ldr Xt, [Xt, #slot]
 									k++;
 								}
 							}

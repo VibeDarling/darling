@@ -19,6 +19,14 @@
 
 #include <Foundation/Foundation.h>
 
-@interface ISGenerationRequest : NSObject
+@class ISImageDescriptor, IFImage;
 
+/* Draws an icon as a descriptor says. */
+@interface ISGenerationRequest : NSObject <NSSecureCoding>
+@property (retain) id icon;
+@property (retain) ISImageDescriptor *imageDescriptor;
+@property unsigned long long lsDatabaseSequenceNumber;
+@property (retain) NSUUID *lsDatabaseUUID;
+- (IFImage *)generateImage;
+- (IFImage *)generateImageReturningRecordIdentifiers:(id *)identifiers;
 @end

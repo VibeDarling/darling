@@ -1,0 +1,1307 @@
+/*
+ This file is part of Darling.
+
+ Copyright (C) 2026 Darling Developers
+
+ Darling is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ Darling is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/* SpringBoard-lite: the home screen. A UIKit app like any other, except
+   that frontboardd treats it as the system app: it is in front whenever no
+   other app is, and it hears about Home button presses. It shows the
+   installed apps as pages of icons with a dock, launches them through
+   DarlingBoard, and on a double press of Home shows the running apps
+   in a switcher, from which they can be brought back or closed.
+
+   The layout follows the iPhone home screen: a status bar, a grid of
+   rounded icons with their names under them, page dots, and a dock.
+   Everything is drawn with UIKit views and Core Graphics; icons are the
+   apps' own PNGs when they have them. */
+
+#import <UIKit/UIKit.h>
+#import <DarlingBoard/DarlingBoard.h>
+#import "SpringBoard.h"
+#include <stdio.h>
+
+/* UIKit's, private on iOS: the lock screen's wallpaper. */
+@interface UIImage (SBPrivate)
++ (UIImage *)defaultDesktopImage;
+@end
+
+void SBLog(NSString *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	NSString *line = [[NSString alloc] initWithFormat:format arguments:args];
+	va_end(args);
+	fprintf(stderr, "SpringBoard: %s\n", [line UTF8String]);
+}
+
+/* Pointer travel beyond which a touch is a swipe, not a tap. */
+static const CGFloat SBTapSlop = 12;
+/* Horizontal travel that turns the page. */
+static const CGFloat SBPageSwipeDistance = 60;
+static const CGFloat SBStatusBarHeight = 24;
+static const CGFloat SBLabelHeight = 18;
+
+#pragma mark - Drawing helpers
+
+void SBAddRoundedRect(CGContextRef context, CGRect rect, CGFloat radius)
+{
+	CGFloat minX = CGRectGetMinX(rect), maxX = CGRectGetMaxX(rect);
+	CGFloat minY = CGRectGetMinY(rect), maxY = CGRectGetMaxY(rect);
+	CGContextMoveToPoint(context, minX + radius, minY);
+	CGContextAddArcToPoint(context, maxX, minY, maxX, maxY, radius);
+	CGContextAddArcToPoint(context, maxX, maxY, minX, maxY, radius);
+	CGContextAddArcToPoint(context, minX, maxY, minX, minY, radius);
+	CGContextAddArcToPoint(context, minX, minY, maxX, minY, radius);
+	CGContextClosePath(context);
+}
+
+/* Runs draw once per horizontal strip of a rounded rect, clipped to the
+   strip narrowed to the rounded outline. Darling's Core Graphics clips to
+   a path's bounding box only, but clips to rectangles exactly, so this is
+   how icons get their rounded corners. Corner rows are a pixel high. */
+static void SBClipToRoundedRect(CGContextRef context, CGRect rect, CGFloat radius, void (^draw)(CGRect strip))
+{
+	radius = MIN(radius, MIN(rect.size.width, rect.size.height) / 2);
+	CGFloat minY = CGRectGetMinY(rect), maxY = CGRectGetMaxY(rect);
+	void (^strip)(CGFloat, CGFloat, CGFloat) = ^(CGFloat y, CGFloat height, CGFloat inset) {
+		CGRect clip = CGRectMake(rect.origin.x + inset, y, rect.size.width - 2 * inset, height);
+		CGContextSaveGState(context);
+		CGContextClipToRect(context, clip);
+		draw(clip);
+		CGContextRestoreGState(context);
+	};
+	for (CGFloat row = 0; row < radius; row++) {
+		/* How far the arc stands in from the side at the middle of this row. */
+		CGFloat dy = radius - row - 0.5;
+		CGFloat inset = radius - sqrt(MAX(0, radius * radius - dy * dy));
+		strip(minY + row, 1, inset);
+		strip(maxY - row - 1, 1, inset);
+	}
+	strip(minY + radius, rect.size.height - 2 * radius, 0);
+}
+
+typedef struct { CGFloat r, g, b; } SBRGB;
+
+/* A stable color per app, for apps without an icon of their own. */
+static SBRGB SBColorForIdentifier(NSString *identifier)
+{
+	static const SBRGB palette[] = {
+		{ 0.94, 0.33, 0.31 }, { 0.98, 0.60, 0.20 }, { 0.30, 0.75, 0.40 },
+		{ 0.20, 0.60, 0.95 }, { 0.55, 0.40, 0.90 }, { 0.95, 0.35, 0.60 },
+		{ 0.15, 0.70, 0.70 }, { 0.45, 0.50, 0.58 },
+	};
+	NSUInteger hash = 5381;
+	for (NSUInteger i = 0; i < [identifier length]; i++)
+		hash = hash * 33 + [identifier characterAtIndex:i];
+	return palette[hash % (sizeof(palette) / sizeof(*palette))];
+}
+
+/* Vertical bands approximate a gradient without depending on CGGradient.
+   Only the bands that cross within are filled. */
+static void SBFillVerticalGradientWithin(CGContextRef context, CGRect rect, CGRect within, SBRGB top, SBRGB bottom, CGFloat alpha)
+{
+	const int bands = 48;
+	CGFloat bandHeight = rect.size.height / bands;
+	int first = MAX(0, (int)floor((CGRectGetMinY(within) - rect.origin.y) / bandHeight));
+	int last = MIN(bands - 1, (int)ceil((CGRectGetMaxY(within) - rect.origin.y) / bandHeight));
+	for (int i = first; i <= last; i++) {
+		CGFloat t = (CGFloat)i / (bands - 1);
+		CGContextSetRGBFillColor(context, top.r + (bottom.r - top.r) * t, top.g + (bottom.g - top.g) * t,
+			top.b + (bottom.b - top.b) * t, alpha);
+		CGContextFillRect(context, CGRectIntersection(within, CGRectMake(rect.origin.x, rect.origin.y + i * bandHeight, rect.size.width, bandHeight + 1)));
+	}
+}
+
+/* Draws once into an offscreen bitmap of the given size in points, at the
+   screen's scale and with UIKit's top-left origin. Darling's Core Graphics
+   copies an unscaled image at a whole-pixel offset quickly, while every
+   fill and clip costs a pass of its rasterizer, so the home screen draws
+   its icons and wallpaper once this way and reuses the result. */
+static CGImageRef SBCreateImage(CGSize size, void (^draw)(CGContextRef context))
+{
+	CGFloat scale = [[UIScreen mainScreen] scale];
+	size_t width = (size_t)ceil(size.width * scale), height = (size_t)ceil(size.height * scale);
+	if (width == 0 || height == 0)
+		return NULL;
+	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+	CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, 0, colorSpace,
+		kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+	CGColorSpaceRelease(colorSpace);
+	if (context == NULL)
+		return NULL;
+	CGContextTranslateCTM(context, 0, height);
+	CGContextScaleCTM(context, scale, -scale);
+	draw(context);
+	CGImageRef image = CGBitmapContextCreateImage(context);
+	CGContextRelease(context);
+	return image;
+}
+
+/* Draws an image upright in a flipped (top-left origin) context. */
+static void SBDrawImage(CGContextRef context, CGImageRef image, CGRect rect)
+{
+	if (image == NULL)
+		return;
+	CGContextSaveGState(context);
+	CGContextTranslateCTM(context, rect.origin.x, rect.origin.y + rect.size.height);
+	CGContextScaleCTM(context, 1, -1);
+	CGContextDrawImage(context, CGRectMake(0, 0, rect.size.width, rect.size.height), image);
+	CGContextRestoreGState(context);
+}
+
+
+#pragma mark - Applications
+
+@implementation SBApplication {
+	NSString *_iconPath;
+}
+
+/* The icon file names an iOS bundle may declare, largest last as Xcode
+   writes them, and the names asset catalogs compile app icons to. */
++ (NSArray<NSString *> *)iconNamesForBundle:(NSBundle *)bundle
+{
+	NSDictionary *info = [bundle infoDictionary];
+	NSMutableArray<NSString *> *names = [NSMutableArray array];
+	NSArray *primary = info[@"CFBundleIcons"][@"CFBundlePrimaryIcon"][@"CFBundleIconFiles"];
+	if ([primary isKindOfClass:[NSArray class]])
+		[names addObjectsFromArray:[[primary reverseObjectEnumerator] allObjects]];
+	NSArray *files = info[@"CFBundleIconFiles"];
+	if ([files isKindOfClass:[NSArray class]])
+		[names addObjectsFromArray:[[files reverseObjectEnumerator] allObjects]];
+	if ([info[@"CFBundleIconFile"] isKindOfClass:[NSString class]])
+		[names addObject:info[@"CFBundleIconFile"]];
+	[names addObjectsFromArray:@[ @"AppIcon60x60", @"Icon", @"icon" ]];
+
+	/* The home screen's is the 60 point icon (the 57 point one before iOS
+	   7, under a plain name); a bundle also lists ones for Spotlight,
+	   Settings and the iPad, which are not it. */
+	NSMutableArray<NSString *> *home = [NSMutableArray array];
+	for (NSString *name in names) {
+		NSString *lower = [name lowercaseString];
+		BOOL other = NO;
+		for (NSString *mark in @[ @"small", @"spotlight", @"settings", @"~ipad", @"-72", @"-76", @"-40", @"-29", @"-20" ])
+			other = other || [lower rangeOfString:mark].location != NSNotFound;
+		if (!other)
+			[home addObject:name];
+	}
+	[home sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+		BOOL a60 = [a rangeOfString:@"60"].location != NSNotFound, b60 = [b rangeOfString:@"60"].location != NSNotFound;
+		return a60 == b60 ? NSOrderedSame : a60 ? NSOrderedAscending : NSOrderedDescending;
+	}];
+	return [home count] > 0 ? home : names;
+}
+
+/* The icon is read through UIImage, so through ImageIO: a theme
+   (WinterBoard's) gives its own file for this one there. */
++ (NSString *)iconPathForBundle:(NSBundle *)bundle
+{
+	NSString *root = [bundle bundlePath];
+	for (NSString *name in [self iconNamesForBundle:bundle]) {
+		NSString *base = [name stringByDeletingPathExtension];
+		for (NSString *suffix in @[ @"@3x.png", @"@2x.png", @".png", @"" ]) {
+			NSString *path = [root stringByAppendingPathComponent:[base stringByAppendingString:suffix]];
+			if ([[NSFileManager defaultManager] fileExistsAtPath:path])
+				return path;
+		}
+	}
+	return nil;
+}
+
++ (instancetype)applicationWithBundle:(NSBundle *)bundle
+{
+	NSDictionary *info = [bundle infoDictionary];
+	SBApplication *application = [[self alloc] init];
+	application.bundleIdentifier = [bundle bundleIdentifier];
+	application.displayName = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"]
+		?: [[[bundle bundlePath] lastPathComponent] stringByDeletingPathExtension];
+	application.path = [bundle bundlePath];
+	NSString *iconPath = [self iconPathForBundle:bundle];
+	application.icon = iconPath != nil ? [UIImage imageWithContentsOfFile:iconPath] : nil;
+	application->_iconPath = iconPath;
+	return application;
+}
+
+- (NSString *)displayIdentifier
+{
+	return _bundleIdentifier;
+}
+
+- (NSString *)pathForIcon
+{
+	return _iconPath;
+}
+
+@end
+
+/* An app's icon on the home screen, as iOS SpringBoard has it: the image
+   comes from -generateIconImage:, which tweaks hook to replace it. */
+@interface SBApplicationIcon : NSObject
+- (instancetype)initWithApplication:(SBApplication *)application;
+- (SBApplication *)application;
+- (NSString *)applicationBundleID;
+- (NSString *)displayName;
+- (UIImage *)generateIconImage:(int)format;
+- (UIImage *)icon;
+@end
+
+@implementation SBApplicationIcon {
+	SBApplication *_application;
+}
+
+- (instancetype)initWithApplication:(SBApplication *)application
+{
+	if ((self = [super init]))
+		_application = application;
+	return self;
+}
+
+- (SBApplication *)application
+{
+	return _application;
+}
+
+- (NSString *)applicationBundleID
+{
+	return [_application bundleIdentifier];
+}
+
+- (NSString *)displayName
+{
+	return [_application displayName];
+}
+
+/* Format 2 is the home screen's size. */
+- (UIImage *)generateIconImage:(int)format
+{
+	return [_application icon];
+}
+
+- (UIImage *)icon
+{
+	return [self generateIconImage:2];
+}
+
+@end
+
+#pragma mark - Icons
+
+@class SBIconView;
+
+@protocol SBIconViewDelegate <NSObject>
+- (void)iconViewWasTapped:(SBIconView *)iconView;
+@end
+
+/* One app: the rounded icon, its name under it, and a dot when it runs. */
+@interface SBIconView : UIView
+@property (nonatomic, strong, readonly) SBApplication *application;
+@property (nonatomic, weak) id<SBIconViewDelegate> delegate;
+@property (nonatomic) CGFloat iconSize;
+@property (nonatomic, getter=isRunning) BOOL running;
+- (instancetype)initWithApplication:(SBApplication *)application iconSize:(CGFloat)iconSize;
+@end
+
+@implementation SBIconView {
+	SBApplicationIcon *_icon;
+	UIImage *_iconImageSource;
+	UILabel *_label;
+	UILabel *_monogram;
+	BOOL _highlighted;
+	BOOL _tracking;
+	CGPoint _touchStart;
+	CGImageRef _iconImage;
+	CGImageRef _highlightedIconImage;
+}
+
+- (instancetype)initWithApplication:(SBApplication *)application iconSize:(CGFloat)iconSize
+{
+	CGFloat width = iconSize + 28;
+	if ((self = [super initWithFrame:CGRectMake(0, 0, width, iconSize + 8 + SBLabelHeight + 8)])) {
+		_application = application;
+		_iconSize = iconSize;
+		_icon = [[SBApplicationIcon alloc] initWithApplication:application];
+		_iconImageSource = [_icon generateIconImage:2];
+
+		_label = [[UILabel alloc] initWithFrame:CGRectMake(0, iconSize + 6, width, SBLabelHeight)];
+		_label.text = application.displayName;
+		_label.font = [UIFont systemFontOfSize:12];
+		_label.textColor = [UIColor whiteColor];
+		_label.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_label];
+
+		if (_iconImageSource == nil) {
+			_monogram = [[UILabel alloc] initWithFrame:[self iconRect]];
+			_monogram.text = [[application.displayName substringToIndex:MIN((NSUInteger)1, [application.displayName length])] uppercaseString];
+			_monogram.font = [UIFont systemFontOfSize:iconSize * 0.45];
+			_monogram.textColor = [UIColor whiteColor];
+			_monogram.textAlignment = NSTextAlignmentCenter;
+			[self addSubview:_monogram];
+		}
+	}
+	return self;
+}
+
+- (CGRect)iconRect
+{
+	return CGRectMake(([self bounds].size.width - _iconSize) / 2, 0, _iconSize, _iconSize);
+}
+
+- (void)setRunning:(BOOL)running
+{
+	if (_running == running)
+		return;
+	_running = running;
+	[self setNeedsDisplay:YES];
+}
+
+- (void)setHighlighted:(BOOL)highlighted
+{
+	_highlighted = highlighted;
+	[self setNeedsDisplay:YES];
+}
+
+/* The rounded icon, drawn once per state; see SBCreateImage. */
+- (CGImageRef)iconImageHighlighted:(BOOL)highlighted
+{
+	CGImageRef *cached = highlighted ? &_highlightedIconImage : &_iconImage;
+	if (*cached != NULL)
+		return *cached;
+
+	CGRect icon = CGRectMake(0, 0, _iconSize, _iconSize);
+	CGFloat radius = _iconSize * 0.225;
+	CGImageRef image = _iconImageSource.CGImage;
+	SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
+	SBRGB light = { MIN(1, color.r + 0.15), MIN(1, color.g + 0.15), MIN(1, color.b + 0.15) };
+	*cached = SBCreateImage(icon.size, ^(CGContextRef context) {
+		SBClipToRoundedRect(context, icon, radius, ^(CGRect strip) {
+			if (image != NULL)
+				SBDrawImage(context, image, icon);
+			else
+				SBFillVerticalGradientWithin(context, icon, strip, light, color, 1);
+			if (highlighted) {
+				CGContextSetRGBFillColor(context, 0, 0, 0, 0.4);
+				CGContextFillRect(context, strip);
+			}
+		});
+	});
+	return *cached;
+}
+
+- (void)dealloc
+{
+	CGImageRelease(_iconImage);
+	CGImageRelease(_highlightedIconImage);
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGRect icon = [self iconRect];
+	SBDrawImage(context, [self iconImageHighlighted:_highlighted], icon);
+
+	if (_running) {
+		CGFloat size = 5;
+		CGContextSetRGBFillColor(context, 1, 1, 1, 0.9);
+		CGContextFillEllipseInRect(context, CGRectMake(floor(CGRectGetMidX(icon) - size / 2), CGRectGetMaxY(icon) + 6 + SBLabelHeight + 2, size, size));
+	}
+}
+
+/* Touches go on to the superview too, so a swipe that starts on an icon
+   still turns the page; only a touch that stays put is a tap. */
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	_touchStart = [[touches anyObject] locationInView:self];
+	_tracking = YES;
+	[self setHighlighted:YES];
+	[super touchesBegan:touches withEvent:event];
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	CGPoint point = [[touches anyObject] locationInView:self];
+	if (_tracking && hypot(point.x - _touchStart.x, point.y - _touchStart.y) > SBTapSlop) {
+		_tracking = NO;
+		[self setHighlighted:NO];
+	}
+	[super touchesMoved:touches withEvent:event];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	BOOL tapped = _tracking;
+	_tracking = NO;
+	[self setHighlighted:NO];
+	[super touchesEnded:touches withEvent:event];
+	if (tapped)
+		[_delegate iconViewWasTapped:self];
+}
+
+@end
+
+#pragma mark - Page dots and dock
+
+@interface SBPageDotsView : UIView
+@property (nonatomic) NSUInteger numberOfPages;
+@property (nonatomic) NSUInteger currentPage;
+@end
+
+@implementation SBPageDotsView
+
+- (void)setNumberOfPages:(NSUInteger)numberOfPages
+{
+	_numberOfPages = numberOfPages;
+	[self setNeedsDisplay:YES];
+}
+
+- (void)setCurrentPage:(NSUInteger)currentPage
+{
+	_currentPage = currentPage;
+	[self setNeedsDisplay:YES];
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	if (_numberOfPages < 2)
+		return;
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGFloat size = 7, gap = 9;
+	CGFloat width = _numberOfPages * size + (_numberOfPages - 1) * gap;
+	CGFloat x = ([self bounds].size.width - width) / 2;
+	CGFloat y = ([self bounds].size.height - size) / 2;
+	for (NSUInteger i = 0; i < _numberOfPages; i++) {
+		CGContextSetRGBFillColor(context, 1, 1, 1, i == _currentPage ? 1 : 0.4);
+		CGContextFillEllipseInRect(context, CGRectMake(x + i * (size + gap), y, size, size));
+	}
+}
+
+@end
+
+/* The dock: the shelf the dock icons sit on. Its image is SpringBoard's
+   SBDockBG.png, as on iOS, so a theme can give its own (WinterBoard's at
+   Bundles/com.apple.springboard/SBDockBG.png). The one SpringBoard ships
+   is a pixel placeholder: then the frosted shelf below is drawn. */
+@interface SBDockIconListView : UIView
++ (BOOL)shouldShowNewDock;
+@end
+
+@implementation SBDockIconListView
+
++ (BOOL)shouldShowNewDock
+{
+	return YES;
+}
+
++ (UIImage *)dockImage
+{
+	static UIImage *image;
+	static BOOL loaded;
+	if (!loaded) {
+		loaded = YES;
+		image = [UIImage imageNamed:@"SBDockBG.png"];
+		if (image != nil && image.size.width * image.scale <= 1)
+			image = nil;
+	}
+	return image;
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	UIImage *image = [[self class] dockImage];
+	if (image != nil) {
+		SBDrawImage(context, image.CGImage, [self bounds]);
+		return;
+	}
+	SBAddRoundedRect(context, CGRectInset([self bounds], 8, 4), 26);
+	CGContextSetRGBFillColor(context, 1, 1, 1, 0.25);
+	CGContextFillPath(context);
+}
+
+@end
+
+#pragma mark - App switcher
+
+@class SBSwitcherView;
+
+@protocol SBSwitcherViewDelegate <NSObject>
+- (void)switcher:(SBSwitcherView *)switcher didSelectApplication:(SBApplication *)application;
+- (void)switcher:(SBSwitcherView *)switcher didCloseApplication:(SBApplication *)application;
+- (void)switcherDidDismiss:(SBSwitcherView *)switcher;
+@end
+
+/* A card per running app; tapping a card brings the app back, tapping its
+   close mark ends it, tapping anywhere else dismisses the switcher. */
+@interface SBSwitcherCardView : UIView
+@property (nonatomic, strong) SBApplication *application;
+@property (nonatomic) CGRect closeRect;
+@end
+
+@implementation SBSwitcherCardView
+
+/* Cards are drawn once per app and size and kept, so the switcher opens
+   without redrawing them; see SBCreateImage. */
+- (CGImageRef)cardImageOfSize:(CGSize)size
+{
+	static NSMutableDictionary<NSString *, id> *cache;
+	if (cache == nil)
+		cache = [NSMutableDictionary dictionary];
+	NSString *key = [NSString stringWithFormat:@"%@ %gx%g", _application.bundleIdentifier, size.width, size.height];
+	id image = cache[key];
+	if (image == nil) {
+		CGRect shape = { CGPointZero, size };
+		SBRGB color = SBColorForIdentifier(_application.bundleIdentifier);
+		image = (__bridge_transfer id)SBCreateImage(size, ^(CGContextRef context) {
+			SBClipToRoundedRect(context, shape, 18, ^(CGRect strip) {
+				SBFillVerticalGradientWithin(context, shape, strip, (SBRGB){ 0.97, 0.97, 0.98 }, (SBRGB){ 0.85, 0.86, 0.9 }, 1);
+				CGContextSetRGBFillColor(context, color.r, color.g, color.b, 1);
+				CGContextFillRect(context, CGRectIntersection(strip, CGRectMake(0, 0, size.width, 40)));
+			});
+		});
+		if (image != nil)
+			cache[key] = image;
+	}
+	return (__bridge CGImageRef)image;
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGRect card = CGRectMake(0, 24, [self bounds].size.width, [self bounds].size.height - 24);
+	SBDrawImage(context, [self cardImageOfSize:card.size], card);
+
+	/* The close mark: a dark disc with a cross. */
+	CGRect close = _closeRect;
+	CGContextSetRGBFillColor(context, 0.15, 0.15, 0.17, 0.95);
+	CGContextFillEllipseInRect(context, close);
+	CGContextSetRGBStrokeColor(context, 1, 1, 1, 1);
+	CGContextSetLineWidth(context, 2.5);
+	CGFloat inset = close.size.width * 0.3;
+	CGContextMoveToPoint(context, CGRectGetMinX(close) + inset, CGRectGetMinY(close) + inset);
+	CGContextAddLineToPoint(context, CGRectGetMaxX(close) - inset, CGRectGetMaxY(close) - inset);
+	CGContextMoveToPoint(context, CGRectGetMaxX(close) - inset, CGRectGetMinY(close) + inset);
+	CGContextAddLineToPoint(context, CGRectGetMinX(close) + inset, CGRectGetMaxY(close) - inset);
+	CGContextStrokePath(context);
+}
+
+@end
+
+@interface SBSwitcherView : UIView
+@property (nonatomic, weak) id<SBSwitcherViewDelegate> delegate;
+- (void)showApplications:(NSArray<SBApplication *> *)applications;
+@end
+
+@implementation SBSwitcherView {
+	NSMutableArray<SBSwitcherCardView *> *_cards;
+	UILabel *_emptyLabel;
+}
+
+- (void)showApplications:(NSArray<SBApplication *> *)applications
+{
+	for (UIView *card in _cards)
+		[card removeFromSuperview];
+	_cards = [NSMutableArray array];
+	[_emptyLabel removeFromSuperview];
+	_emptyLabel = nil;
+
+	CGSize size = [self bounds].size;
+	if ([applications count] == 0) {
+		_emptyLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, size.height / 2 - 20, size.width, 40)];
+		_emptyLabel.text = @"No Recent Apps";
+		_emptyLabel.font = [UIFont systemFontOfSize:20];
+		_emptyLabel.textColor = [UIColor whiteColor];
+		_emptyLabel.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_emptyLabel];
+		return;
+	}
+
+	CGFloat cardWidth = MIN(220, size.width * 0.6 / MAX((NSUInteger)1, MIN([applications count], (NSUInteger)4)));
+	CGFloat cardHeight = MIN(size.height * 0.6, cardWidth * 1.6) + 24;
+	CGFloat gap = 24;
+	CGFloat total = [applications count] * cardWidth + ([applications count] - 1) * gap;
+	CGFloat x = MAX(gap, (size.width - total) / 2);
+	CGFloat y = (size.height - cardHeight) / 2;
+	for (SBApplication *application in applications) {
+		SBSwitcherCardView *card = [[SBSwitcherCardView alloc] initWithFrame:CGRectMake(floor(x), floor(y), floor(cardWidth), floor(cardHeight))];
+		card.application = application;
+		card.closeRect = CGRectMake(0, 4, 32, 32);
+
+		UILabel *name = [[UILabel alloc] initWithFrame:CGRectMake(8, 24 + 50, cardWidth - 16, 24)];
+		name.text = application.displayName;
+		name.font = [UIFont systemFontOfSize:16];
+		name.textColor = [UIColor colorWithWhite:0.15 alpha:1];
+		name.textAlignment = NSTextAlignmentCenter;
+		name.userInteractionEnabled = NO;
+		[card addSubview:name];
+
+		[self addSubview:card];
+		[_cards addObject:card];
+		x += cardWidth + gap;
+	}
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGContextSetRGBFillColor(context, 0, 0, 0, 0.6);
+	CGContextFillRect(context, [self bounds]);
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	UITouch *touch = [touches anyObject];
+	for (SBSwitcherCardView *card in _cards) {
+		CGPoint point = [touch locationInView:card];
+		if (CGRectContainsPoint(CGRectInset(card.closeRect, -6, -6), point)) {
+			[_delegate switcher:self didCloseApplication:card.application];
+			return;
+		}
+		if (CGRectContainsPoint([card bounds], point)) {
+			[_delegate switcher:self didSelectApplication:card.application];
+			return;
+		}
+	}
+	[_delegate switcherDidDismiss:self];
+}
+
+@end
+
+#pragma mark - Home screen
+
+@interface SBHomeView : UIView <SBIconViewDelegate, SBSwitcherViewDelegate>
+@end
+
+@implementation SBHomeView {
+	NSArray<SBApplication *> *_applications;
+	NSMutableArray<SBIconView *> *_iconViews;
+	UIView *_pagesView;
+	SBPageDotsView *_dots;
+	SBDockIconListView *_dock;
+	UILabel *_clock;
+	SBSwitcherView *_switcher;
+	NSUInteger _numberOfPages;
+	NSUInteger _currentPage;
+	CGPoint _swipeStart;
+	CGFloat _pageWidth;
+	UILabel *_carrier;
+	/* What the icons were laid out for. */
+	CGSize _laidOutSize;
+	UIEdgeInsets _laidOutInsets;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	if ((self = [super initWithFrame:frame])) {
+		[self setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+		_clock = [[UILabel alloc] initWithFrame:CGRectMake(0, 2, frame.size.width, SBStatusBarHeight - 4)];
+		_clock.font = [UIFont systemFontOfSize:14];
+		_clock.textColor = [UIColor whiteColor];
+		_clock.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_clock];
+
+		_carrier = [[UILabel alloc] initWithFrame:CGRectMake(12, 2, 200, SBStatusBarHeight - 4)];
+		_carrier.text = @"Darling";
+		_carrier.font = [UIFont systemFontOfSize:13];
+		_carrier.textColor = [UIColor whiteColor];
+		[self addSubview:_carrier];
+
+		/* A host with its own status bar (a phone's) draws it over the top
+		   of the screen, where this one would be. */
+		BOOL hostStatusBar = UIKitHostSafeAreaInsets().top > 0;
+		[_clock setHidden:hostStatusBar];
+		[_carrier setHidden:hostStatusBar];
+		/* Asking for the guide is what makes UIKit report safe area changes. */
+		(void)[self safeAreaLayoutGuide];
+
+		[self updateClock];
+		[NSTimer scheduledTimerWithTimeInterval:10 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
+		[NSTimer scheduledTimerWithTimeInterval:2 target:self selector:@selector(updateRunningApplications) userInfo:nil repeats:YES];
+
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(frontboarddEvent:) name:DBAppConnectionEventNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
+	}
+	return self;
+}
+
+- (void)updateClock
+{
+	NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+	[formatter setDateFormat:@"HH:mm"];
+	_clock.text = [formatter stringFromDate:[NSDate date]];
+}
+
+/* The wallpaper is under this view (SBUIController's), not part of it. */
+- (BOOL)isOpaque
+{
+	return NO;
+}
+
+#pragma mark Layout
+
+/* The host's screen can change size (a phone turned) or what its edges
+   cover; the icons follow. */
+- (void)layoutSubviews
+{
+	[super layoutSubviews];
+	if (_applications != nil && (!CGSizeEqualToSize(_laidOutSize, [self bounds].size)
+	                             || !UIEdgeInsetsEqualToEdgeInsets(_laidOutInsets, [self safeAreaInsets])))
+		[self layoutIcons];
+}
+
+- (void)safeAreaInsetsDidChange
+{
+	[self setNeedsLayout];
+}
+
+- (NSArray<NSString *> *)dockIdentifiers
+{
+	NSArray *configured = [[NSUserDefaults standardUserDefaults] arrayForKey:@"SBDockApplications"];
+	return [configured isKindOfClass:[NSArray class]] ? configured : @[];
+}
+
+- (void)reloadApplications
+{
+	NSMutableArray<SBApplication *> *applications = [NSMutableArray array];
+	for (NSBundle *bundle in DBInstalledApplications()) {
+		NSArray *tags = [bundle infoDictionary][@"SBAppTags"];
+		if ([tags isKindOfClass:[NSArray class]] && [tags containsObject:@"hidden"])
+			continue;
+		// Mac applications (Contents/Info.plist) can't run on the phone's screen.
+		if ([[NSFileManager defaultManager] fileExistsAtPath:[[bundle bundlePath] stringByAppendingPathComponent:@"Contents/Info.plist"]])
+			continue;
+		[applications addObject:[SBApplication applicationWithBundle:bundle]];
+	}
+	NSArray *identifiers = [applications valueForKey:@"bundleIdentifier"];
+	if ([identifiers isEqualToArray:[_applications valueForKey:@"bundleIdentifier"]]) {
+		[self updateRunningApplications];
+		return;
+	}
+	_applications = applications;
+	SBLog(@"%lu applications installed", (unsigned long)[applications count]);
+	[self layoutIcons];
+	[self updateRunningApplications];
+}
+
+- (void)layoutIcons
+{
+	for (UIView *view in _iconViews)
+		[view removeFromSuperview];
+	[_pagesView removeFromSuperview];
+	[_dots removeFromSuperview];
+	[_dock removeFromSuperview];
+	_iconViews = [NSMutableArray array];
+
+	CGSize size = [self bounds].size;
+	UIEdgeInsets insets = [self safeAreaInsets];
+	_laidOutSize = size;
+	_laidOutInsets = insets;
+	NSUInteger columns = size.width > size.height ? 6 : 4;
+	CGFloat cellWidth = size.width / columns;
+	CGFloat iconSize = floor(MIN(72, cellWidth * 0.6));
+	CGFloat cellHeight = iconSize + SBLabelHeight + 30;
+	CGFloat dockHeight = iconSize + SBLabelHeight + 30;
+	CGFloat dotsHeight = 20;
+	CGFloat gridTop = MAX(SBStatusBarHeight, insets.top) + 16;
+	/* The dock sits above what covers the bottom edge (a navigation bar). */
+	CGFloat dockTop = size.height - insets.bottom - dockHeight;
+	CGFloat gridHeight = dockTop - gridTop - dotsHeight - 8;
+	NSUInteger rows = MAX((NSUInteger)1, (NSUInteger)floor(gridHeight / cellHeight));
+	NSUInteger perPage = rows * columns;
+
+	NSArray<NSString *> *dockIdentifiers = [self dockIdentifiers];
+	NSMutableArray<SBApplication *> *dockApplications = [NSMutableArray array];
+	NSMutableArray<SBApplication *> *gridApplications = [NSMutableArray array];
+	for (SBApplication *application in _applications) {
+		if ([dockIdentifiers containsObject:application.bundleIdentifier] && [dockApplications count] < columns)
+			[dockApplications addObject:application];
+		else
+			[gridApplications addObject:application];
+	}
+
+	_numberOfPages = MAX((NSUInteger)1, ([gridApplications count] + perPage - 1) / perPage);
+	_currentPage = MIN(_currentPage, _numberOfPages - 1);
+	_pageWidth = size.width;
+
+	/* All pages side by side; turning the page moves this view. */
+	_pagesView = [[UIView alloc] initWithFrame:CGRectMake(-(CGFloat)_currentPage * _pageWidth, gridTop, _pageWidth * _numberOfPages, rows * cellHeight)];
+	[self addSubview:_pagesView];
+	[gridApplications enumerateObjectsUsingBlock:^(SBApplication *application, NSUInteger index, BOOL *stop) {
+		NSUInteger page = index / perPage, slot = index % perPage;
+		SBIconView *iconView = [self iconViewForApplication:application iconSize:iconSize];
+		CGRect frame = [iconView frame];
+		/* Whole pixels: a view at a fractional origin leaves seams when
+		   the wallpaper under it is partly redrawn. */
+		frame.origin.x = floor(page * self->_pageWidth + (slot % columns) * cellWidth + (cellWidth - frame.size.width) / 2);
+		frame.origin.y = floor((slot / columns) * cellHeight);
+		[iconView setFrame:frame];
+		[self->_pagesView addSubview:iconView];
+	}];
+
+	_dots = [[SBPageDotsView alloc] initWithFrame:CGRectMake(0, dockTop - dotsHeight - 4, size.width, dotsHeight)];
+	_dots.numberOfPages = _numberOfPages;
+	_dots.currentPage = _currentPage;
+	_dots.userInteractionEnabled = NO;
+	[self addSubview:_dots];
+
+	_dock = [[SBDockIconListView alloc] initWithFrame:CGRectMake(0, dockTop, size.width, dockHeight)];
+	[self addSubview:_dock];
+	CGFloat dockCell = size.width / MAX((NSUInteger)4, [dockApplications count]);
+	CGFloat dockX = (size.width - dockCell * [dockApplications count]) / 2;
+	for (SBApplication *application in dockApplications) {
+		SBIconView *iconView = [self iconViewForApplication:application iconSize:iconSize];
+		CGRect frame = [iconView frame];
+		frame.origin.x = floor(dockX + (dockCell - frame.size.width) / 2);
+		frame.origin.y = 12;
+		[iconView setFrame:frame];
+		[_dock addSubview:iconView];
+		dockX += dockCell;
+	}
+
+	if (_switcher != nil)
+		[self addSubview:_switcher];
+	[self setNeedsDisplay:YES];
+}
+
+- (SBIconView *)iconViewForApplication:(SBApplication *)application iconSize:(CGFloat)iconSize
+{
+	SBIconView *iconView = [[SBIconView alloc] initWithApplication:application iconSize:iconSize];
+	iconView.delegate = self;
+	[_iconViews addObject:iconView];
+	return iconView;
+}
+
+- (void)showPage:(NSUInteger)page
+{
+	page = MIN(page, _numberOfPages - 1);
+	if (page == _currentPage)
+		return;
+	SBLog(@"page %lu of %lu", (unsigned long)page + 1, (unsigned long)_numberOfPages);
+	_currentPage = page;
+	_dots.currentPage = page;
+	CGRect frame = [_pagesView frame];
+	frame.origin.x = -(CGFloat)page * _pageWidth;
+	[_pagesView setFrame:frame];
+	[self setNeedsDisplay:YES];
+}
+
+#pragma mark Running apps
+
+- (NSArray<NSDictionary *> *)runningProcesses
+{
+	NSMutableArray *running = [NSMutableArray array];
+	NSString *me = [[NSBundle mainBundle] bundleIdentifier];
+	for (NSDictionary *process in [[DBApplicationService sharedService] applicationStates])
+		if (![process[@"bundleIdentifier"] isEqualToString:me])
+			[running addObject:process];
+	return running;
+}
+
+- (void)updateRunningApplications
+{
+	if ([[UIApplication sharedApplication] applicationState] != UIApplicationStateActive)
+		return;
+	NSMutableSet<NSString *> *running = [NSMutableSet set];
+	for (NSDictionary *process in [self runningProcesses])
+		[running addObject:process[@"bundleIdentifier"]];
+	for (SBIconView *iconView in _iconViews)
+		iconView.running = [running containsObject:iconView.application.bundleIdentifier];
+}
+
+- (SBApplication *)applicationWithIdentifier:(NSString *)bundleIdentifier
+{
+	for (SBApplication *application in _applications)
+		if ([application.bundleIdentifier isEqualToString:bundleIdentifier])
+			return application;
+	SBApplication *application = [[SBApplication alloc] init];
+	application.bundleIdentifier = bundleIdentifier;
+	application.displayName = [[bundleIdentifier componentsSeparatedByString:@"."] lastObject];
+	return application;
+}
+
+#pragma mark Launching
+
+- (void)openApplication:(SBApplication *)application
+{
+	SBLog(@"opening %@", application.bundleIdentifier);
+	[[DBApplicationService sharedService] openApplication:application.bundleIdentifier options:nil completion:^(NSError *error) {
+		if (error != nil)
+			SBLog(@"cannot open %@: %@", application.bundleIdentifier, [error localizedFailureReason] ?: error);
+	}];
+}
+
+- (void)iconViewWasTapped:(SBIconView *)iconView
+{
+	[self openApplication:iconView.application];
+}
+
+#pragma mark Switcher
+
+- (void)showSwitcher
+{
+	NSMutableArray<SBApplication *> *applications = [NSMutableArray array];
+	for (NSDictionary *process in [self runningProcesses])
+		[applications addObject:[self applicationWithIdentifier:process[@"bundleIdentifier"]]];
+	SBLog(@"switcher shows %lu apps", (unsigned long)[applications count]);
+
+	if (_switcher == nil) {
+		_switcher = [[SBSwitcherView alloc] initWithFrame:[self bounds]];
+		_switcher.delegate = self;
+		[self addSubview:_switcher];
+	}
+	[_switcher showApplications:applications];
+	[_switcher setNeedsDisplay:YES];
+}
+
+- (void)hideSwitcher
+{
+	if (_switcher == nil)
+		return;
+	SBLog(@"switcher hidden");
+	[_switcher removeFromSuperview];
+	_switcher = nil;
+	[self setNeedsDisplay:YES];
+}
+
+- (void)switcher:(SBSwitcherView *)switcher didSelectApplication:(SBApplication *)application
+{
+	[self hideSwitcher];
+	[self openApplication:application];
+}
+
+- (void)switcher:(SBSwitcherView *)switcher didCloseApplication:(SBApplication *)application
+{
+	SBLog(@"closing %@", application.bundleIdentifier);
+	[[DBApplicationService sharedService] terminateApplication:application.bundleIdentifier completion:^{
+		dispatch_async(dispatch_get_main_queue(), ^{
+			SBLog(@"closed %@", application.bundleIdentifier);
+			if (self->_switcher != nil)
+				[self showSwitcher];
+			[self updateRunningApplications];
+		});
+	}];
+}
+
+- (void)switcherDidDismiss:(SBSwitcherView *)switcher
+{
+	[self hideSwitcher];
+}
+
+#pragma mark Events
+
+- (void)frontboarddEvent:(NSNotification *)notification
+{
+	NSDictionary *event = [notification userInfo];
+	if (![event[@"event"] isEqualToString:@"button"] || ![event[@"button"] isEqualToString:@"home"])
+		return;
+	NSInteger count = [event[@"count"] integerValue];
+	SBLog(@"home button, %ld press(es)", (long)count);
+	if (count >= 2)
+		[self showSwitcher];
+	else if (_switcher != nil)
+		[self hideSwitcher];
+	else
+		[self showPage:0];
+}
+
+- (void)didBecomeActive:(NSNotification *)notification
+{
+	[self reloadApplications];
+}
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	_swipeStart = [[touches anyObject] locationInView:self];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	CGPoint end = [[touches anyObject] locationInView:self];
+	CGFloat dx = end.x - _swipeStart.x;
+	if (fabs(dx) < SBPageSwipeDistance || fabs(dx) < fabs(end.y - _swipeStart.y))
+		return;
+	if (dx < 0 && _currentPage + 1 < _numberOfPages)
+		[self showPage:_currentPage + 1];
+	else if (dx > 0 && _currentPage > 0)
+		[self showPage:_currentPage - 1];
+}
+
+@end
+
+#pragma mark - Wallpaper and lock screen
+
+/* The default wallpaper, made once per size. */
+static CGImageRef SBDefaultWallpaper(CGSize size)
+{
+	static CGImageRef wallpaper;
+	static CGSize wallpaperSize;
+	if (wallpaper == NULL || !CGSizeEqualToSize(size, wallpaperSize)) {
+		CGImageRelease(wallpaper);
+		wallpaperSize = size;
+		CGRect bounds = { CGPointZero, size };
+		wallpaper = SBCreateImage(size, ^(CGContextRef context) {
+			SBFillVerticalGradientWithin(context, bounds, bounds,
+				(SBRGB){ 0.16, 0.20, 0.42 }, (SBRGB){ 0.55, 0.30, 0.55 }, 1);
+		});
+	}
+	return wallpaper;
+}
+
+/* A wallpaper: its image filling the view, or the default one. Opaque, so
+   redraws of what is over it start here rather than at the window. */
+@interface SBWallpaperView : UIView
+@property (nonatomic, strong) UIImage *image;
+@end
+
+@implementation SBWallpaperView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	if ((self = [super initWithFrame:frame]))
+		[self setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+	return self;
+}
+
+- (void)setImage:(UIImage *)image
+{
+	_image = image;
+	[self setNeedsDisplay:YES];
+}
+
+- (BOOL)isOpaque
+{
+	return YES;
+}
+
+- (void)drawRect:(NSRect)rect
+{
+	CGRect bounds = [self bounds];
+	CGContextRef context = UIGraphicsGetCurrentContext();
+	CGContextSaveGState(context);
+	CGContextSetBlendMode(context, kCGBlendModeCopy);
+	SBDrawImage(context, _image != nil ? _image.CGImage : SBDefaultWallpaper(bounds.size), bounds);
+	CGContextRestoreGState(context);
+}
+
+@end
+
+/* The lock screen, iOS's SBAwayView: the lock wallpaper (UIImage's
+   +defaultDesktopImage, which themes answer), the time and date, and a
+   swipe up to unlock. */
+@interface SBAwayView : UIView
+@property (nonatomic, copy) void (^unlockHandler)(void);
+- (void)updateDesktopImage:(UIImage *)image;
+@end
+
+@implementation SBAwayView {
+	/* iOS's names; WinterBoard finds them by name. */
+	SBWallpaperView *_backgroundView;
+	UIView *_chargingView;
+	UIView *_dimView;
+	UILabel *_timeLabel;
+	UILabel *_dateLabel;
+	UILabel *_hintLabel;
+	NSTimer *_timer;
+	CGPoint _touchStart;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	if ((self = [super initWithFrame:frame])) {
+		[self setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+		_backgroundView = [[SBWallpaperView alloc] initWithFrame:[self bounds]];
+		[self addSubview:_backgroundView];
+		_dimView = [[UIView alloc] initWithFrame:[self bounds]];
+		[_dimView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+		[_dimView setBackgroundColor:[UIColor colorWithWhite:0 alpha:0.25]];
+		[self addSubview:_dimView];
+
+		_timeLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+		_timeLabel.font = [UIFont systemFontOfSize:76];
+		_timeLabel.textColor = [UIColor whiteColor];
+		_timeLabel.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_timeLabel];
+		_dateLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+		_dateLabel.font = [UIFont systemFontOfSize:20];
+		_dateLabel.textColor = [UIColor whiteColor];
+		_dateLabel.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_dateLabel];
+		_hintLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+		_hintLabel.text = @"Swipe up to unlock";
+		_hintLabel.font = [UIFont systemFontOfSize:17];
+		_hintLabel.textColor = [UIColor colorWithWhite:1 alpha:0.85];
+		_hintLabel.textAlignment = NSTextAlignmentCenter;
+		[self addSubview:_hintLabel];
+		(void)[self safeAreaLayoutGuide];
+
+		[self updateClock];
+		_timer = [NSTimer scheduledTimerWithTimeInterval:10 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
+	}
+	return self;
+}
+
+- (void)updateDesktopImage:(UIImage *)image
+{
+	[_backgroundView setImage:image];
+}
+
+- (void)updateClock
+{
+	NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+	[formatter setDateFormat:@"HH:mm"];
+	_timeLabel.text = [formatter stringFromDate:[NSDate date]];
+	[formatter setDateFormat:@"EEEE, d MMMM"];
+	_dateLabel.text = [formatter stringFromDate:[NSDate date]];
+}
+
+- (void)layoutSubviews
+{
+	[super layoutSubviews];
+	CGSize size = [self bounds].size;
+	UIEdgeInsets insets = [self safeAreaInsets];
+	CGFloat top = MAX(SBStatusBarHeight, insets.top) + 40;
+	[_timeLabel setFrame:CGRectMake(0, top, size.width, 90)];
+	[_dateLabel setFrame:CGRectMake(0, top + 90, size.width, 28)];
+	[_hintLabel setFrame:CGRectMake(0, size.height - insets.bottom - 60, size.width, 24)];
+}
+
+- (void)safeAreaInsetsDidChange
+{
+	[self setNeedsLayout];
+}
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	_touchStart = [[touches anyObject] locationInView:self];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	CGPoint end = [[touches anyObject] locationInView:self];
+	if (_touchStart.y - end.y < 80)
+		return;
+	[_timer invalidate];
+	_timer = nil;
+	if (_unlockHandler != nil)
+		_unlockHandler();
+}
+
+@end
+
+/* Owns the home screen's window, as iOS's SBUIController does: the
+   wallpaper, the icons over it, and the lock screen over both. Theme
+   engines hook -init and take the wallpaper over through _wallpaperView,
+   _contentView and _window. */
+@interface SBUIController : NSObject
++ (instancetype)sharedInstance;
+- (UIWindow *)window;
+- (void)lock;
+- (void)unlock;
+- (BOOL)isLocked;
+@end
+
+@implementation SBUIController {
+	UIWindow *_window;
+	UIView *_contentView;
+	SBWallpaperView *_wallpaperView;
+	SBAwayView *_awayView;
+}
+
++ (instancetype)sharedInstance
+{
+	static SBUIController *controller;
+	if (controller == nil)
+		controller = [[self alloc] init];
+	return controller;
+}
+
+- (instancetype)init
+{
+	if ((self = [super init]) == nil)
+		return nil;
+	CGRect bounds = [[UIScreen mainScreen] bounds];
+	_window = [[UIWindow alloc] initWithFrame:bounds];
+	[_window setBackgroundColor:[UIColor blackColor]];
+	UIViewController *controller = [[UIViewController alloc] init];
+	_window.rootViewController = controller;
+	_contentView = controller.view;
+	/* Sized once the controller's view fills the window: it starts out
+	   below the status bar, and would stretch the home view by that much. */
+	_wallpaperView = [[SBWallpaperView alloc] initWithFrame:[_contentView bounds]];
+	[_contentView addSubview:_wallpaperView];
+	[_contentView addSubview:[[SBHomeView alloc] initWithFrame:[_contentView bounds]]];
+	NSNumber *lockScreen = [[NSUserDefaults standardUserDefaults] objectForKey:@"SBLockScreenEnabled"];
+	if (lockScreen == nil || [lockScreen boolValue])
+		[self lock];
+	return self;
+}
+
+- (UIWindow *)window
+{
+	return _window;
+}
+
+- (BOOL)isLocked
+{
+	return _awayView != nil;
+}
+
+- (void)lock
+{
+	if (_awayView != nil)
+		return;
+	_awayView = [[SBAwayView alloc] initWithFrame:[_contentView bounds]];
+	[_awayView updateDesktopImage:[UIImage defaultDesktopImage]];
+	__weak SBUIController *weakSelf = self;
+	_awayView.unlockHandler = ^{
+		[weakSelf unlock];
+	};
+	[_contentView addSubview:_awayView];
+	SBLog(@"locked");
+}
+
+- (void)unlock
+{
+	[_awayView removeFromSuperview];
+	_awayView = nil;
+	SBLog(@"unlocked");
+}
+
+@end
+
+#pragma mark - Application
+
+@interface SBAppDelegate : UIResponder <UIApplicationDelegate>
+@property (nonatomic, strong) UIWindow *window;
+@end
+
+@implementation SBAppDelegate
+
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options
+{
+	self.window = [[SBUIController sharedInstance] window];
+	[self.window makeKeyAndVisible];
+	[[SBNotificationPresenter sharedPresenter] start];
+	return YES;
+}
+
+@end
+
+int main(int argc, char *argv[])
+{
+	@autoreleasepool {
+		return UIApplicationMain(argc, argv, nil, NSStringFromClass([SBAppDelegate class]));
+	}
+}

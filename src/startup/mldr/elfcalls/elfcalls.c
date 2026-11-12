@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 static const char* _darling_get_shm_dir(void) {
+	// A host directory: TMPDIR may be the guest's.
+	const char* dir = getenv("DARLING_SHM_DIR");
+	if (dir && dir[0]) return dir;
 	const char* tmp = getenv("TMPDIR");
 	if (tmp && tmp[0]) return tmp;
 	const char* pfx = getenv("TERMUX_PREFIX");
@@ -111,6 +114,19 @@ static void* dlopen_simple(const char* name)
 		rv = dlopen(path, RTLD_LAZY);
 		if (rv)
 			return rv;
+
+		// The APK ships its own copies under plain names: libpng16.so is libpng.so there.
+		size_t len = strlen(unversioned) - 3;
+		size_t end = len;
+		while (end > 0 && unversioned[end - 1] >= '0' && unversioned[end - 1] <= '9')
+			end--;
+		if (end < len && end > 0 && unversioned[end - 1] != '/')
+		{
+			memcpy(unversioned + end, ".so", 4);
+			rv = dlopen(unversioned, RTLD_LAZY);
+			if (rv)
+				return rv;
+		}
 	}
 #endif
 

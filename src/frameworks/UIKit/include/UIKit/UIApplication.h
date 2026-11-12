@@ -13,9 +13,15 @@
 #define UIKIT_UIAPPLICATION_H
 
 #import <Foundation/NSObjCRuntime.h>
+#import <Foundation/NSDate.h>
 #import <UIKit/UIResponder.h>
 
-@class NSString;
+#import <UIKit/UIGeometry.h>
+
+@class NSString, NSArray, NSURL, NSDictionary, UIWindow, UIEvent;
+
+typedef NSUInteger UIBackgroundTaskIdentifier;
+extern const UIBackgroundTaskIdentifier UIBackgroundTaskInvalid;
 @protocol UIApplicationDelegate;
 
 typedef NS_ENUM(NSInteger, UIApplicationState) {
@@ -24,16 +30,80 @@ typedef NS_ENUM(NSInteger, UIApplicationState) {
 	UIApplicationStateBackground,
 };
 
+extern NSString *const UIApplicationDidFinishLaunchingNotification;
+extern NSString *const UIApplicationDidBecomeActiveNotification;
+extern NSString *const UIApplicationWillResignActiveNotification;
+extern NSString *const UIApplicationDidEnterBackgroundNotification;
+extern NSString *const UIApplicationWillEnterForegroundNotification;
+extern NSString *const UIApplicationWillTerminateNotification;
+
+/*
+ * When frontboardd runs, it decides when the app is in the foreground or the
+ * background, and UIApplication turns its word into the delegate callbacks
+ * and notifications; a backgrounded app's windows are taken off screen.
+ * Without frontboardd the app becomes active once it has finished launching
+ * and stays so.
+ */
 @interface UIApplication : UIResponder
 
-+ (UIApplication *)sharedApplication;
+@property (class, nonatomic, readonly) UIApplication *sharedApplication;
 
 @property (nonatomic, assign) id<UIApplicationDelegate> delegate;
 @property (nonatomic, readonly) UIApplicationState applicationState;
+@property (nonatomic, readonly) CGRect statusBarFrame;
+@property (nonatomic, getter=isStatusBarHidden) BOOL statusBarHidden;
 
 /* Drain the main run loop, as -[NSApplication run] does. */
 - (void)run;
 
+- (BOOL)canOpenURL:(NSURL *)url;
+- (BOOL)openURL:(NSURL *)url;
+- (void)openURL:(NSURL *)url options:(NSDictionary *)options completionHandler:(void (^)(BOOL success))completion;
+@property (nonatomic, readonly) UIWindow *keyWindow;
+@property (nonatomic, readonly) NSArray *windows;
+
+@property (nonatomic, getter=isIdleTimerDisabled) BOOL idleTimerDisabled;
+@property (nonatomic, getter=isNetworkActivityIndicatorVisible) BOOL networkActivityIndicatorVisible;
+@property (nonatomic) BOOL applicationSupportsShakeToEdit;
+@property (nonatomic, readonly) UIInterfaceOrientation statusBarOrientation;
+- (void)setStatusBarOrientation:(UIInterfaceOrientation)interfaceOrientation animated:(BOOL)animated;
+- (void)setStatusBarHidden:(BOOL)hidden animated:(BOOL)animated;
+
+- (void)beginIgnoringInteractionEvents;
+- (void)endIgnoringInteractionEvents;
+@property (nonatomic, readonly, getter=isIgnoringInteractionEvents) BOOL ignoringInteractionEvents;
+
+@property (nonatomic, readonly) NSTimeInterval backgroundTimeRemaining;
+- (UIBackgroundTaskIdentifier)beginBackgroundTaskWithExpirationHandler:(void (^)(void))handler;
+- (UIBackgroundTaskIdentifier)beginBackgroundTaskWithName:(NSString *)taskName expirationHandler:(void (^)(void))handler;
+- (void)endBackgroundTask:(UIBackgroundTaskIdentifier)identifier;
+- (void)registerForRemoteNotifications;
+- (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender forEvent:(UIEvent *)event;
+@property (nonatomic, readonly) NSInteger statusBarStyle;
+
+@end
+
+#import <Foundation/Foundation.h>
+
+@class UIScene, UISceneSession, UILocalNotification;
+
+/* One scene, for the whole screen (see UIScene.h). */
+@interface UIApplication (UIScene)
+@property (nonatomic, readonly) NSSet<UIScene *> *connectedScenes;
+@property (nonatomic, readonly) NSSet<UISceneSession *> *openSessions;
+@property (nonatomic, readonly) BOOL supportsMultipleScenes;
+- (void)requestSceneSessionActivation:(UISceneSession *)sceneSession userActivity:(NSUserActivity *)userActivity options:(id)options errorHandler:(void (^)(NSError *error))errorHandler;
+- (void)requestSceneSessionDestruction:(UISceneSession *)sceneSession options:(id)options errorHandler:(void (^)(NSError *error))errorHandler;
+- (void)requestSceneSessionRefresh:(UISceneSession *)sceneSession;
+@end
+
+/* iOS 4's local notifications, kept with UserNotifications'. */
+@interface UIApplication (UILocalNotifications)
+- (void)scheduleLocalNotification:(UILocalNotification *)notification;
+- (void)presentLocalNotificationNow:(UILocalNotification *)notification;
+- (void)cancelLocalNotification:(UILocalNotification *)notification;
+- (void)cancelAllLocalNotifications;
+@property (nonatomic, copy) NSArray<UILocalNotification *> *scheduledLocalNotifications;
 @end
 
 /*

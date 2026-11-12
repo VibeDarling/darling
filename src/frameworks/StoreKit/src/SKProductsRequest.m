@@ -18,17 +18,39 @@
 */
 
 #import <StoreKit/SKProductsRequest.h>
+#import <StoreKit/SKProductsResponse.h>
 
-@implementation SKProductsRequest
+@interface SKRequest (Private)
+- (void)_respond;
+@end
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+// The App Store knows no products here, so every identifier comes back invalid; apps treat
+// that like products that are not (yet) on sale.
+@implementation SKProductsRequest {
+    NSSet *_productIdentifiers;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+@dynamic delegate;
+
+- (instancetype)initWithProductIdentifiers:(NSSet *)productIdentifiers
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    if ((self = [super init]) != nil)
+        _productIdentifiers = [productIdentifiers copy];
+    return self;
+}
+
+- (void)dealloc
+{
+    [_productIdentifiers release];
+    [super dealloc];
+}
+
+- (void)_respond
+{
+    SKProductsResponse *response = [[SKProductsResponse alloc] _initWithProducts:@[] invalidProductIdentifiers:[_productIdentifiers allObjects] ?: @[]];
+    [[self delegate] productsRequest:self didReceiveResponse:response];
+    [response release];
+    [super _respond];
 }
 
 @end

@@ -1,0 +1,50 @@
+#!/bin/sh
+# xcrun for Darling's iOS SDK (see README).
+here=$(cd "$(dirname "$0")" && pwd)
+sdk_name=
+show=
+find=
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--sdk|-sdk) sdk_name=$2; shift 2 ;;
+	--sdk=*) sdk_name=${1#--sdk=}; shift ;;
+	--toolchain|-toolchain) shift 2 ;;
+	-v|--verbose|-l|--log|-n|--no-cache|-k|--kill-cache|-r|--run) shift ;;
+	--show-sdk-path|--show-sdk-version|--show-sdk-build-version|--show-sdk-platform-path|--show-sdk-platform-version) show=$1; shift ;;
+	-f|--find) find=$2; shift 2 ;;
+	*) break ;;
+	esac
+done
+sdk_path() {
+	case "${sdk_name:-iphoneos}" in
+	iphoneos*|"") echo "${DARLING_IOS_SDK:?xcrun: set DARLING_IOS_SDK to a iPhoneOS.sdk (tools/make-ios-sdk.sh)}" ;;
+	*) echo "xcrun: no SDK '$sdk_name' (only iphoneos)" >&2; exit 1 ;;
+	esac
+}
+sdk_version() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["Version"])' "$(sdk_path)/SDKSettings.json"; }
+case "$show" in
+--show-sdk-path) sdk_path; exit ;;
+--show-sdk-version|--show-sdk-platform-version) sdk_version; exit ;;
+--show-sdk-build-version) echo 20A0; exit ;;
+--show-sdk-platform-path) dirname "$(dirname "$(sdk_path)")"; exit ;;
+esac
+tool() {
+	case "$1" in
+	clang|cc|gcc) echo "$here/clang" ;;
+	clang++|c++|g++) echo "$here/clang++" ;;
+	ld) echo "$(command -v ld64.lld)" ;;
+	libtool) echo "$(command -v llvm-libtool-darwin)" ;;
+	ar|ranlib|strip|nm|lipo|otool|size|objdump|install_name_tool|dsymutil|readtapi)
+		p=$(command -v "llvm-$1") || p=$(command -v "llvm-$(echo "$1" | tr _ -)")
+		echo "$p" ;;
+	*) command -v "$1" ;;
+	esac
+}
+if [ -n "$find" ]; then
+	p=$(tool "$find") && [ -n "$p" ] && echo "$p" && exit 0
+	echo "xcrun: unable to find utility \"$find\"" >&2; exit 1
+fi
+[ $# -gt 0 ] || { echo "usage: xcrun [--sdk SDK] (--find TOOL | --show-sdk-path | TOOL ARGS...)" >&2; exit 1; }
+p=$(tool "$1") || { echo "xcrun: unable to find utility \"$1\"" >&2; exit 1; }
+shift
+SDKROOT=${SDKROOT:-$(sdk_path)} exec "$p" "$@"

@@ -146,3 +146,7 @@ add_framework(SpriteKit
         objc
         Foundation
 )
+
+if (TARGET_ARM64)
+	add_subdirectory(ios)
+endif()

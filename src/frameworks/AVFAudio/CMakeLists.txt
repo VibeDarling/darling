@@ -57,6 +57,7 @@ add_framework(AVFAudio
         src/AVAudioSettings.m
         src/AVVCAudioDeviceManager.m
         src/AVAudioSession.m
+        src/AVSpeechSynthesis.m
         src/AVVCAudioBuffer.m
         src/AVAudioEnvironmentDistanceAttenuationParameters.m
         src/AVAudioEnvironmentReverbParameters.m
@@ -69,6 +70,7 @@ add_framework(AVFAudio
         src/AVAudioUnitSampler.m
         src/AVAudioUnitEffect.m
         src/AVAudioPlayerNode.m
+        src/AVAudioSourceNode.m
         src/AVAudioUnit.m
         src/AVAudioEngine.m
         src/AVAudioChannelLayout.m
@@ -78,3 +80,18 @@ add_framework(AVFAudio
 		objc
 		Foundation
 )
+
+# AVFAudio is a subframework of AVFoundation on Darwin, so a client that links only
+# AVFoundation still resolves the AVAudio classes. Games rely on this: Sky-Checkers
+# imports _OBJC_CLASS_$_AVAudioEngine and four siblings, names dyld expects in
+# AVFoundation, and aborts on the first one without them. They are all already
+# implemented in AVFAudio, so this only has to re-export them.
+#
+# No cycle: AVFAudio depends on system, objc and Foundation, and imports no
+# AVFoundation headers.
+#
+# Here and not in AVFoundation's directory: AVFAudio's is added after it, so
+# there AVFAudio is not a target yet.
+if (TARGET AVFoundation)
+    reexport(AVFoundation AVFAudio ${CMAKE_CURRENT_BINARY_DIR}/AVFAudio)
+endif()

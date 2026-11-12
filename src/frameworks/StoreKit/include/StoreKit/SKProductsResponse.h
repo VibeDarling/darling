@@ -19,6 +19,10 @@
 
 #include <Foundation/Foundation.h>
 
-@interface SKProductsResponse : NSObject
+@class SKProduct;
 
+@interface SKProductsResponse : NSObject
+@property (nonatomic, readonly) NSArray<SKProduct *> *products;
+@property (nonatomic, readonly) NSArray<NSString *> *invalidProductIdentifiers;
+- (instancetype)_initWithProducts:(NSArray *)products invalidProductIdentifiers:(NSArray *)invalid;
 @end

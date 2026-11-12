@@ -106,3 +106,8 @@ foreach(name IN LISTS load_only_frameworks)
         )
     endif()
 endforeach()
+
+# Apple's PhotosUI carries its Swift API in the same image, and apps bind it there.
+if(DARLING_IOS_SWIFT_MODULES)
+    reexport(load_only_PhotosUI SwiftIOSModules ${CMAKE_BINARY_DIR}/src/frameworks/SwiftIOSModules/libswiftPhotosUI.dylib)
+endif()

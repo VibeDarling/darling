@@ -1,0 +1,101 @@
+/*
+ This file is part of Darling.
+
+ Copyright (C) 2026 Darling Team
+
+ Darling is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+*/
+
+#ifndef UIKIT_UIIMAGE_H
+#define UIKIT_UIIMAGE_H
+
+#import <Foundation/NSObject.h>
+#import <Foundation/NSString.h>
+#import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGImage.h>
+
+#import <CoreGraphics/CGContext.h>
+#import <CoreImage/CoreImage.h>
+#import <UIKit/UIGeometry.h>
+
+@class NSData, NSBundle;
+@class UIColor;
+
+/* Template images draw as their shape filled with the view's tint color. */
+typedef NS_ENUM(NSInteger, UIImageRenderingMode) {
+	UIImageRenderingModeAutomatic,
+	UIImageRenderingModeAlwaysOriginal,
+	UIImageRenderingModeAlwaysTemplate,
+};
+
+/* Backed by an AppKit image, which reads the formats Darling's AppKit can. */
+typedef NS_ENUM(NSInteger, UIImageResizingMode) {
+	UIImageResizingModeTile,
+	UIImageResizingModeStretch,
+};
+
+NS_SWIFT_NAME(UIImage.Configuration)
+@interface UIImageConfiguration : NSObject
+@end
+
+NS_SWIFT_NAME(UIImage.SymbolConfiguration)
+@interface UIImageSymbolConfiguration : UIImageConfiguration
+@end
+
+@interface UIImage : NSObject
+
++ (UIImage *)imageNamed:(NSString *)name;
++ (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle compatibleWithTraitCollection:(id)traitCollection;
++ (UIImage *)imageWithContentsOfFile:(NSString *)path;
++ (UIImage *)imageWithData:(NSData *)data;
++ (UIImage *)imageWithData:(NSData *)data scale:(CGFloat)scale;
++ (UIImage *)imageWithCGImage:(CGImageRef)image;
++ (UIImage *)imageWithCGImage:(CGImageRef)image scale:(CGFloat)scale orientation:(NSInteger)orientation;
+- (instancetype)initWithContentsOfFile:(NSString *)path;
+- (instancetype)initWithData:(NSData *)data;
+- (instancetype)initWithData:(NSData *)data scale:(CGFloat)scale;
+- (instancetype)initWithCGImage:(CGImageRef)image;
+- (instancetype)initWithCGImage:(CGImageRef)image scale:(CGFloat)scale orientation:(NSInteger)orientation;
+
+@property (nonatomic, readonly) CGSize size;
+@property (nonatomic, readonly) CGFloat scale;
+@property (nonatomic, readonly) CGImageRef CGImage;
+@property (nonatomic, readonly) NSInteger leftCapWidth;
+@property (nonatomic, readonly) NSInteger topCapHeight;
+@property (nonatomic, readonly) UIImageRenderingMode renderingMode;
+
+- (UIImage *)imageWithRenderingMode:(UIImageRenderingMode)renderingMode;
+/* The image's shape filled with color, as an original image. */
+- (UIImage *)imageWithTintColor:(UIColor *)color;
+- (UIImage *)imageWithTintColor:(UIColor *)color renderingMode:(UIImageRenderingMode)renderingMode;
+
+/* Cap insets are not honored: the image stretches as a whole. */
+- (UIImage *)stretchableImageWithLeftCapWidth:(NSInteger)leftCapWidth topCapHeight:(NSInteger)topCapHeight;
+- (UIImage *)resizableImageWithCapInsets:(UIEdgeInsets)capInsets;
+- (UIImage *)resizableImageWithCapInsets:(UIEdgeInsets)capInsets resizingMode:(UIImageResizingMode)resizingMode;
+
+- (void)drawInRect:(CGRect)rect;
+- (void)drawInRect:(CGRect)rect blendMode:(CGBlendMode)blendMode alpha:(CGFloat)alpha;
+- (void)drawAtPoint:(CGPoint)point;
+- (void)drawAtPoint:(CGPoint)point blendMode:(CGBlendMode)blendMode alpha:(CGFloat)alpha;
+
+@end
+
+@interface CIImage (UIKitAdditions)
+- (nullable instancetype)initWithImage:(UIImage *)image;
+- (nullable instancetype)initWithImage:(UIImage *)image options:(nullable NSDictionary *)options;
+@end
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+NSData *UIImagePNGRepresentation(UIImage *image);
+NSData *UIImageJPEGRepresentation(UIImage *image, CGFloat compressionQuality);
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* UIKIT_UIIMAGE_H */

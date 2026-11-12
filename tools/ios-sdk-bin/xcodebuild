@@ -1,0 +1,7 @@
+#!/bin/sh
+# xcodebuild, for the queries build scripts make (see README); it builds nothing.
+case "$1" in
+-version) echo "Xcode 15.0"; echo "Build version 15A240d" ;;
+-showsdks) echo "iOS SDKs:"; echo "	iOS $(xcrun --show-sdk-version)	-sdk iphoneos$(xcrun --show-sdk-version)" ;;
+*) echo "xcodebuild: only -version and -showsdks are answered here" >&2; exit 1 ;;
+esac

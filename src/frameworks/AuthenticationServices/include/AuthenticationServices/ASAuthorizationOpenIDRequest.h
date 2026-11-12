@@ -18,7 +18,19 @@
 */
 
 #include <Foundation/Foundation.h>
+#import <AuthenticationServices/ASAuthorizationRequest.h>
 
-@interface ASAuthorizationOpenIDRequest : NSObject
+typedef NSString * ASAuthorizationOpenIDOperation;
+extern ASAuthorizationOpenIDOperation const ASAuthorizationOperationImplicit;
+extern ASAuthorizationOpenIDOperation const ASAuthorizationOperationLogin;
+extern ASAuthorizationOpenIDOperation const ASAuthorizationOperationRefresh;
+extern ASAuthorizationOpenIDOperation const ASAuthorizationOperationLogout;
+
+@interface ASAuthorizationOpenIDRequest : ASAuthorizationRequest
+
+@property (nonatomic, copy) NSArray<NSString *> *requestedScopes;
+@property (nonatomic, copy) NSString *state;
+@property (nonatomic, copy) NSString *nonce;
+@property (nonatomic, copy) ASAuthorizationOpenIDOperation requestedOperation;
 
 @end

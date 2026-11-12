@@ -18,17 +18,59 @@
 */
 
 #import <IconServices/ISGenerationRequest.h>
+#import <IconServices/ISImageDescriptor.h>
+#import <IconServices/IFImage.h>
 
 @implementation ISGenerationRequest
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@synthesize icon = _icon;
+@synthesize imageDescriptor = _imageDescriptor;
+@synthesize lsDatabaseSequenceNumber = _lsDatabaseSequenceNumber;
+@synthesize lsDatabaseUUID = _lsDatabaseUUID;
+
++ (BOOL)supportsSecureCoding
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+	return YES;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (instancetype)initWithCoder:(NSCoder *)coder
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+	self = [super init];
+	if (self != nil) {
+		_icon = [[coder decodeObjectForKey:@"icon"] retain];
+		_imageDescriptor = [[coder decodeObjectForKey:@"imageDescriptor"] retain];
+	}
+	return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+	[coder encodeObject:_icon forKey:@"icon"];
+	[coder encodeObject:_imageDescriptor forKey:@"imageDescriptor"];
+}
+
+- (void)dealloc
+{
+	[_icon release];
+	[_imageDescriptor release];
+	[_lsDatabaseUUID release];
+	[super dealloc];
+}
+
+/* Drawn here, in the app: there is no icon service to ask. */
+- (IFImage *)generateImageReturningRecordIdentifiers:(id *)identifiers
+{
+	if (identifiers != NULL)
+		*identifiers = nil;
+	ISImageDescriptor *descriptor = _imageDescriptor ?: [ISImageDescriptor imageDescriptorNamed:@"com.apple.IconServices.ImageDescriptor.HomeScreen"];
+	if (![_icon respondsToSelector:@selector(imageForImageDescriptor:)])
+		return nil;
+	return [_icon imageForImageDescriptor:descriptor];
+}
+
+- (IFImage *)generateImage
+{
+	return [self generateImageReturningRecordIdentifiers:NULL];
 }
 
 @end

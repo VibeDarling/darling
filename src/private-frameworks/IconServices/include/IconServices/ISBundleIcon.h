@@ -18,7 +18,21 @@
 */
 
 #include <Foundation/Foundation.h>
+#include <CoreGraphics/CoreGraphics.h>
 
+@class ISImageDescriptor, IFImage;
+
+/* An app bundle's icon, from the image files its Info.plist names. */
 @interface ISBundleIcon : NSObject
-
+@property (readonly) NSURL *url;
+@property (readonly) NSString *type;
+@property (readonly) NSString *tag;
+@property (readonly) NSString *tagClass;
+- (instancetype)initWithBundleURL:(NSURL *)url;
+- (instancetype)initWithBundleURL:(NSURL *)url type:(NSString *)type;
+- (instancetype)initWithBundleURL:(NSURL *)url fileExtension:(NSString *)extension;
+- (instancetype)initWithBundleURL:(NSURL *)url type:(NSString *)type tag:(NSString *)tag tagClass:(NSString *)tagClass;
+/* The image drawn for descriptor, or nil when the bundle has no icon file IconServices can read. */
+- (IFImage *)imageForImageDescriptor:(ISImageDescriptor *)descriptor;
+- (CGImageRef)CGImageForImageDescriptor:(ISImageDescriptor *)descriptor;
 @end
