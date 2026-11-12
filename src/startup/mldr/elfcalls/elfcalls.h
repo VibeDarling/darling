@@ -81,4 +81,28 @@ struct elf_calls
 	void* (*arm64_darling_tsd_base)(void);
 };
 
+/* Table entries and dlsym results are raw host addresses, but arm64e
+ * callers authenticate function pointers before calling. ELFCALL signs
+ * a table member for a call, ELFCALLS_SIGN signs a dlsym result before
+ * it is stored in a typed pointer, ELFCALLS_STRIP hands an arm64e
+ * callback to host code. All three are the identity on arm64 and ELF.
+ * They assume discriminator 0 (Apple's default arm64e C ABI), so
+ * -fptrauth-function-pointer-type-discrimination would break them. */
+#if defined(__has_feature)
+# if __has_feature(ptrauth_calls)
+#  define ELFCALL(tbl, member) ((__typeof__((tbl)->member)) \
+	__builtin_ptrauth_sign_unauthenticated( \
+		*(void* const*)&(tbl)->member, 0, 0))
+#  define ELFCALLS_SIGN(raw) \
+	__builtin_ptrauth_sign_unauthenticated((void*)(raw), 0, 0)
+#  define ELFCALLS_STRIP(fn) \
+	((__typeof__(&*(fn)))__builtin_ptrauth_strip((void*)(fn), 0))
+# endif
+#endif
+#ifndef ELFCALL
+# define ELFCALL(tbl, member) ((tbl)->member)
+# define ELFCALLS_SIGN(raw)   ((void*)(raw))
+# define ELFCALLS_STRIP(fn)   (fn)
+#endif
+
 #endif
