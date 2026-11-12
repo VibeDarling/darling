@@ -18,6 +18,7 @@
 */
 
 #import <Foundation/Foundation.h>
+#import <AVFAudio/AVAudioSessionTypes.h>
 
 #ifndef NS_TYPED_ENUM
 #define NS_TYPED_ENUM
@@ -121,12 +122,15 @@ typedef NS_ENUM(NSUInteger, AVAudioSessionRecordPermission) {
 + (AVAudioSession *)sharedInstance;
 
 - (BOOL)setActive:(BOOL)active error:(NSError **)outError;
-- (BOOL)setActive:(BOOL)active withOptions:(NSUInteger)options error:(NSError **)outError;
+- (BOOL)setActive:(BOOL)active withOptions:(AVAudioSessionSetActiveOptions)options error:(NSError **)outError;
 
 - (BOOL)setCategory:(NSString *)category error:(NSError **)outError;
-- (BOOL)setCategory:(NSString *)category withOptions:(NSUInteger)options error:(NSError **)outError;
-- (BOOL)setCategory:(NSString *)category mode:(NSString *)mode options:(NSUInteger)options error:(NSError **)outError;
+- (BOOL)setCategory:(NSString *)category withOptions:(AVAudioSessionCategoryOptions)options error:(NSError **)outError;
+- (BOOL)setCategory:(NSString *)category mode:(NSString *)mode options:(AVAudioSessionCategoryOptions)options error:(NSError **)outError;
+- (BOOL)setCategory:(NSString *)category mode:(NSString *)mode routeSharingPolicy:(AVAudioSessionRouteSharingPolicy)policy options:(AVAudioSessionCategoryOptions)options error:(NSError **)outError;
 - (NSString *)category;
+@property (readonly) AVAudioSessionCategoryOptions categoryOptions;
+@property (readonly) AVAudioSessionRouteSharingPolicy routeSharingPolicy;
 
 - (BOOL)setMode:(NSString *)mode error:(NSError **)outError;
 - (NSString *)mode;
@@ -134,6 +138,16 @@ typedef NS_ENUM(NSUInteger, AVAudioSessionRecordPermission) {
 - (double)sampleRate;
 - (NSInteger)inputNumberOfChannels;
 - (NSInteger)outputNumberOfChannels;
+
+- (BOOL)setPreferredInputNumberOfChannels:(NSInteger)count error:(NSError **)outError;
+@property (readonly) NSInteger preferredInputNumberOfChannels;
+- (BOOL)setPreferredOutputNumberOfChannels:(NSInteger)count error:(NSError **)outError;
+@property (readonly) NSInteger preferredOutputNumberOfChannels;
+@property (readonly) NSInteger maximumInputNumberOfChannels;
+@property (readonly) NSInteger maximumOutputNumberOfChannels;
+
+- (BOOL)setSupportsMultichannelContent:(BOOL)inValue error:(NSError **)outError;
+@property (readonly) BOOL supportsMultichannelContent;
 
 @property (readonly) AVAudioSessionRouteDescription *currentRoute;
 @property (readonly) NSArray<AVAudioSessionPortDescription *> *availableInputs;
@@ -151,6 +165,6 @@ typedef NS_ENUM(NSUInteger, AVAudioSessionRecordPermission) {
 - (BOOL)setPreferredSampleRate:(double)sampleRate error:(NSError **)outError;
 - (BOOL)setPreferredIOBufferDuration:(NSTimeInterval)duration error:(NSError **)outError;
 - (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError;
-- (BOOL)overrideOutputAudioPort:(NSUInteger)portOverride error:(NSError **)outError;
+- (BOOL)overrideOutputAudioPort:(AVAudioSessionPortOverride)portOverride error:(NSError **)outError;
 
 @end

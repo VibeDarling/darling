@@ -530,4 +530,5 @@ add_framework(AVFoundation
         objc
         Foundation
         QuartzCore
+        CoreMedia
 )
