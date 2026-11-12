@@ -608,7 +608,9 @@ static void show_on_layer(CALayer *layer, CGImageRef image)
 		((void (*)(id, SEL, BOOL))objc_msgSend)(view, @selector(setNeedsDisplay:), YES);
 		/* Apps that present from their own loop (SDL's, say) seldom let
 		 * the run loop wait, which is when UIKit would draw: draw now. */
-		id window = [view respondsToSelector:@selector(window)] ? ((id (*)(id, SEL))objc_msgSend)(view, @selector(window)) : nil;
+		/* The AppKit window that hosts the view (a UIView's -window is its UIWindow). */
+		SEL hostWindow = [view respondsToSelector:@selector(_appKitWindow)] ? @selector(_appKitWindow) : @selector(window);
+		id window = [view respondsToSelector:hostWindow] ? ((id (*)(id, SEL))objc_msgSend)(view, hostWindow) : nil;
 		if (window != nil && [window respondsToSelector:@selector(displayIfNeeded)])
 			((void (*)(id, SEL))objc_msgSend)(window, @selector(displayIfNeeded));
 	};

@@ -14,11 +14,7 @@
 #include <stdint.h>
 #include <string.h>
 
-typedef unsigned int GLenum;
-typedef unsigned int GLbitfield;
-typedef unsigned int GLuint;
-typedef int GLint;
-typedef int GLsizei;
+#include <OpenGLES/gltypes.h>
 
 /* A host function, found the first time it is called. */
 struct gles_slot {
