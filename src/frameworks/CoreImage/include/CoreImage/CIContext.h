@@ -17,15 +17,46 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef COREIMAGE_CICONTEXT_H
+#define COREIMAGE_CICONTEXT_H
+
 #include <Foundation/Foundation.h>
 #include <CoreGraphics/CoreGraphics.h>
+#include <CoreVideo/CoreVideo.h>
+#include <CoreImage/CIImage.h>
 
-@class CIImage;
+@class CIImage, EAGLContext;
+
+typedef NSString *CIContextOption NS_TYPED_ENUM;
+extern CIContextOption const kCIContextOutputColorSpace;
+extern CIContextOption const kCIContextWorkingColorSpace;
+extern CIContextOption const kCIContextUseSoftwareRenderer;
+extern CIContextOption const kCIContextPriorityRequestLow;
 
 @interface CIContext : NSObject
 
 + (CIContext *) contextWithCGContext: (CGContextRef) cgContext
-                             options: (NSDictionary *) options;
+                             options: (NSDictionary<CIContextOption, id> *) options;
++ (CIContext *) contextWithOptions: (NSDictionary<CIContextOption, id> *) options;
++ (CIContext *) context;
+- (instancetype) initWithOptions: (NSDictionary<CIContextOption, id> *) options;
+- (instancetype) init;
++ (CIContext *) contextWithEAGLContext: (EAGLContext *) eaglContext;
++ (CIContext *) contextWithEAGLContext: (EAGLContext *) eaglContext
+                               options: (NSDictionary<CIContextOption, id> *) options;
+
+- (CGImageRef) createCGImage: (CIImage *) image fromRect: (CGRect) fromRect CF_RETURNS_RETAINED;
+- (void) render: (CIImage *) image toCVPixelBuffer: (CVPixelBufferRef) buffer;
+- (void) render: (CIImage *) image
+toCVPixelBuffer: (CVPixelBufferRef) buffer
+         bounds: (CGRect) bounds
+     colorSpace: (CGColorSpaceRef) colorSpace;
+- (void) render: (CIImage *) image
+       toBitmap: (void *) data
+       rowBytes: (ptrdiff_t) rowBytes
+         bounds: (CGRect) bounds
+         format: (CIFormat) format
+     colorSpace: (CGColorSpaceRef) colorSpace;
 
 - (void) drawImage: (CIImage *) image
            atPoint: (CGPoint) atPoint
@@ -35,3 +66,5 @@
           fromRect: (CGRect) fromRect;
 
 @end
+
+#endif
