@@ -73,6 +73,7 @@ CM_EXPORT CMTime CMTimeMakeWithSeconds(Float64 seconds, int32_t preferredTimesca
 CM_EXPORT Float64 CMTimeGetSeconds(CMTime time);
 CM_EXPORT CMTime CMTimeConvertScale(CMTime time, int32_t newTimescale, CMTimeRoundingMethod method);
 CM_EXPORT int32_t CMTimeCompare(CMTime time1, CMTime time2);
+#define CMTIME_COMPARE_INLINE(time1, comparator, time2) ((Boolean)(CMTimeCompare(time1, time2) comparator 0))
 CM_EXPORT CMTime CMTimeAdd(CMTime lhs, CMTime rhs);
 CM_EXPORT CMTime CMTimeSubtract(CMTime lhs, CMTime rhs);
 CM_EXPORT CMTime CMTimeMultiply(CMTime time, int32_t multiplier);

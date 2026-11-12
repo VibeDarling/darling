@@ -844,16 +844,6 @@ void* CMSampleBufferCreateCopyWithNewTiming(void) {
     return NULL;
 }
 
-void* CMSampleBufferCreateForImageBuffer(void) {
-    if (verbose) puts("STUB: CMSampleBufferCreateForImageBuffer called");
-    return NULL;
-}
-
-void* CMSampleBufferCreateReadyWithImageBuffer(void) {
-    if (verbose) puts("STUB: CMSampleBufferCreateReadyWithImageBuffer called");
-    return NULL;
-}
-
 void* CMSampleBufferDataIsReady(void) {
     if (verbose) puts("STUB: CMSampleBufferDataIsReady called");
     return NULL;
@@ -871,11 +861,6 @@ void* CMSampleBufferGetAudioStreamPacketDescriptions(void) {
 
 void* CMSampleBufferGetAudioStreamPacketDescriptionsPtr(void) {
     if (verbose) puts("STUB: CMSampleBufferGetAudioStreamPacketDescriptionsPtr called");
-    return NULL;
-}
-
-void* CMSampleBufferGetImageBuffer(void) {
-    if (verbose) puts("STUB: CMSampleBufferGetImageBuffer called");
     return NULL;
 }
 
@@ -1284,16 +1269,6 @@ void* CMTimeMultiplyByRatio(void) {
     return NULL;
 }
 
-void* CMTimeRangeContainsTime(void) {
-    if (verbose) puts("STUB: CMTimeRangeContainsTime called");
-    return NULL;
-}
-
-void* CMTimeRangeContainsTimeRange(void) {
-    if (verbose) puts("STUB: CMTimeRangeContainsTimeRange called");
-    return NULL;
-}
-
 void* CMTimeRangeCopyAsDictionary(void) {
     if (verbose) puts("STUB: CMTimeRangeCopyAsDictionary called");
     return NULL;
@@ -1301,36 +1276,6 @@ void* CMTimeRangeCopyAsDictionary(void) {
 
 void* CMTimeRangeCopyDescription(void) {
     if (verbose) puts("STUB: CMTimeRangeCopyDescription called");
-    return NULL;
-}
-
-void* CMTimeRangeEqual(void) {
-    if (verbose) puts("STUB: CMTimeRangeEqual called");
-    return NULL;
-}
-
-void* CMTimeRangeFromTimeToTime(void) {
-    if (verbose) puts("STUB: CMTimeRangeFromTimeToTime called");
-    return NULL;
-}
-
-void* CMTimeRangeGetEnd(void) {
-    if (verbose) puts("STUB: CMTimeRangeGetEnd called");
-    return NULL;
-}
-
-void* CMTimeRangeGetIntersection(void) {
-    if (verbose) puts("STUB: CMTimeRangeGetIntersection called");
-    return NULL;
-}
-
-void* CMTimeRangeGetUnion(void) {
-    if (verbose) puts("STUB: CMTimeRangeGetUnion called");
-    return NULL;
-}
-
-void* CMTimeRangeMake(void) {
-    if (verbose) puts("STUB: CMTimeRangeMake called");
     return NULL;
 }
 
@@ -1529,11 +1474,6 @@ void* CMVideoFormatDescriptionCopyAsBigEndianImageDescriptionBlockBuffer(void) {
     return NULL;
 }
 
-void* CMVideoFormatDescriptionCreateForImageBuffer(void) {
-    if (verbose) puts("STUB: CMVideoFormatDescriptionCreateForImageBuffer called");
-    return NULL;
-}
-
 void* CMVideoFormatDescriptionCreateFromBigEndianImageDescriptionBlockBuffer(void) {
     if (verbose) puts("STUB: CMVideoFormatDescriptionCreateFromBigEndianImageDescriptionBlockBuffer called");
     return NULL;
@@ -1576,11 +1516,6 @@ void* CMVideoFormatDescriptionGetPresentationDimensions(void) {
 
 void* CMVideoFormatDescriptionGetVideoDynamicRange(void) {
     if (verbose) puts("STUB: CMVideoFormatDescriptionGetVideoDynamicRange called");
-    return NULL;
-}
-
-void* CMVideoFormatDescriptionMatchesImageBuffer(void) {
-    if (verbose) puts("STUB: CMVideoFormatDescriptionMatchesImageBuffer called");
     return NULL;
 }
 
