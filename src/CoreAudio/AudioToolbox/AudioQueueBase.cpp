@@ -4,7 +4,7 @@
 #include <CoreAudio/AudioHardwareBase.h>
 #include <cstring>
 
-AudioQueue::AudioQueue(const AudioStreamBasicDescription* format, void* userData,
+OpaqueAudioQueue::OpaqueAudioQueue(const AudioStreamBasicDescription* format, void* userData,
 			CFRunLoopRef runloop, CFStringRef runloopMode, UInt32 flags)
 : m_format(*format), m_userData(userData), m_flags(flags)
 {
@@ -27,7 +27,7 @@ AudioQueue::AudioQueue(const AudioStreamBasicDescription* format, void* userData
 	}
 }
 
-AudioQueue::~AudioQueue()
+OpaqueAudioQueue::~OpaqueAudioQueue()
 {
 	if (m_runloop && m_runloopSource)
 	{
@@ -41,19 +41,19 @@ AudioQueue::~AudioQueue()
 		CFRelease(m_runloopMode);
 }
 
-OSStatus AudioQueue::getParameter(AudioQueueParameterID inParamID, AudioQueueParameterValue *outValue)
+OSStatus OpaqueAudioQueue::getParameter(AudioQueueParameterID inParamID, AudioQueueParameterValue *outValue)
 {
 	STUB();
 	return unimpErr;
 }
 
-OSStatus AudioQueue::setParameter(AudioQueueParameterID inParamID, AudioQueueParameterValue inValue)
+OSStatus OpaqueAudioQueue::setParameter(AudioQueueParameterID inParamID, AudioQueueParameterValue inValue)
 {
 	STUB();
 	return unimpErr;
 }
 
-OSStatus AudioQueue::getProperty(AudioQueuePropertyID inID, void *outData, UInt32 *ioDataSize)
+OSStatus OpaqueAudioQueue::getProperty(AudioQueuePropertyID inID, void *outData, UInt32 *ioDataSize)
 {
 	if (!ioDataSize)
 		return paramErr;
@@ -104,7 +104,7 @@ OSStatus AudioQueue::getProperty(AudioQueuePropertyID inID, void *outData, UInt3
 	}
 }
 
-OSStatus AudioQueue::setProperty(AudioQueuePropertyID inID, const void *inData, UInt32 inDataSize)
+OSStatus OpaqueAudioQueue::setProperty(AudioQueuePropertyID inID, const void *inData, UInt32 inDataSize)
 {
 	switch (inID)
 	{
@@ -117,7 +117,7 @@ OSStatus AudioQueue::setProperty(AudioQueuePropertyID inID, const void *inData, 
 	}
 }
 
-OSStatus AudioQueue::getPropertySize(AudioQueuePropertyID inID, UInt32 *outDataSize)
+OSStatus OpaqueAudioQueue::getPropertySize(AudioQueuePropertyID inID, UInt32 *outDataSize)
 {
 	if (!outDataSize)
 		return paramErr;
@@ -139,13 +139,13 @@ OSStatus AudioQueue::getPropertySize(AudioQueuePropertyID inID, UInt32 *outDataS
 	}
 }
 
-OSStatus AudioQueue::addPropertyListener(AudioQueuePropertyID inID, AudioQueuePropertyListenerProc inProc, void *inUserData)
+OSStatus OpaqueAudioQueue::addPropertyListener(AudioQueuePropertyID inID, AudioQueuePropertyListenerProc inProc, void *inUserData)
 {
 	STUB();
 	return unimpErr;
 }
 
-OSStatus AudioQueue::removePropertyListener(AudioQueuePropertyID inID, AudioQueuePropertyListenerProc inProc, void *inUserData)
+OSStatus OpaqueAudioQueue::removePropertyListener(AudioQueuePropertyID inID, AudioQueuePropertyListenerProc inProc, void *inUserData)
 {
 	STUB();
 	return unimpErr;

@@ -6,7 +6,7 @@
 #include <vector>
 #include <mutex>
 
-class AudioQueueOutput : public AudioQueue
+class AudioQueueOutput : public OpaqueAudioQueue
 {
 public:
 	AudioQueueOutput(const AudioStreamBasicDescription *inFormat,
