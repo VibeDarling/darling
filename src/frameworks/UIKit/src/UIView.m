@@ -99,6 +99,22 @@
 	return _uiLayer;
 }
 
+/* Whether the layer is an OpenGL ES one (CAEAGLLayer); with opaque, whether it also shows an opaque
+   frame, which covers the whole view. */
+- (BOOL)uikitShowsGLFrame:(BOOL)opaque
+{
+	if (![_uiLayer isKindOfClass:NSClassFromString(@"CAEAGLLayer")])
+		return NO;
+	return !opaque || ([_uiLayer isOpaque] && [_uiLayer contents] != nil);
+}
+
+/* A presented GL frame covers the view: then presenting one draws only the view (and what is in
+   front of it), not everything behind it. */
+- (BOOL)isOpaque
+{
+	return [self uikitShowsGLFrame:YES];
+}
+
 /* The layer's contents, a CGImage, placed by its contentsGravity: filling the view, or scaled to fit
    or fill it keeping its aspect, centred. */
 - (void)uikitDrawLayerContents
@@ -124,9 +140,12 @@
 	CGContextSaveGState(context);
 	if (fill)
 		CGContextClipToRect(context, NSRectToCGRect([self bounds]));
-	/* Drawn in the flipped view, an image comes out upside down: turned back about its rect. */
-	CGContextTranslateCTM(context, 0, bounds.origin.y * 2 + bounds.size.height);
-	CGContextScaleCTM(context, 1, -1);
+	/* Drawn in the flipped view, an image comes out upside down: as a GL frame's bottom-up rows
+	   want it, the rest get turned back about their rect. */
+	if (![self uikitShowsGLFrame:NO]) {
+		CGContextTranslateCTM(context, 0, bounds.origin.y * 2 + bounds.size.height);
+		CGContextScaleCTM(context, 1, -1);
+	}
 	CGContextDrawImage(context, bounds, image);
 	CGContextRestoreGState(context);
 }
@@ -252,7 +271,8 @@ static BOOL drawsInOwnBuffer(UIView *view)
 
 - (void)drawRect:(NSRect)rect
 {
-	if (_uiBackgroundColor != nil) {
+	/* Filling under an opaque GL frame would cost as much again as drawing it. */
+	if (_uiBackgroundColor != nil && ![self uikitShowsGLFrame:YES]) {
 		[_uiBackgroundColor setFill];
 		NSRectFill(rect);
 	}
