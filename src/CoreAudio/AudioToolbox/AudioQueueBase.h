@@ -2,12 +2,13 @@
 #define	AUDIOQUEUEBASE_H
 #include "AudioQueue.h"
 
-class AudioQueue
+// Apple's opaque AudioQueueRef target: the queue itself.
+struct OpaqueAudioQueue
 {
 public:
-	AudioQueue(const AudioStreamBasicDescription* format, void* userData,
+	OpaqueAudioQueue(const AudioStreamBasicDescription* format, void* userData,
 			CFRunLoopRef runloop, CFStringRef runloopMode, UInt32 flags);
-	virtual ~AudioQueue();
+	virtual ~OpaqueAudioQueue();
 	
 	virtual OSStatus start(const AudioTimeStamp *inStartTime) = 0;
 	virtual OSStatus prime(UInt32 inNumberOfFramesToPrepare, UInt32 *outNumberOfFramesPrepared) = 0;
