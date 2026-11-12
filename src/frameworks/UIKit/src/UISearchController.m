@@ -96,7 +96,7 @@
 	if (_resultsController == nil)
 		return;
 	UIView *results = [_resultsController view];
-	UIView *host = (UIView *)[[_searchBar window] contentView];
+	UIView *host = (UIView *)[[_searchBar _appKitWindow] contentView];
 	BOOL show = _active && _showsSearchResultsController && [host isKindOfClass:[UIView class]];
 	if (!show) {
 		if ([results superview] != nil) {

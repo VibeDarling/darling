@@ -760,10 +760,10 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 	if (![self isViewLoaded])
 		return 0;
 	UIView *view = [self view];
-	if ([view window] == nil)
+	if ([view _appKitWindow] == nil)
 		return 0;
 	NSPoint origin = [view convertPoint:NSMakePoint(0, 0) toView:nil];
-	NSView *content = [[view window] contentView];
+	NSView *content = [[view _appKitWindow] contentView];
 	NSPoint inContent = [content convertPoint:origin fromView:nil];
 	return inContent.y < 1 ? UIKitStatusBarHeight : 0;
 }
@@ -815,7 +815,7 @@ static const CGFloat UIKitNavigationBarHeight = 44;
 	if ([_delegate respondsToSelector:@selector(navigationController:willShowViewController:animated:)] && top != nil)
 		[_delegate navigationController:self willShowViewController:top animated:animated];
 	UIViewController *old = _shown;
-	BOOL visible = [[self view] window] != nil;
+	BOOL visible = [[self view] _appKitWindow] != nil;
 	if (old != nil) {
 		if (visible)
 			[old uikitDisappear:animated];

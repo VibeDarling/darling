@@ -114,9 +114,8 @@ typedef NS_OPTIONS(NSUInteger, UIViewAutoresizing) {
  * tree *is* the window's content view tree.  Its coordinate system is flipped
  * to match UIKit (origin top-left).
  *
- * Deviation from iOS: NSView already declares -window (NSWindow *) and its own
- * ivars, so the UIKit hosting window is exposed internally as -uiWindow rather
- * than shadowing -window with an incompatible type.
+ * -window answers the UIWindow, as on iOS; the AppKit window hosting it is
+ * NSView's -_appKitWindow. iOS code sees neither NSView's -window nor its ivars.
  */
 typedef NS_ENUM(NSInteger, UIUserInterfaceLayoutDirection) {
 	UIUserInterfaceLayoutDirectionLeftToRight,
@@ -214,9 +213,12 @@ typedef NS_ENUM(NSInteger, UISemanticContentAttribute) {
 - (BOOL)isDescendantOfView:(UIView *)view;
 
 /* NSView keeps the hierarchy; these are its accessors with UIKit's types, so Swift sees
- * UIView.superview as UIView? rather than NSView. -window is not among them: it answers the
- * AppKit window, and the UIWindow is -uiWindow. */
+ * UIView.superview as UIView? rather than NSView. */
 @property (nonatomic, readonly) UIView *superview;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wincompatible-property-type"
+@property (nonatomic, readonly) UIWindow *window;
+#pragma clang diagnostic pop
 @property (copy) NSArray<__kindof UIView *> *subviews;
 
 /* Called as on iOS when the view moves (from NSView's own notifications). */

@@ -1373,6 +1373,6 @@ void UIKitShowMainInterface(UIApplication *application)
 	id delegate = [application delegate];
 	UIWindow *window = [delegate respondsToSelector:@selector(window)] ? [delegate window] : objc_getAssociatedObject(application, &UIKitStoryboardKey);
 	/* A UIWindow here starts unhidden, but not on screen. */
-	if (window != nil && ![[(NSView *)window window] isVisible])
+	if (window != nil && ![[window _appKitWindow] isVisible])
 		[window makeKeyAndVisible];
 }

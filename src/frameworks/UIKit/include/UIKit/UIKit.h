@@ -116,9 +116,6 @@ extern const UIWindowLevel UIWindowLevelNormal;
 extern const UIWindowLevel UIWindowLevelStatusBar;
 extern const UIWindowLevel UIWindowLevelAlert;
 
-typedef NSUInteger UIBackgroundTaskIdentifier;
-extern const UIBackgroundTaskIdentifier UIBackgroundTaskInvalid;
-
 typedef uint64_t UIAccessibilityTraits;
 extern UIAccessibilityTraits UIAccessibilityTraitButton;
 BOOL UIAccessibilityIsReduceMotionEnabled(void);

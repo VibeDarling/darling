@@ -1350,7 +1350,7 @@ retile:;
 - (void)viewDidMoveToWindow
 {
 	[super viewDidMoveToWindow];
-	if ([self window] != nil)
+	if ([self _appKitWindow] != nil)
 		[self layoutIfNeeded];
 }
 

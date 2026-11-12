@@ -418,7 +418,7 @@ static BOOL UIKitCanPerform(id target, SEL action, id sender)
 /* The first responder from the target view up, which performs the items. */
 - (id)uikitTarget
 {
-	NSResponder *responder = [[_targetView window] firstResponder];
+	NSResponder *responder = [[_targetView _appKitWindow] firstResponder];
 	if (![responder isKindOfClass:[UIResponder class]] && ![responder isKindOfClass:[UIView class]])
 		responder = _targetView;
 	return responder;

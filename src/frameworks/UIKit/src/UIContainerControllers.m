@@ -38,7 +38,7 @@ static void UIKitShowChild(UIViewController *parent, UIViewController *old, UIVi
 {
 	if (old == child)
 		return;
-	BOOL visible = [parent isViewLoaded] && [[parent view] window] != nil;
+	BOOL visible = [parent isViewLoaded] && [[parent view] _appKitWindow] != nil;
 	if (old != nil) {
 		if (visible)
 			[old uikitDisappear:NO];

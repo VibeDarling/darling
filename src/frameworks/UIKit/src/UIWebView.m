@@ -180,7 +180,7 @@ static NSRect UIKitTrimCoveringBars(NSView *view, NSView *content, NSRect rect)
 /* Where the page goes: this view's rect in its window, from the top left. */
 - (void)uikitUpdateEmbedding
 {
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	NSView *content = [window contentView];
 	BOOL visible = window != nil && content != nil && [window isVisible] && ![self isHiddenOrHasHiddenAncestor] &&
 		UIKitOverlayCount == 0;
@@ -204,7 +204,7 @@ static NSRect UIKitTrimCoveringBars(NSView *view, NSView *content, NSRect rect)
 	[super viewDidMoveToWindow];
 	[_trackingTimer invalidate];
 	_trackingTimer = nil;
-	if ([self window] != nil) {
+	if ([self _appKitWindow] != nil) {
 		/* Ancestors move without telling their subviews: look again now and then. */
 		_trackingTimer = [NSTimer timerWithTimeInterval:0.25 target:self selector:@selector(track:) userInfo:nil repeats:YES];
 		// The common modes do not reach the modes AppKit's event loop runs in.

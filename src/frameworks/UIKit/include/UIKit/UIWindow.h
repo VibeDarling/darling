@@ -14,7 +14,7 @@
 
 #import <UIKit/UIView.h>
 
-@class UIViewController;
+@class UIViewController, UIScreen;
 
 /*
  * A UIWindow is a UIView so that its view hierarchy is the NSWindow's content
@@ -39,7 +39,7 @@ extern NSString *const UIWindowDidResignKeyNotification;
 - (void)makeKeyWindow;
 @property (nonatomic) CGFloat windowLevel;
 @property (nonatomic, readonly, getter=isKeyWindow) BOOL keyWindow;
-@property (nonatomic, strong) id screen;
+@property (nonatomic, strong) UIScreen *screen;
 - (void)sendEvent:(UIEvent *)event;
 /* iPhone OS 2's spellings (private UIKit API). */
 - (void)orderFront:(id)sender;

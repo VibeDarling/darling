@@ -468,7 +468,7 @@ static NSImage *UIKitTintedImage(UIImage *image, NSColor *color)
 	UIViewController *selected = [self selectedViewController];
 	if (selected == _shown)
 		return;
-	BOOL visible = [[self view] window] != nil;
+	BOOL visible = [[self view] _appKitWindow] != nil;
 	if (_shown != nil) {
 		if (visible)
 			[_shown uikitDisappear:animated];

@@ -235,7 +235,7 @@
 {
 	if (![self uikitShouldBeginEditing])
 		return NO;
-	return [[self window] makeFirstResponder:_textView];
+	return [[self _appKitWindow] makeFirstResponder:_textView];
 }
 
 - (BOOL)resignFirstResponder
@@ -245,7 +245,7 @@
 	id<UITextViewDelegate> delegate = [self delegate];
 	if ([delegate respondsToSelector:@selector(textViewShouldEndEditing:)] && ![delegate textViewShouldEndEditing:self])
 		return NO;
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	BOOL resigned = [window makeFirstResponder:window];
 	if (resigned && _editing)
 		[self uikitEditingChanged:NO];

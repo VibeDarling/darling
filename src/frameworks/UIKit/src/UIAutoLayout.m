@@ -118,7 +118,7 @@ void UIKitUpdateSafeAreas(void)
  * indicator) cover of the view, where it is in its window. */
 - (UIEdgeInsets)safeAreaInsets
 {
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	NSView *content = [window contentView];
 	if (window == nil || content == nil)
 		return UIEdgeInsetsZero;

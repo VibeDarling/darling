@@ -1251,14 +1251,14 @@ static BOOL UIKitFieldShouldChange(NSTextField *field, NSRange range, NSString *
 {
 	if ([_delegate respondsToSelector:@selector(textFieldShouldBeginEditing:)] && ![_delegate textFieldShouldBeginEditing:self])
 		return NO;
-	return [[self window] makeFirstResponder:_field];
+	return [[self _appKitWindow] makeFirstResponder:_field];
 }
 
 - (BOOL)resignFirstResponder
 {
 	if (!_editing)
 		return YES;
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	return [window makeFirstResponder:window];
 }
 

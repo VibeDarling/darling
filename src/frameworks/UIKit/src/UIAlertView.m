@@ -62,7 +62,7 @@ static UIKitModalOverlay *UIKitShowOverlay(UIView *panel, UIView *inView, CGFloa
 {
 	UIView *host = nil;
 	if (inView != nil) {
-		NSView *content = [[inView window] contentView];
+		NSView *content = [[inView _appKitWindow] contentView];
 		host = [content isKindOfClass:[UIView class]] ? (UIView *)content : inView;
 	}
 	if (host == nil)

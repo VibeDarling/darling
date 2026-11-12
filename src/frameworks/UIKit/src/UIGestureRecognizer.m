@@ -917,7 +917,7 @@ static NSUInteger UIKitTouchesLeft(UIGestureRecognizer *recognizer, NSSet *endin
 {
 	[super touchesBegan:touches withEvent:event];
 	UITouch *touch = [touches anyObject];
-	NSView *content = [[[touch view] window] contentView];
+	NSView *content = [[[touch view] _appKitWindow] contentView];
 	CGPoint point = [self locationInView:nil];
 	NSSize size = [content bounds].size;
 	/* Window coordinates are AppKit's, from the bottom left. */

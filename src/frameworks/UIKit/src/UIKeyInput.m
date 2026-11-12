@@ -45,12 +45,12 @@ static BOOL sUIKitResigning;
 
 - (BOOL)isFirstResponder
 {
-	return [[self window] firstResponder] == self;
+	return [[self _appKitWindow] firstResponder] == self;
 }
 
 - (BOOL)becomeFirstResponder
 {
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	if (window == nil)
 		return NO;
 	/* AppKit asking (it set the first responder first), or already so. */
@@ -63,7 +63,7 @@ static BOOL sUIKitResigning;
 
 - (BOOL)resignFirstResponder
 {
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	if (sUIKitResigning || window == nil || [window firstResponder] != self)
 		return YES;
 	/* The app's request, or AppKit moving on to another responder; either

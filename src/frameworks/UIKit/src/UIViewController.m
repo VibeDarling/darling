@@ -198,9 +198,9 @@ UIViewController *UIKitViewControllerForView(UIView *view)
 	if (_view == nil)
 		return;
 	CGFloat top = 0;
-	if ([_view window] != nil && CGRectGetHeight([[UIApplication sharedApplication] statusBarFrame]) > 0) {
+	if ([_view _appKitWindow] != nil && CGRectGetHeight([[UIApplication sharedApplication] statusBarFrame]) > 0) {
 		NSPoint origin = [_view convertPoint:NSZeroPoint toView:nil];
-		CGFloat fromTop = [[[_view window] contentView] bounds].size.height - origin.y;
+		CGFloat fromTop = [[[_view _appKitWindow] contentView] bounds].size.height - origin.y;
 		top = MAX(0, UIKitStatusBarHeight - fromTop);
 	}
 	[[self uikitLayoutGuide:@"_UIViewControllerTop" create:NO] uikitPinInView:_view length:top];
@@ -392,7 +392,7 @@ UIViewController *UIKitViewControllerForView(UIView *view)
 - (UIView *)uikitPresentationContainer
 {
 	UIView *view = [self view];
-	NSView *content = [[view window] contentView];
+	NSView *content = [[view _appKitWindow] contentView];
 	if ([content isKindOfClass:[UIView class]])
 		return (UIView *)content;
 	return view;

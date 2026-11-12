@@ -13,11 +13,15 @@
 #define UIKIT_UIAPPLICATION_H
 
 #import <Foundation/NSObjCRuntime.h>
+#import <Foundation/NSDate.h>
 #import <UIKit/UIResponder.h>
 
 #import <UIKit/UIGeometry.h>
 
 @class NSString, NSArray, NSURL, NSDictionary, UIWindow, UIEvent;
+
+typedef NSUInteger UIBackgroundTaskIdentifier;
+extern const UIBackgroundTaskIdentifier UIBackgroundTaskInvalid;
 @protocol UIApplicationDelegate;
 
 typedef NS_ENUM(NSInteger, UIApplicationState) {
@@ -57,6 +61,23 @@ extern NSString *const UIApplicationWillTerminateNotification;
 - (void)openURL:(NSURL *)url options:(NSDictionary *)options completionHandler:(void (^)(BOOL success))completion;
 @property (nonatomic, readonly) UIWindow *keyWindow;
 @property (nonatomic, readonly) NSArray *windows;
+
+@property (nonatomic, getter=isIdleTimerDisabled) BOOL idleTimerDisabled;
+@property (nonatomic, getter=isNetworkActivityIndicatorVisible) BOOL networkActivityIndicatorVisible;
+@property (nonatomic) BOOL applicationSupportsShakeToEdit;
+@property (nonatomic, readonly) UIInterfaceOrientation statusBarOrientation;
+- (void)setStatusBarOrientation:(UIInterfaceOrientation)interfaceOrientation animated:(BOOL)animated;
+- (void)setStatusBarHidden:(BOOL)hidden animated:(BOOL)animated;
+
+- (void)beginIgnoringInteractionEvents;
+- (void)endIgnoringInteractionEvents;
+@property (nonatomic, readonly, getter=isIgnoringInteractionEvents) BOOL ignoringInteractionEvents;
+
+@property (nonatomic, readonly) NSTimeInterval backgroundTimeRemaining;
+- (UIBackgroundTaskIdentifier)beginBackgroundTaskWithExpirationHandler:(void (^)(void))handler;
+- (UIBackgroundTaskIdentifier)beginBackgroundTaskWithName:(NSString *)taskName expirationHandler:(void (^)(void))handler;
+- (void)endBackgroundTask:(UIBackgroundTaskIdentifier)identifier;
+- (void)registerForRemoteNotifications;
 - (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender forEvent:(UIEvent *)event;
 @property (nonatomic, readonly) NSInteger statusBarStyle;
 

@@ -230,7 +230,7 @@ static NSArray *viewsInFront(UIScrollView *scrollView, NSRect rect)
 		const char *setting = getenv("DARLING_UIKIT_SCROLL_COPY");
 		enabled = setting == NULL || strcmp(setting, "0") != 0;
 	}
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	if (!enabled || window == nil || ![window isVisible] || (delta.width != 0 && delta.height != 0))
 		return NO;
 	NSRect visible = [self visibleRect];
@@ -316,7 +316,7 @@ static NSArray *viewsInFront(UIScrollView *scrollView, NSRect rect)
 	if (current.x == offset.x && current.y == offset.y)
 		return;
 	/* What the window shows has to be current before it is moved. */
-	NSWindow *window = [self window];
+	NSWindow *window = [self _appKitWindow];
 	if ([window viewsNeedDisplay]) {
 		[window disableFlushWindow];
 		[window displayIfNeeded];
@@ -389,7 +389,7 @@ static NSArray *viewsInFront(UIScrollView *scrollView, NSRect rect)
 	if (NSEqualRects(old, frame))
 		return;
 	[view uikitSetFrameQuietly:frame];
-	if ([view superview] == self && ![view isHidden] && [self window] != nil) {
+	if ([view superview] == self && ![view isHidden] && [self _appKitWindow] != nil) {
 		[self uikitRedrawRect:old];
 		[self uikitRedrawRect:frame];
 	}

@@ -39,6 +39,12 @@ static void UIKitWindowBecomeKey(UIWindow *window)
 
 @implementation UIWindow
 
+/* A window is in itself, as on iOS. */
+- (UIWindow *)window
+{
+	return self;
+}
+
 + (UIWindow *)uikitKeyWindow
 {
 	if (sKeyWindow != nil)
@@ -98,8 +104,8 @@ static void UIKitWindowBecomeKey(UIWindow *window)
 	CGContextFillRect(context, rect);
 	CGContextRestoreGState(context);
 }
-- (id)screen { return [UIScreen mainScreen]; }
-- (void)setScreen:(id)screen { }
+- (UIScreen *)screen { return [UIScreen mainScreen]; }
+- (void)setScreen:(UIScreen *)screen { }
 - (void)sendEvent:(UIEvent *)event { }
 
 - (id)firstResponder
@@ -207,21 +213,6 @@ static void UIKitWindowBecomeKey(UIWindow *window)
 {
 	UIKitWindowBecomeKey(self);
 	[(NSWindow *)_hostWindow makeKeyWindow];
-}
-
-@end
-
-/* -[UIView window] is AppKit's, so apps that ask a view for its window get the
- * hosting NSWindow. Messages only a UIWindow answers (rootViewController,
- * overrideUserInterfaceStyle, windowScene, ...) go on to the UIWindow it hosts. */
-@implementation NSWindow (UIKitHostedWindow)
-
-- (id)forwardingTargetForSelector:(SEL)selector
-{
-	id content = [self contentView];
-	if ([content isKindOfClass:[UIWindow class]] && [content respondsToSelector:selector])
-		return content;
-	return nil;
 }
 
 @end

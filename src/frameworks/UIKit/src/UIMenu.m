@@ -312,7 +312,7 @@ static NSArray *UIKitResponderChain(void)
 {
 	NSMutableArray *chain = [NSMutableArray array];
 	UIWindow *window = [UIWindow uikitKeyWindow];
-	NSWindow *host = [window window];
+	NSWindow *host = [window _appKitWindow];
 	for (NSResponder *responder = [host firstResponder]; responder != nil; responder = [responder nextResponder])
 		if (![chain containsObject:responder])
 			[chain addObject:responder];
