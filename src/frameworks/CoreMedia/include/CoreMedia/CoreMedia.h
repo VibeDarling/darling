@@ -23,6 +23,7 @@
 
 #include <CoreMedia/CMBase.h>
 #include <CoreMedia/CMTime.h>
+#include <CoreMedia/CMTimeRange.h>
 #include <CoreMedia/CMFormatDescription.h>
 #include <CoreMedia/CMBlockBuffer.h>
 #include <CoreMedia/CMSampleBuffer.h>
@@ -190,13 +191,10 @@ void* CMSampleBufferCopyPCMDataIntoAudioBufferList(void);
 void* CMSampleBufferCopySampleBufferForRange(void);
 void* CMSampleBufferCreateCopy(void);
 void* CMSampleBufferCreateCopyWithNewTiming(void);
-void* CMSampleBufferCreateForImageBuffer(void);
-void* CMSampleBufferCreateReadyWithImageBuffer(void);
 void* CMSampleBufferDataIsReady(void);
 void* CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(void);
 void* CMSampleBufferGetAudioStreamPacketDescriptions(void);
 void* CMSampleBufferGetAudioStreamPacketDescriptionsPtr(void);
-void* CMSampleBufferGetImageBuffer(void);
 void* CMSampleBufferGetOutputDecodeTimeStamp(void);
 void* CMSampleBufferGetOutputDuration(void);
 void* CMSampleBufferGetOutputPresentationTimeStamp(void);
@@ -278,16 +276,8 @@ void* CMTimeMappingMakeFromDictionary(void);
 void* CMTimeMappingShow(void);
 void* CMTimeMultiplyByFloat64(void);
 void* CMTimeMultiplyByRatio(void);
-void* CMTimeRangeContainsTime(void);
-void* CMTimeRangeContainsTimeRange(void);
 void* CMTimeRangeCopyAsDictionary(void);
 void* CMTimeRangeCopyDescription(void);
-void* CMTimeRangeEqual(void);
-void* CMTimeRangeFromTimeToTime(void);
-void* CMTimeRangeGetEnd(void);
-void* CMTimeRangeGetIntersection(void);
-void* CMTimeRangeGetUnion(void);
-void* CMTimeRangeMake(void);
 void* CMTimeRangeMakeFromDictionary(void);
 void* CMTimeRangeShow(void);
 void* CMTimeShow(void);
@@ -327,7 +317,6 @@ void* CMTimebaseSetTimerDispatchSourceToFireImmediately(void);
 void* CMTimebaseSetTimerNextFireTime(void);
 void* CMTimebaseSetTimerToFireImmediately(void);
 void* CMVideoFormatDescriptionCopyAsBigEndianImageDescriptionBlockBuffer(void);
-void* CMVideoFormatDescriptionCreateForImageBuffer(void);
 void* CMVideoFormatDescriptionCreateFromBigEndianImageDescriptionBlockBuffer(void);
 void* CMVideoFormatDescriptionCreateFromBigEndianImageDescriptionData(void);
 void* CMVideoFormatDescriptionCreateFromH264ParameterSets(void);
@@ -337,7 +326,6 @@ void* CMVideoFormatDescriptionGetExtensionKeysCommonWithImageBuffers(void);
 void* CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(void);
 void* CMVideoFormatDescriptionGetPresentationDimensions(void);
 void* CMVideoFormatDescriptionGetVideoDynamicRange(void);
-void* CMVideoFormatDescriptionMatchesImageBuffer(void);
 void* ColorsWheelContext_RotateRad(void);
 void* ColorsWheelContext_computeColorComponent(void);
 void* ColorsWheelContext_computeColorComponentWheel(void);
