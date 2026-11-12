@@ -837,24 +837,6 @@ void* VTPixelBufferConformerSetColorProperties(void)
     return NULL;
 }
 
-void* VTPixelRotationSessionCreate(void)
-{
-    if (verbose) puts("STUB: VTPixelRotationSessionCreate called");
-    return NULL;
-}
-
-void* VTPixelRotationSessionInvalidate(void)
-{
-    if (verbose) puts("STUB: VTPixelRotationSessionInvalidate called");
-    return NULL;
-}
-
-void* VTPixelRotationSessionRotateImage(void)
-{
-    if (verbose) puts("STUB: VTPixelRotationSessionRotateImage called");
-    return NULL;
-}
-
 void* VTPixelTransferSessionCanTransfer(void)
 {
     if (verbose) puts("STUB: VTPixelTransferSessionCanTransfer called");

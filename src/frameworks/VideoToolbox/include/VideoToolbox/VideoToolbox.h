@@ -30,6 +30,7 @@
 #include <VideoToolbox/VTDecompressionSession.h>
 #include <VideoToolbox/VTCompressionSession.h>
 #include <VideoToolbox/VTPixelTransferSession.h>
+#include <VideoToolbox/VTPixelRotationSession.h>
 
 #ifdef __OBJC__
 #import <VideoToolbox/FigMetalTransferHelper.h>
@@ -161,9 +162,6 @@ void* VTPixelBufferConformerGetTypeID(void);
 void* VTPixelBufferConformerIsConformantPixelBuffer(void);
 void* VTPixelBufferConformerSetAttributes(void);
 void* VTPixelBufferConformerSetColorProperties(void);
-void* VTPixelRotationSessionCreate(void);
-void* VTPixelRotationSessionInvalidate(void);
-void* VTPixelRotationSessionRotateImage(void);
 void* VTPixelTransferSessionCanTransfer(void);
 void* VTPixelTransferSessionCopyProperty(void);
 void* VTPixelTransferSessionCopySerializableProperties(void);
@@ -263,17 +261,10 @@ void* VTXPCMessageSetCMSampleBuffer(void);
 void* VTXPCMessageSetCVPixelBuffer(void);
 void* VTXPCMessageSetVideoFormatDescription(void);
 
-extern const CFStringRef kVTPixelRotationPropertyKey_FlipHorizontalOrientation;
-extern const CFStringRef kVTPixelRotationPropertyKey_FlipVerticalOrientation;
-extern const CFStringRef kVTPixelRotationPropertyKey_Rotation;
 extern const CFStringRef kVTPixelTransferPropertyKey_DestinationColorPrimaries;
 extern const CFStringRef kVTPixelTransferPropertyKey_DestinationTransferFunction;
 extern const CFStringRef kVTPixelTransferPropertyKey_DestinationYCbCrMatrix;
 extern const CFStringRef kVTPixelTransferPropertyKey_ScalingMode;
-extern const CFStringRef kVTRotation_0;
-extern const CFStringRef kVTRotation_180;
-extern const CFStringRef kVTRotation_CCW90;
-extern const CFStringRef kVTRotation_CW90;
 extern const CFStringRef kVTScalingMode_CropSourceToCleanAperture;
 
 #endif
