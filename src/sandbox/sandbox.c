@@ -195,6 +195,15 @@ int rootless_check_datavault_flag(const char* path, const char* storage_class) {
 	return 0;
 };
 
+// No public source gives this function's prototype or what it answers. The sibling rootless_* functions
+// above answer 0 for "trusted" and "unrestricted", so 0 here could mean either "protected" or "not protected":
+// an invented answer could make a caller treat a volume as protected. It fails loudly instead.
+int rootless_protected_volume(const char* path) {
+	(void) path;
+	fprintf(stderr, "libsystem_sandbox: rootless_protected_volume is not implemented\n");
+	abort();
+}
+
 int sandbox_query_approval_policy_for_path(const char* query, const char* path, char **approval) {
 	return -1;
 }
