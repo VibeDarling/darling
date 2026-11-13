@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <sys/types.h>
 
 // DUMMY implementation
@@ -131,6 +132,16 @@ int sandbox_consume_mach_extension(const char *ext_token, char **name)
 int sandbox_release_fs_extension(const char *ext_token)
 {
 	return -1;
+}
+
+// The SPI returns a malloc'ed token string, or NULL with errno set when none can be issued (prototype from
+// the vendored WTF SandboxSPI.h and Security's xpc main.c). Darling has no sandbox extensions, so none is
+// issued; the prototype is not in sandbox.h, which must not clash with WebKit's SPI header.
+char *sandbox_extension_issue_file(const char *extension_class, const char *path, uint32_t flags)
+{
+	(void) extension_class; (void) path; (void) flags;
+	errno = ENOTSUP;
+	return NULL;
 }
 
 int sandbox_container_path_for_pid(pid_t pid, char *buffer, size_t bufsize)
