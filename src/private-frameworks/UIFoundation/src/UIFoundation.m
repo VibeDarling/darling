@@ -21,6 +21,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// Hidden: AppKit re-exports this framework, and these are no-op stand-ins for private functions that no client
+// binds, so a client of AppKit asking for one must keep getting dyld's "Symbol not found" instead of a stub.
+#pragma GCC visibility push(hidden)
+
 const char UIArchiveHeaderIdentifier[] = "NIBArchive";
 const uint32_t UIMaximumCompatibleFormatVersion = 1;
 const uint32_t UICurrentCoderVersion = 10;
@@ -41,12 +45,6 @@ void* CFArrayCreateWithNonRetainedObjectsFromNSArray(void)
 void* CFDictionaryCreateWithNonRetainedValuesFromNSDictionary(void)
 {
     if (verbose) puts("STUB: CFDictionaryCreateWithNonRetainedValuesFromNSDictionary called");
-    return NULL;
-}
-
-void* NSConvertGlyphsToPackedGlyphs(void)
-{
-    if (verbose) puts("STUB: NSConvertGlyphsToPackedGlyphs called");
     return NULL;
 }
 
@@ -354,3 +352,5 @@ void* mutableDictionaryByTransformingLeafDictionariesToWeakValued(void)
     if (verbose) puts("STUB: mutableDictionaryByTransformingLeafDictionariesToWeakValued called");
     return NULL;
 }
+
+#pragma GCC visibility pop

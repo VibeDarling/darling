@@ -14,6 +14,18 @@ generate_sdk_framework(UIFoundation
     PRIVATE
 )
 
+# The 27 text classes that AppKit used to define (NSFont, NSTextStorage, NSLayoutManager, ...) are real: they are built
+# by src/external/cocotron/UIFoundation (the UIFoundation_text object library) and linked in here, and AppKit
+# re-exports this framework. The remaining names are the no-op forwarders that were already here, except these, whose
+# sources are no longer built because a name probe (NSClassFromString, objc_getClass, a weak class reference) would
+# find a forwarder in every AppKit process instead of finding nothing:
+#   NSCollectionViewFlowLayout NSCollectionViewLayout NSCollectionViewLayoutAttributes
+#   NSCollectionViewLayoutInvalidationContext      (AppKit defines its own)
+#   NSCTFont NSCTFontDescriptor NSMutableFontDescriptor    (CoreText bridges to a class of that name when it exists)
+#   NSFontAssetRequest NSStringDrawingContext NSTextAlternatives NSTextAttachmentViewProvider NSTextLayoutFragment
+#   NSTextLineFragment NSCollectionViewUpdateItem NSCollectionViewTransitionLayout
+#   NSCollectionViewFlowLayoutInvalidationContext  (public API that apps probe to decide what is available)
+#   NSConcreteTextStorage  (apps and frameworks bind it to AppKit, where it is missing today and fails loudly)
 add_framework(UIFoundation
     FAT
     CURRENT_VERSION
@@ -22,16 +34,13 @@ add_framework(UIFoundation
 
     SOURCES
         src/UIFoundation.m
-        src/NSFontAssetRequest.m
         src/NSCollectionViewData.m
         src/NSCoreTypesetter.m
         src/NSExtraLMData.m
         src/NSLayoutManagerTextBlockHelper.m
         src/NSLayoutManagerTextBlockRowArrayCache.m
-        src/NSLayoutManager.m
         src/UINibCoderValue.m
         src/NSStorage.m
-        src/NSStringDrawingContext.m
         src/_NSCachedAttributedString.m
         src/NSStringDrawingTextStorage.m
         src/NSStringDrawingTextStorageSettings.m
@@ -40,43 +49,22 @@ add_framework(UIFoundation
         src/_UICollectionViewTrackedValueItem.m
         src/_UICollectionViewTrackedValue.m
         src/UICollectionViewAnimation.m
-        src/NSTextAlternatives.m
         src/UICollectionViewLayoutAttributesAuxiliary.m
-        src/NSCollectionViewLayoutAttributes.m
-        src/NSCollectionViewLayoutInvalidationContext.m
-        src/NSCollectionViewLayout.m
-        src/NSCollectionViewUpdateItem.m
         src/_NSCollectionViewCore.m
         src/UIViewAnimationContext.m
-        src/NSShadow.m
-        src/NSTextAttachment.m
-        src/NSTextAttachmentViewProvider.m
         src/_UIPointVector.m
         src/UIPointFIFO.m
         src/UIBoxcarFilterPointFIFO.m
         src/UIQuadCurvePointFIFO.m
-        src/NSFontDescriptor.m
-        src/NSCTFontDescriptor.m
-        src/NSMutableFontDescriptor.m
-        src/NSTextContainer.m
-        src/NSTextList.m
-        src/NSTextLineFragment.m
         src/UICollectionViewIndexMapper.m
         src/NSCollectionViewUpdate.m
-        src/NSCollectionViewTransitionLayout.m
         src/NSConcreteNotifyingMutableAttributedString.m
         src/_NSTextStorageSideData.m
-        src/NSTextStorage.m
-        src/NSConcreteTextStorage.m
         src/_NSFlowLayoutItem.m
         src/_NSFlowLayoutSection.m
         src/_NSFlowLayoutRow.m
         src/_NSFlowLayoutInfo.m
         src/NSTextBlockLayoutHelper.m
-        src/NSTextBlock.m
-        src/NSTextTableBlock.m
-        src/NSTextTable.m
-        src/NSTypesetter.m
         src/NSRTFReaderTableState.m
         src/NSRTFReader.m
         src/NSRTFWriter.m
@@ -91,22 +79,13 @@ add_framework(UIFoundation
         src/UINibStringIDTable.m
         src/__NSFontTypefaceInfo.m
         src/__NSSharedFontInstanceInfo.m
-        src/NSFont.m
-        src/NSCTFont.m
-        src/_NSAttributes.m
-        src/_NSAttributeRun.m
         src/NSParagraphArbitrator.m
         src/UINibDecoder.m
-        src/NSGlyphGenerator.m
-        src/NSGlyphInfo.m
         src/NSIdentityGlyphInfo.m
         src/NSGlyphNameGlyphInfo.m
         src/NSCIDGlyphInfo.m
         src/NSCTGlyphInfo.m
-        src/NSTextTab.m
         src/NSParagraphStyleExtraData.m
-        src/NSParagraphStyle.m
-        src/NSMutableParagraphStyle.m
         src/NSOpenDocumentReader.m
         src/NSOpenDocumentWriter.m
         src/_NSUIAnimator.m
@@ -115,26 +94,33 @@ add_framework(UIFoundation
         src/NSInsertionPointHelper.m
         src/NSDocFormatReader.m
         src/NSDocFormatWriter.m
-        src/NSTextLayoutFragment.m
         src/_NSCollectionViewPrefetchingContext.m
         src/_UICollectionViewPrefetchItem.m
-        src/NSCollectionViewFlowLayoutInvalidationContext.m
         src/UICollectionViewFlowLayoutAuxiliary.m
-        src/NSCollectionViewFlowLayout.m
         src/_NSATSTypesetterGuts.m
-        src/NSATSTypesetter.m
         src/__NSATSStringSegment.m
         src/NSATSGlyphStorage.m
         src/NSATSLineFragment.m
         src/NSLineFragmentRenderingContext.m
         src/NSSingleLineTypesetter.m
-        src/UINibEncoder.m
         src/NSConcreteGlyphGenerator.m
         src/NSWordMLReader.m
         src/NSWordMLWriter.m
+
+    OBJECTS
+        $<TARGET_OBJECTS:UIFoundation_text>
 
     DEPENDENCIES
         system
         objc
         Foundation
+        CoreFoundation
+        CoreGraphics
+        CoreText
+        Onyx2D
 )
+
+# UIFoundation_text defines copies of 30 constants that AppKit defines itself (AppKit/NSTextSystemConstants.m); only
+# AppKit's are exported, so apps bind to the same definition whichever UIFoundation is loaded.
+set_property(TARGET UIFoundation APPEND_STRING PROPERTY LINK_FLAGS
+    " -Wl,-unexported_symbols_list,${CMAKE_SOURCE_DIR}/src/external/cocotron/UIFoundation/unexported-symbols.txt")
