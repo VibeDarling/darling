@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <sys/types.h>
 
 // DUMMY implementation
@@ -133,6 +134,16 @@ int sandbox_release_fs_extension(const char *ext_token)
 	return -1;
 }
 
+// The SPI returns a malloc'ed token string, or NULL with errno set when none can be issued (prototype from
+// the vendored WTF SandboxSPI.h and Security's xpc main.c). Darling has no sandbox extensions, so none is
+// issued; the prototype is not in sandbox.h, which must not clash with WebKit's SPI header.
+char *sandbox_extension_issue_file(const char *extension_class, const char *path, uint32_t flags)
+{
+	(void) extension_class; (void) path; (void) flags;
+	errno = ENOTSUP;
+	return NULL;
+}
+
 int sandbox_container_path_for_pid(pid_t pid, char *buffer, size_t bufsize)
 {
 	return -1;
@@ -183,6 +194,15 @@ int rootless_check_datavault_flag(const char* path, const char* storage_class) {
 	// not quite sure what a "data vault" is here, but its usage in `JSScript.mm` in JavaScriptCore seems to indicate that we should return `0`
 	return 0;
 };
+
+// No public source gives this function's prototype or what it answers. The sibling rootless_* functions
+// above answer 0 for "trusted" and "unrestricted", so 0 here could mean either "protected" or "not protected":
+// an invented answer could make a caller treat a volume as protected. It fails loudly instead.
+int rootless_protected_volume(const char* path) {
+	(void) path;
+	fprintf(stderr, "libsystem_sandbox: rootless_protected_volume is not implemented\n");
+	abort();
+}
 
 int sandbox_query_approval_policy_for_path(const char* query, const char* path, char **approval) {
 	return -1;
