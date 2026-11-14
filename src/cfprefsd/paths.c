@@ -33,6 +33,7 @@
 #define KEY_MANAGED "CFPreferencesIsManaged"
 
 // [open-src] CFPreferences.c: the global domain's file is ".GlobalPreferences"
+#define CURRENT_USER "kCFPreferencesCurrentUser"
 #define ANY_APPLICATION "kCFPreferencesAnyApplication"
 #define GLOBAL_FILE_NAME ".GlobalPreferences"
 
@@ -68,7 +69,15 @@ bool prefs_layer_path(xpc_object_t request, uid_t uid, char* out, size_t size) {
 		return false;
 	}
 	const char* file = strcmp(domain, ANY_APPLICATION) == 0 ? GLOBAL_FILE_NAME : domain;
-	bool any_user = xpc_dictionary_get_value(request, KEY_USER) == NULL;
+	xpc_object_t user = xpc_dictionary_get_value(request, KEY_USER);
+	bool any_user = user == NULL;
+	if (!any_user) {
+		// [real-Mac] the cache's CoreFoundation sends "kCFPreferencesCurrentUser" verbatim. Any other name is a request for somebody
+		// else's layer (or the caller's own, by name): this stand-in serves only the caller's own, so it refuses what it cannot tell apart.
+		struct passwd* self = getpwuid(uid);
+		const char* name = xpc_get_type(user) == XPC_TYPE_STRING ? xpc_string_get_string_ptr(user) : NULL;
+		if (name == NULL || (strcmp(name, CURRENT_USER) != 0 && (self == NULL || strcmp(name, self->pw_name) != 0))) return false;
+	}
 	bool by_host = flag(request, KEY_BY_HOST);
 	int n;
 	if (flag(request, KEY_MANAGED)) {

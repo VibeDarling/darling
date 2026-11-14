@@ -41,7 +41,8 @@ static xpc_object_t call(xpc_object_t m) {
 }
 
 static bool is_error(xpc_object_t reply) {
-	return xpc_get_type(reply) == XPC_TYPE_DICTIONARY && xpc_dictionary_get_string(reply, "darling-error") != NULL;
+	return xpc_get_type(reply) == XPC_TYPE_DICTIONARY && xpc_dictionary_get_string(reply, "CFPreferencesErrorDescription") != NULL &&
+		xpc_dictionary_get_value(reply, "CFPreferencesErrorType") != NULL && xpc_get_type(xpc_dictionary_get_value(reply, "CFPreferencesErrorType")) == XPC_TYPE_INT64;
 }
 
 static void prefs_path(char* out, size_t n, const char* sub, const char* domain) {
@@ -319,6 +320,40 @@ int main(void) {
 	r = call(request(9, TEST_DOMAIN, false));
 	CHECK(!is_error(r), "the daemon stopped answering after the oversized values");
 	xpc_release(r);
+
+	// a refused write looks like the real daemon's refusal: the triple (so the client keeps its slot) plus the error type and description, no invented keys
+	w = request(1, TEST_DOMAIN, false);
+	xpc_dictionary_set_string(w, "Key", "test.shared"); xpc_dictionary_set_string(w, "Value", "no");
+	xpc_dictionary_set_value(w, "CFPreferencesUser", NULL);
+	r = call(w);
+	if (getuid() != 0) {
+		CHECK(is_error(r), "a refused write has no CFPreferencesErrorType and CFPreferencesErrorDescription");
+		CHECK(xpc_dictionary_get_string(r, "CFPreferencesShmemName") != NULL && xpc_dictionary_get_value(r, "CFPreferencesShmemIndex") != NULL, "a refused write lost the slot triple");
+		CHECK(xpc_dictionary_get_value(r, "darling-error") == NULL, "a refused write still carries the invented darling-error key");
+	}
+	xpc_release(r);
+
+	// the CFPreferencesUser value must be the current user (or the caller's own name): another name is refused, not served as the caller's layer
+	{
+		const char* names[] = { "root", "nobody-such-user", "" };
+		for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+			w = request(1, TEST_DOMAIN, false);
+			xpc_dictionary_set_string(w, "Key", "test.otheruser"); xpc_dictionary_set_string(w, "Value", "no");
+			xpc_dictionary_set_string(w, "CFPreferencesUser", names[i]);
+			r = call(w);
+			CHECK(is_error(r), "a write for the user name '%s' was not refused", names[i]);
+			xpc_release(r);
+		}
+		w = request(1, TEST_DOMAIN, false);
+		xpc_dictionary_set_string(w, "Key", "test.ownname"); xpc_dictionary_set_string(w, "Value", "yes");
+		xpc_dictionary_set_string(w, "CFPreferencesUser", getpwuid(getuid())->pw_name);
+		r = call(w);
+		CHECK(!is_error(r), "a write for the caller's own user name was refused");
+		xpc_release(r);
+		CFTypeRef other = file_value(path, "test.otheruser");
+		CHECK(other == NULL, "a write for another user's name landed in the caller's plist");
+		if (other) CFRelease(other);
+	}
 
 	// a domain that is not a plain name is refused, nothing is written outside the preferences directory
 	const char* bad[] = { "../evil", "a/b", "..", ".", "" };

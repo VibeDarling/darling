@@ -71,8 +71,11 @@
 // [observed] the two keys a write adds to an operation-1 request
 #define KEY_WRITE_KEY "Key"
 #define KEY_WRITE_VALUE "Value"
-// GUESS (our own name): the reply to a request we cannot serve. Never silence, never a cancelled connection (clients retry hot).
-#define KEY_ERROR "darling-error"
+// [real-Mac, macOS 26.1, our own client program] the reply to a request the daemon refused is the triple plus these two keys
+// (CFPreferencesErrorType int64 0, CFPreferencesErrorDescription "Path not accessible"). NEEDS-REAL-MAC: the type values for other
+// refusals (this stand-in always sends 0) and the exact texts. Never silence, never a cancelled connection (clients retry hot).
+#define KEY_ERROR_TYPE "CFPreferencesErrorType"
+#define KEY_ERROR_DESCRIPTION "CFPreferencesErrorDescription"
 // Darling-only: a request carrying this bool true is answered with the caller identity the daemon holds (for tests)
 #define KEY_WHOAMI "darling-whoami"
 
@@ -196,7 +199,8 @@ static void slot_bump(int64_t index) {
 }
 
 static void reply_error(xpc_object_t reply, const char* text) {
-	xpc_dictionary_set_string(reply, KEY_ERROR, text);
+	xpc_dictionary_set_int64(reply, KEY_ERROR_TYPE, 0);
+	xpc_dictionary_set_string(reply, KEY_ERROR_DESCRIPTION, text);
 }
 
 // Who is asking. uid and gid are the connection's effective ids from libxpc (xpc_connection_get_euid/egid). libxpc fills them only
@@ -220,6 +224,7 @@ static bool credentials_present(pid_t pid, uid_t uid, gid_t gid) {
 }
 
 static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, bool in_batch, size_t* budget);
+static void reply_slot(xpc_object_t reply, const char* path);
 
 // op 5: reply holds one reply per request item. [observed] items can be null (the client leaves a slot empty): answered with null.
 // A batch cannot hold a batch (the recursion would be unbounded) and holds at most MAX_BATCH_ITEMS items.
@@ -289,12 +294,14 @@ static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, boo
 	if (xpc_dictionary_get_value(request, KEY_WRITE_KEY) != NULL) {
 		// The any-user and managed layers are shared by every user: only a verified root may change them.
 		if (prefs_layer_is_shared(request) && caller->uid != 0) {
+			reply_slot(reply, path);
 			reply_error(reply, "cfprefsd stand-in: only root may write the any-user and managed layers");
 			return reply;
 		}
 		const char* failure = prefs_store_write(request, caller->uid, caller->gid, path, KEY_WRITE_KEY, KEY_WRITE_VALUE);
 		if (failure != NULL) {
 			daemon_log("write failed: %s", failure);
+			reply_slot(reply, path);
 			reply_error(reply, failure);
 			return reply;
 		}
