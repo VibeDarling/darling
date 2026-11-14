@@ -19,6 +19,11 @@
 
 #include <Foundation/Foundation.h>
 
-@interface NSAttributeDictionary : NSObject
+// GUESS (no public source): the selectors are named by "unrecognized selector" exceptions in Stickies, Terminal, Audio MIDI
+// Setup and Digital Color Meter; semantics are a shared empty instance and a +1 copy, behind the NSDictionary contract.
+@interface NSAttributeDictionary : NSDictionary
+
++ (id)emptyAttributeDictionary;
++ (id)newWithDictionary:(NSDictionary *)dictionary;
 
 @end

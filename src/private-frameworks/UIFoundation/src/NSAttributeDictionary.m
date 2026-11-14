@@ -19,16 +19,39 @@
 
 #import <UIFoundation/NSAttributeDictionary.h>
 
-@implementation NSAttributeDictionary
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+@implementation NSAttributeDictionary {
+    NSDictionary *_attributes;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
++ (id)emptyAttributeDictionary
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    static NSAttributeDictionary *empty;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ empty = [self newWithDictionary:nil]; });
+    return empty;
+}
+
++ (id)newWithDictionary:(NSDictionary *)dictionary
+{
+    return [[self alloc] initWithDictionary:dictionary ?: @{}];
+}
+
+// The NSDictionary primitive that -initWithDictionary:, +dictionaryWithObject:forKey: and keyed decoding all funnel into.
+- (id)initWithObjects:(const id [])objects forKeys:(const id <NSCopying> [])keys count:(NSUInteger)count
+{
+    _attributes = [[NSDictionary alloc] initWithObjects:objects forKeys:keys count:count];
+    return self;
+}
+
+- (NSUInteger)count { return [_attributes count]; }
+- (id)objectForKey:(id)key { return [_attributes objectForKey:key]; }
+- (NSEnumerator *)keyEnumerator { return [_attributes keyEnumerator]; }
+- (id)copyWithZone:(NSZone *)zone { return [self retain]; }
+
+- (void)dealloc
+{
+    [_attributes release];
+    [super dealloc];
 }
 
 @end
