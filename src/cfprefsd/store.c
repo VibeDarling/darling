@@ -36,6 +36,88 @@
 #define MAX_FILE_SIZE (64 * 1024 * 1024)
 #define MAX_DEPTH 32
 
+
+// A bplist00 refers to an object by index, and one object can be referred to many times, so a few bytes can describe a tree that has
+// millions of nodes once read (CoreFoundation's reader builds every reference as its own container, and its writer then writes the whole
+// tree out again: a 123-byte value of nested arrays that each point twice at the level below became a 13.6 MB file in 1.8 s as root).
+// This walks the object table WITHOUT building anything, memoized per object so the walk is linear in the file, and refuses a plist that
+// is malformed, has a reference cycle, nests deeper than MAX_BPLIST_DEPTH, or expands to more than MAX_EXPANDED_OBJECTS objects.
+// Format from the public bplist00 layout (open-source CFBinaryPList.c, which the repository carries): 8-byte magic, objects, offset table,
+// 32-byte trailer {5 unused, sort version, offset size, reference size, object count, top object, offset table start}, all big endian.
+#define MAX_EXPANDED_OBJECTS (1u << 20)
+#define MAX_BPLIST_DEPTH 64
+#define SCAN_BAD UINT64_MAX
+
+typedef struct {
+	const uint8_t* bytes;
+	size_t table_start;
+	unsigned offset_size;
+	unsigned ref_size;
+	uint64_t objects;
+	uint32_t* expanded;
+	uint8_t* state; // 0 unvisited, 1 on the walk's path (a cycle if met again), 2 counted
+} bplist_scan;
+
+static uint64_t read_big_endian(const uint8_t* at, unsigned size) {
+	uint64_t value = 0;
+	while (size-- > 0) value = (value << 8) | *at++;
+	return value;
+}
+
+static uint64_t scan_object(bplist_scan* scan, uint64_t index, int depth) {
+	if (index >= scan->objects || depth > MAX_BPLIST_DEPTH) return SCAN_BAD;
+	if (scan->state[index] == 2) return scan->expanded[index];
+	if (scan->state[index] == 1) return SCAN_BAD;
+	uint64_t offset = read_big_endian(scan->bytes + scan->table_start + index * scan->offset_size, scan->offset_size);
+	if (offset < 8 || offset >= scan->table_start) return SCAN_BAD;
+	unsigned type = scan->bytes[offset] >> 4;
+	uint64_t total = 1;
+	if (type >= 0xA && type <= 0xD) { // array, ordered set, set (one reference per member), dictionary (a key and a value reference)
+		const uint8_t* at = scan->bytes + offset + 1;
+		const uint8_t* end = scan->bytes + scan->table_start;
+		uint64_t count = scan->bytes[offset] & 0xF;
+		if (count == 0xF) {
+			if (at >= end || (*at >> 4) != 1) return SCAN_BAD;
+			unsigned width = 1u << (*at & 0xF);
+			if (width > 8 || (size_t)(end - at) < 1 + width) return SCAN_BAD;
+			count = read_big_endian(at + 1, width);
+			at += 1 + width;
+		}
+		uint64_t references = type == 0xD ? count * 2 : count;
+		if (count > scan->table_start || (uint64_t)(end - at) / scan->ref_size < references) return SCAN_BAD;
+		scan->state[index] = 1;
+		for (uint64_t i = 0; i < references; ++i) {
+			uint64_t child = scan_object(scan, read_big_endian(at + i * scan->ref_size, scan->ref_size), depth + 1);
+			if (child == SCAN_BAD) return SCAN_BAD;
+			total += child;
+			if (total > MAX_EXPANDED_OBJECTS) return SCAN_BAD;
+		}
+	}
+	scan->expanded[index] = (uint32_t)total;
+	scan->state[index] = 2;
+	return total;
+}
+
+// True when the bytes are not a bplist00 at all (the XML formats cannot share objects) or are one within the limits above.
+static bool plist_bytes_within_limits(const uint8_t* bytes, size_t length) {
+	if (length < 8 || memcmp(bytes, "bplist00", 8) != 0) return true;
+	if (length < 8 + 32) return false;
+	const uint8_t* trailer = bytes + length - 32;
+	bplist_scan scan = { bytes, 0, trailer[6], trailer[7], read_big_endian(trailer + 8, 8), NULL, NULL };
+	uint64_t top = read_big_endian(trailer + 16, 8);
+	uint64_t table = read_big_endian(trailer + 24, 8);
+	if (scan.offset_size < 1 || scan.offset_size > 8 || scan.ref_size < 1 || scan.ref_size > 8) return false;
+	if (scan.objects == 0 || scan.objects > length || table < 8 || table > length - 32) return false;
+	if ((length - 32 - table) / scan.offset_size < scan.objects) return false;
+	scan.table_start = (size_t)table;
+	scan.expanded = calloc((size_t)scan.objects, sizeof(uint32_t));
+	scan.state = calloc((size_t)scan.objects, 1);
+	bool ok = scan.expanded != NULL && scan.state != NULL && scan_object(&scan, top, 0) != SCAN_BAD;
+	free(scan.expanded);
+	free(scan.state);
+	return ok;
+}
+
 // The xpc value of a write converted to the property-list type it stands for. [observed] strings arrive as xpc strings; the other
 // type mappings are the natural ones and are NEEDS-REAL-MAC until each is observed (see OBSERVED.md for which were).
 static CFTypeRef convert_value(xpc_object_t value, int depth) {
@@ -156,6 +238,11 @@ static CFMutableDictionaryRef load_dictionary(const char* path, const char** fai
 		*failure = "cannot read the preferences file";
 		return NULL;
 	}
+	if (!plist_bytes_within_limits(bytes, (size_t)got)) {
+		free(bytes);
+		*failure = "the preferences file expands to too many objects or is malformed";
+		return NULL;
+	}
 	CFDataRef data = CFDataCreate(kCFAllocatorDefault, bytes, (CFIndex)got);
 	free(bytes);
 	CFTypeRef plist = CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListMutableContainersAndLeaves, NULL, NULL);
@@ -171,6 +258,11 @@ static CFMutableDictionaryRef load_dictionary(const char* path, const char** fai
 static const char* save_dictionary(const char* path, CFDictionaryRef dictionary) {
 	CFDataRef data = CFPropertyListCreateData(kCFAllocatorDefault, dictionary, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
 	if (data == NULL) return "cannot serialize the preferences";
+	// the written file must stay one this daemon can deliver and read back: bounded bytes, and a bounded number of objects once expanded
+	if ((uint64_t)CFDataGetLength(data) > PREFS_MAX_LAYER_BYTES || !plist_bytes_within_limits(CFDataGetBytePtr(data), (size_t)CFDataGetLength(data))) {
+		CFRelease(data);
+		return "the preferences would exceed the size or object limits";
+	}
 	char temporary[PATH_MAX];
 	if (snprintf(temporary, sizeof(temporary), "%s.cfprefsd-%d", path, (int)getpid()) >= (int)sizeof(temporary)) {
 		CFRelease(data);
@@ -248,6 +340,10 @@ static CFTypeRef decode_write_value(xpc_object_t value) {
 	uint8_t* bytes = malloc(length);
 	if (bytes == NULL) return NULL;
 	xpc_data_get_bytes(value, bytes, 0, length);
+	if (!plist_bytes_within_limits(bytes, length)) {
+		free(bytes);
+		return NULL;
+	}
 	CFDataRef data = CFDataCreate(kCFAllocatorDefault, bytes, (CFIndex)length);
 	free(bytes);
 	CFTypeRef plist = CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL, NULL);

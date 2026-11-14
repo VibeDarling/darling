@@ -8,9 +8,11 @@
 #include <pwd.h>
 #include <sys/mman.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <xpc/xpc.h>
 
@@ -88,6 +90,40 @@ static void write_blob_plist(const char* domain, size_t bytes) {
 	FILE* f = fopen(p, "wb");
 	if (f) { fwrite(CFDataGetBytePtr(out), 1, (size_t)CFDataGetLength(out), f); fclose(f); }
 	CFRelease(out); CFRelease(dict); CFRelease(data); free(blob);
+}
+
+// A bplist00 whose top object is an array of depth `depth`: each level is an array holding the level below TWICE (by reference), the
+// bottom is the integer 0. It is 8 + 2 + 3 * depth + depth + 1 + 32 bytes and expands to 2^(depth + 1) - 1 objects.
+static CFDataRef dag_bplist(int depth) {
+	unsigned char b[512];
+	size_t n = 0;
+	memcpy(b, "bplist00", 8); n = 8;
+	unsigned char offsets[130];
+	offsets[0] = (unsigned char)n; b[n++] = 0x10; b[n++] = 0x00;
+	for (int level = 1; level <= depth; level++) {
+		offsets[level] = (unsigned char)n;
+		b[n++] = 0xA2; b[n++] = (unsigned char)(level - 1); b[n++] = (unsigned char)(level - 1);
+	}
+	size_t table = n;
+	memcpy(b + n, offsets, (size_t)depth + 1); n += (size_t)depth + 1;
+	memset(b + n, 0, 32);
+	unsigned char* t = b + n;
+	t[6] = 1; t[7] = 1; t[15] = (unsigned char)(depth + 1); t[23] = (unsigned char)depth; t[30] = (unsigned char)(table >> 8); t[31] = (unsigned char)table;
+	n += 32;
+	return CFDataCreate(NULL, b, (CFIndex)n);
+}
+
+static xpc_object_t write_data_value(const char* key, CFDataRef bytes) {
+	xpc_object_t w = request(1, TEST_DOMAIN, false);
+	xpc_dictionary_set_string(w, "Key", key);
+	xpc_dictionary_set_data(w, "Value", CFDataGetBytePtr(bytes), (size_t)CFDataGetLength(bytes));
+	return call(w);
+}
+
+static double seconds_since(struct timespec start) {
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return (double)(now.tv_sec - start.tv_sec) + (double)(now.tv_nsec - start.tv_nsec) / 1e9;
 }
 
 int main(void) {
@@ -245,6 +281,44 @@ int main(void) {
 		const char* gone[4] = { "huge", "big1", "big2", "big3" };
 		for (int i = 0; i < 4; i++) { char gp[1024]; char dn[128]; snprintf(dn, sizeof(dn), "org.darlinghq.cfprefsd-service-test.%s", gone[i]); prefs_path(gp, sizeof(gp), "", dn); unlink(gp); }
 	}
+
+
+	// a few bytes must not expand into a huge write: a bplist whose objects refer to the level below twice (depth 22 is 8 million
+	// objects when read) is refused quickly and nothing of it is written; the same shape at depth 10 (2047 objects) is accepted
+	CFDataRef shallow = dag_bplist(10);
+	r = write_data_value("test.dag.ok", shallow);
+	CHECK(!is_error(r), "a shared-reference plist of 2047 objects was refused");
+	xpc_release(r);
+	CFRelease(shallow);
+	CFDataRef bomb = dag_bplist(22);
+	struct timespec started;
+	clock_gettime(CLOCK_MONOTONIC, &started);
+	r = write_data_value("test.dag.bomb", bomb);
+	double took = seconds_since(started);
+	CHECK(is_error(r), "a plist of 8 million objects in %zd bytes was not refused", (ssize_t)CFDataGetLength(bomb));
+	CHECK(took < 3.0, "refusing the 8 million object plist took %.1f s (it must be refused before it is read)", took);
+	xpc_release(r);
+	CFRelease(bomb);
+	CFTypeRef bombed = file_value(path, "test.dag.bomb");
+	CHECK(bombed == NULL, "the oversized plist was written");
+	if (bombed) CFRelease(bombed);
+	CFTypeRef bomb_ok = file_value(path, "test.dag.ok");
+	CHECK(bomb_ok != NULL, "the accepted shared-reference plist is not in the file");
+	if (bomb_ok) CFRelease(bomb_ok);
+	// a value larger than a layer may be (8 MiB) is refused too, and a plist that was already refused leaves the daemon answering
+	{
+		size_t big_bytes = 9u * 1024 * 1024;
+		unsigned char* zeros = calloc(big_bytes, 1);
+		CFDataRef blob = CFDataCreate(NULL, zeros, (CFIndex)big_bytes);
+		CFDataRef big_plist = CFPropertyListCreateData(NULL, blob, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+		r = write_data_value("test.big", big_plist);
+		CHECK(is_error(r), "a 9 MiB value was not refused");
+		xpc_release(r);
+		CFRelease(big_plist); CFRelease(blob); free(zeros);
+	}
+	r = call(request(9, TEST_DOMAIN, false));
+	CHECK(!is_error(r), "the daemon stopped answering after the oversized values");
+	xpc_release(r);
 
 	// a domain that is not a plain name is refused, nothing is written outside the preferences directory
 	const char* bad[] = { "../evil", "a/b", "..", ".", "" };

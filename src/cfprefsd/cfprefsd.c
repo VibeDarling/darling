@@ -101,7 +101,7 @@ extern const char* xpc_type_get_name(xpc_type_t type);
 #define MAX_BATCH_ITEMS 64
 // The bytes of layer plists one request (a single operation or a whole batch) may put into its reply. Once spent, further items are
 // answered without CFPreferencesPropertyList, so the client sees no values for them. The limits of a real daemon are unknown (NEEDS-REAL-MAC).
-#define REPLY_BYTE_BUDGET (8u * 1024 * 1024)
+#define REPLY_BYTE_BUDGET PREFS_MAX_LAYER_BYTES
 
 static bool verbose = false;
 
