@@ -4,6 +4,7 @@ set(DYLIB_INSTALL_NAME "/usr/lib/system/libsystem_sandbox.dylib")
 add_circular(system_sandbox FAT
 	SOURCES
 	sandbox.c
+	extension_to_self.c
 
 	SIBLINGS
 		system_dyld
