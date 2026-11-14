@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # Host test: the cfprefsd stand-in never reuses a pre-existing shared region and refuses to run without a trustworthy one.
 # usage: CFPREFSD_GUEST_BIN=<guest path of the compiled tests/cfprefsd-service.c> python3 tests/cfprefsd-region.py
-# The region is the host's /dev/shm/apple.cfprefs.daemonv1, one name for every container on the host: run this on a host where no
-# other Darling session is using it, because the test plants and removes that name and ends the container (darling shutdown).
+# The region is an object in the host's /dev/shm named by the daemon (apple.cfprefs.daemonv1-<inode of the container root>, one per
+# container; the guest test prints the name as "REGION <name>"). The test plants and removes that name and ends the container
+# (darling shutdown), so run it when nothing else uses this container.
 #  1. A region planted before the daemon starts (100 bytes, mode 0666) with a second hard link to the same object: after the daemon
 #     has started, the second link must be unchanged (the daemon made a new object instead of growing and reusing the planted one),
 #     and the region must be 16384 bytes, mode 0644.
@@ -13,8 +14,8 @@ import stat
 import subprocess
 import sys
 
-REGION = "/dev/shm/apple.cfprefs.daemonv1"
-LINK = "/dev/shm/apple.cfprefs.daemonv1-planted-link"
+REGION = None
+LINK = None
 guest_bin = os.environ.get("CFPREFSD_GUEST_BIN")
 if not guest_bin:
     sys.exit("FAIL: set CFPREFSD_GUEST_BIN to the guest path of the compiled tests/cfprefsd-service.c")
@@ -24,6 +25,8 @@ def shutdown():
 
 def clean():
     for p in (LINK, REGION):
+        if p is None:
+            continue
         try:
             if os.path.isdir(p) and not os.path.islink(p):
                 os.rmdir(p)
@@ -45,6 +48,14 @@ def run_guest_retrying(timeout=180):
         return run_guest(timeout)
 
 try:
+    # learn the region's name: a first run with nothing planted
+    shutdown()
+    res = run_guest_retrying()
+    found = [line.split(" ", 1)[1] for line in res.stdout.splitlines() if line.startswith("REGION ")]
+    if "PASS:" not in res.stdout or len(found) != 1 or not found[0].startswith("apple.cfprefs.daemonv1-") or "/" in found[0]:
+        sys.exit(f"FAIL: the guest test did not pass or did not report one region name:\n{res.stdout}{res.stderr}")
+    REGION = "/dev/shm/" + found[0]
+    LINK = REGION + "-planted-link"
     shutdown()
     clean()
     fd = os.open(REGION, os.O_CREAT | os.O_WRONLY, 0o666)

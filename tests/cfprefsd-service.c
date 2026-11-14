@@ -40,6 +40,8 @@ static xpc_object_t call(xpc_object_t m) {
 	return reply;
 }
 
+static xpc_object_t call_bounded(xpc_object_t m, int seconds);
+
 static bool is_error(xpc_object_t reply) {
 	return xpc_get_type(reply) == XPC_TYPE_DICTIONARY && xpc_dictionary_get_string(reply, "CFPreferencesErrorDescription") != NULL &&
 		xpc_dictionary_get_value(reply, "CFPreferencesErrorType") != NULL && xpc_get_type(xpc_dictionary_get_value(reply, "CFPreferencesErrorType")) == XPC_TYPE_INT64;
@@ -114,17 +116,69 @@ static CFDataRef dag_bplist(int depth, char version) {
 	return CFDataCreate(NULL, b, (CFIndex)n);
 }
 
-static xpc_object_t write_data_value(const char* key, CFDataRef bytes) {
+static xpc_object_t write_data_value(const char* key, CFDataRef bytes, int bound_seconds) {
 	xpc_object_t w = request(1, TEST_DOMAIN, false);
 	xpc_dictionary_set_string(w, "Key", key);
 	xpc_dictionary_set_data(w, "Value", CFDataGetBytePtr(bytes), (size_t)CFDataGetLength(bytes));
-	return call(w);
+	return bound_seconds > 0 ? call_bounded(w, bound_seconds) : call(w);
 }
 
-static double seconds_since(struct timespec start) {
-	struct timespec now;
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	return (double)(now.tv_sec - start.tv_sec) + (double)(now.tv_nsec - start.tv_nsec) / 1e9;
+
+// Like call(), but gives up after `seconds` and ends the test with a FAIL: a daemon that spends minutes (or dies) on a request must not
+// be told apart from a quick one by a stopwatch on this host, only by whether it answers within a generous bound.
+static xpc_object_t call_bounded(xpc_object_t m, int seconds) {
+	__block xpc_object_t answer = NULL;
+	dispatch_semaphore_t done = dispatch_semaphore_create(0);
+	xpc_connection_send_message_with_reply(conn, m, dispatch_get_global_queue(0, 0), ^(xpc_object_t reply) {
+		answer = xpc_retain(reply);
+		dispatch_semaphore_signal(done);
+	});
+	long timed_out = dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, (int64_t)seconds * NSEC_PER_SEC));
+	xpc_release(m);
+	if (timed_out) {
+		printf("FAIL: no reply within %d s to a request that must be refused at once\n", seconds);
+		fflush(stdout);
+		exit(1);
+	}
+	return answer;
+}
+
+// A bplist00 of `chains` chains of `length` single-element arrays: element j of a chain refers to element j + 1, the last element of a chain
+// refers to the HEAD of the previous chain (the first chain ends in the integer 0), and the top array lists the heads. Every object is
+// reachable by many paths, so the nesting along one path is about chains * length levels while the expanded size stays small.
+static CFDataRef chain_bplist(int chains, int length) {
+	int objects = 2 + chains * length; // 0: the integer, then the elements, then the top array
+	size_t cap = 8 + 2 + (size_t)chains * length * 3 + 8 + (size_t)chains * 2 + (size_t)objects * 2 + 64;
+	unsigned char* b = calloc(cap, 1);
+	uint32_t* offsets = calloc((size_t)objects, sizeof(uint32_t));
+	size_t n = 0;
+	memcpy(b, "bplist00", 8); n = 8;
+	offsets[0] = (uint32_t)n; b[n++] = 0x10; b[n++] = 0x00;
+	for (int c = 0; c < chains; c++) {
+		for (int j = 0; j < length; j++) {
+			int index = 1 + c * length + j;
+			int target = j + 1 < length ? index + 1 : (c == 0 ? 0 : 1 + (c - 1) * length);
+			offsets[index] = (uint32_t)n;
+			b[n++] = 0xA1; b[n++] = (unsigned char)(target >> 8); b[n++] = (unsigned char)target;
+		}
+	}
+	offsets[objects - 1] = (uint32_t)n;
+	b[n++] = 0xAF; b[n++] = 0x11; b[n++] = (unsigned char)(chains >> 8); b[n++] = (unsigned char)chains;
+	for (int c = 0; c < chains; c++) {
+		int head = 1 + c * length;
+		b[n++] = (unsigned char)(head >> 8); b[n++] = (unsigned char)head;
+	}
+	size_t table = n;
+	for (int i = 0; i < objects; i++) { b[n++] = (unsigned char)(offsets[i] >> 8); b[n++] = (unsigned char)offsets[i]; }
+	unsigned char* t = b + n;
+	t[6] = 2; t[7] = 2;
+	t[14] = (unsigned char)(objects >> 8); t[15] = (unsigned char)objects;
+	t[22] = (unsigned char)((objects - 1) >> 8); t[23] = (unsigned char)(objects - 1);
+	t[28] = (unsigned char)(table >> 24); t[29] = (unsigned char)(table >> 16); t[30] = (unsigned char)(table >> 8); t[31] = (unsigned char)table;
+	n += 32;
+	CFDataRef data = CFDataCreate(NULL, b, (CFIndex)n);
+	free(b); free(offsets);
+	return data;
 }
 
 int main(void) {
@@ -162,7 +216,7 @@ int main(void) {
 	int64_t forty_two = 4242;
 	CFNumberRef number = CFNumberCreate(NULL, kCFNumberSInt64Type, &forty_two);
 	CFDataRef number_plist = CFPropertyListCreateData(NULL, number, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
-	r = write_data_value("test.int", number_plist);
+	r = write_data_value("test.int", number_plist, 0);
 	CHECK(!is_error(r), "a bplist00 data value was refused");
 	xpc_release(r);
 	CFRelease(number_plist); CFRelease(number);
@@ -297,20 +351,18 @@ int main(void) {
 	}
 
 
-	// a few bytes must not expand into a huge write: a bplist whose objects refer to the level below twice (depth 22 is 8 million
-	// objects when read) is refused quickly and nothing of it is written; the same shape at depth 10 (2047 objects) is accepted
+	// A few bytes must not expand into a huge write. Replies to these are bounded (30 s) rather than timed: a daemon that refuses before it
+	// reads answers at once, one that reads first needs minutes (or dies of memory), so a slow or fast host does not change the verdict.
+	// Shape 1: every level refers to the level below twice; depth 28 would be 2^29 objects when read. The same shape at depth 10 (2047
+	// objects) is accepted, so the check is not simply refusing every shared reference.
 	CFDataRef shallow = dag_bplist(10, '0');
-	r = write_data_value("test.dag.ok", shallow);
+	r = write_data_value("test.dag.ok", shallow, 30);
 	CHECK(!is_error(r), "a shared-reference plist of 2047 objects was refused");
 	xpc_release(r);
 	CFRelease(shallow);
-	CFDataRef bomb = dag_bplist(22, '0');
-	struct timespec started;
-	clock_gettime(CLOCK_MONOTONIC, &started);
-	r = write_data_value("test.dag.bomb", bomb);
-	double took = seconds_since(started);
-	CHECK(is_error(r), "a plist of 8 million objects in %zd bytes was not refused", (ssize_t)CFDataGetLength(bomb));
-	CHECK(took < 3.0, "refusing the 8 million object plist took %.1f s (it must be refused before it is read)", took);
+	CFDataRef bomb = dag_bplist(28, '0');
+	r = write_data_value("test.dag.bomb", bomb, 30);
+	CHECK(is_error(r), "a plist of 2^29 objects in %zd bytes was not refused", (ssize_t)CFDataGetLength(bomb));
 	xpc_release(r);
 	CFRelease(bomb);
 	CFTypeRef bombed = file_value(path, "test.dag.bomb");
@@ -322,12 +374,9 @@ int main(void) {
 	// the reader takes "bplist0" plus ANY character as the magic: the same bomb under "bplist01" is refused in the same way, and a header
 	// that starts "bplist" but is not "bplist0?" is refused instead of passed on unscanned
 	{
-		CFDataRef bomb01 = dag_bplist(22, '1');
-		clock_gettime(CLOCK_MONOTONIC, &started);
-		r = write_data_value("test.dag.bomb01", bomb01);
-		took = seconds_since(started);
-		CHECK(is_error(r), "the 8 million object plist with the magic bplist01 was not refused");
-		CHECK(took < 3.0, "refusing the bplist01 bomb took %.1f s (it must be refused before it is read)", took);
+		CFDataRef bomb01 = dag_bplist(28, '1');
+		r = write_data_value("test.dag.bomb01", bomb01, 30);
+		CHECK(is_error(r), "the 2^29 object plist with the magic bplist01 was not refused");
 		xpc_release(r);
 		CFRelease(bomb01);
 		CFDataRef odd = dag_bplist(10, '0');
@@ -335,10 +384,50 @@ int main(void) {
 		CFDataGetBytes(odd, CFRangeMake(0, CFDataGetLength(odd)), odd_bytes);
 		memcpy(odd_bytes, "bplist1x", 8);
 		CFDataRef odd_data = CFDataCreate(NULL, odd_bytes, CFDataGetLength(odd));
-		r = write_data_value("test.dag.odd", odd_data);
+		r = write_data_value("test.dag.odd", odd_data, 30);
 		CHECK(is_error(r), "a value with the unknown binary magic bplist1x was not refused");
 		xpc_release(r);
 		CFRelease(odd_data); CFRelease(odd);
+	}
+	// Shape 2: chains of single-element arrays, each chain ending at the head of the previous one and the top array listing the heads. The
+	// nesting along one path is chains * length (here about 11,000 levels), the expanded size stays under 2^20 objects, and the first
+	// time an object is met it looks harmless. A walker that applied the depth limit only to objects it met for the first time let this
+	// through and the daemon died of it (a 78 KB value). It must be refused at once, and the daemon must still answer.
+	{
+		CFDataRef deep = chain_bplist(180, 62);
+		r = write_data_value("test.chain.deep", deep, 30);
+		CHECK(is_error(r), "a plist nested about 11000 levels deep through shared objects was not refused (%zd bytes)", (ssize_t)CFDataGetLength(deep));
+		xpc_release(r);
+		CFRelease(deep);
+		r = call_bounded(request(9, TEST_DOMAIN, false), 30);
+		CHECK(!is_error(r) && xpc_get_type(r) == XPC_TYPE_DICTIONARY && xpc_dictionary_get_string(r, "CFPreferencesUncanonicalizedPath") != NULL, "the daemon stopped answering after the deeply nested plist");
+		xpc_release(r);
+		// a small one (620 levels, 4 KB) that the first walker accepted and stored, after which every write to the layer failed: refused up front
+		CFDataRef medium = chain_bplist(10, 62);
+		r = write_data_value("test.chain.medium", medium, 30);
+		CHECK(is_error(r), "a plist nested 620 levels deep through shared objects was not refused");
+		xpc_release(r);
+		CFRelease(medium);
+		CFTypeRef stored = file_value(path, "test.chain.medium");
+		CHECK(stored == NULL, "the 620 level plist was stored");
+		if (stored) CFRelease(stored);
+		// the limit is one the layer can still hold: a value of 63 levels (the layer dictionary adds the 64th) is accepted AND leaves the
+		// layer writable; a value of 64 levels is refused up front, not accepted now and refused at the next save
+		CFDataRef edge_ok = chain_bplist(1, 62);
+		r = write_data_value("test.edge.ok", edge_ok, 30);
+		CHECK(!is_error(r), "a value of 63 nested levels was refused");
+		xpc_release(r);
+		CFRelease(edge_ok);
+		CFDataRef edge_bad = chain_bplist(1, 63);
+		r = write_data_value("test.edge.bad", edge_bad, 30);
+		CHECK(is_error(r), "a value of 64 nested levels was not refused");
+		xpc_release(r);
+		CFRelease(edge_bad);
+		w = request(1, TEST_DOMAIN, false);
+		xpc_dictionary_set_string(w, "Key", "test.after.edge"); xpc_dictionary_set_string(w, "Value", "still writable");
+		r = call(w);
+		CHECK(!is_error(r) && string_value_is(path, "test.after.edge", "still writable"), "the layer could not be written after a value of 63 nested levels");
+		xpc_release(r);
 	}
 	// a value larger than a layer may be (8 MiB) is refused too, and a plist that was already refused leaves the daemon answering
 	{
@@ -346,7 +435,7 @@ int main(void) {
 		unsigned char* zeros = calloc(big_bytes, 1);
 		CFDataRef blob = CFDataCreate(NULL, zeros, (CFIndex)big_bytes);
 		CFDataRef big_plist = CFPropertyListCreateData(NULL, blob, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
-		r = write_data_value("test.big", big_plist);
+		r = write_data_value("test.big", big_plist, 30);
 		CHECK(is_error(r), "a 9 MiB value was not refused");
 		xpc_release(r);
 		CFRelease(big_plist); CFRelease(blob); free(zeros);
@@ -469,12 +558,12 @@ int main(void) {
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-uid") == (int64_t)getuid(), "the daemon sees uid %lld, the client is uid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-uid"), (int)getuid());
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-gid") == (int64_t)getgid(), "the daemon sees gid %lld, the client is gid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-gid"), (int)getgid());
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-pid") == (int64_t)getpid(), "the daemon sees pid %lld, the client is pid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-pid"), (int)getpid());
-	// the switch itself: while it works for the caller the daemon holds the caller's ids, which differ from its own (as root, it can switch)
 	CHECK(xpc_dictionary_get_int64(r, "darling-daemon-uid") != (int64_t)getuid(), "the daemon runs as the client's uid, so a missing identity switch would not show");
 	CHECK(xpc_dictionary_get_int64(r, "darling-acting-uid") == (int64_t)getuid(), "the daemon acts as uid %lld for a client of uid %d", (long long)xpc_dictionary_get_int64(r, "darling-acting-uid"), (int)getuid());
 	CHECK(xpc_dictionary_get_int64(r, "darling-acting-gid") == (int64_t)getgid(), "the daemon acts as gid %lld for a client of gid %d", (long long)xpc_dictionary_get_int64(r, "darling-acting-gid"), (int)getgid());
 	xpc_release(r);
 	CHECK(getuid() != 0, "this test must run as a non-root user (it checks that the daemon does not see a zeroed uid)");
+
 
 	// a client cannot talk its way into another identity: a forged uid key is not read, the file is the caller's own
 	w = request(1, TEST_DOMAIN, false);
