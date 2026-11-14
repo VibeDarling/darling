@@ -19,6 +19,13 @@
 
 #include <Foundation/Foundation.h>
 
-@interface NSAttributeDictionary : NSObject
+// An immutable dictionary of text attributes. Callers outside this framework use +emptyAttributeDictionary and
+// +newWithDictionary: (both named by "unrecognized selector" exceptions in Stickies, Terminal, Audio MIDI Setup and Digital
+// Color Meter on the dyld-cache stage). GUESS (no public source): the selectors' semantics follow Cocotron's usual shape, an
+// empty shared instance and an owned (+1, "new") copy of the given dictionary, behind the public NSDictionary contract.
+@interface NSAttributeDictionary : NSDictionary
+
++ (id)emptyAttributeDictionary;
++ (id)newWithDictionary:(NSDictionary *)dictionary;
 
 @end
