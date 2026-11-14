@@ -35,6 +35,15 @@ def clean():
 def run_guest(timeout=180):
     return subprocess.run(["darling", "shell", guest_bin], capture_output=True, text=True, timeout=timeout)
 
+def run_guest_retrying(timeout=180):
+    # A cold container start can time out for reasons unrelated to the daemon (a few percent of boots were measured to: the unmutated
+    # build timed out once in the first phase). One retry after a shutdown; two timeouts in a row are a failure.
+    try:
+        return run_guest(timeout)
+    except subprocess.TimeoutExpired:
+        shutdown()
+        return run_guest(timeout)
+
 try:
     shutdown()
     clean()
@@ -43,7 +52,7 @@ try:
     os.ftruncate(fd, 100)
     os.close(fd)
     os.link(REGION, LINK)
-    res = run_guest()
+    res = run_guest_retrying()
     if "PASS:" not in res.stdout:
         sys.exit(f"FAIL: the guest test did not pass with a planted region:\n{res.stdout}{res.stderr}")
     planted = os.stat(LINK)
@@ -59,7 +68,9 @@ try:
     try:
         res = run_guest(timeout=60)
     except subprocess.TimeoutExpired:
-        res = None  # the request is never answered: the daemon refused to run, which is the expected outcome
+        # the request is never answered: the daemon refused to run, which is the expected outcome. A cold-boot timeout would look the
+        # same, which is why phase 1 (which must see a PASS) is the check that the container and the daemon work at all.
+        res = None
     if res is not None and "PASS:" in res.stdout:
         sys.exit(f"FAIL: the daemon answered although it could not create its region:\n{res.stdout}{res.stderr}")
     print("PASS: a planted region is replaced, and the daemon does not run without a region of its own")
