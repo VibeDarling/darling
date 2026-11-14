@@ -51,4 +51,17 @@ IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataInfoDataDescription;
 
 IMAGEIO_EXTERN CFDictionaryRef CGImageSourceCopyAuxiliaryDataInfoAtIndex(CGImageSourceRef self, size_t index, CFStringRef auxiliaryImageDataType);
 
+// The values are the documented ones (also in the PyObjC bindings).
+typedef CF_ENUM(int32_t, CGImageSourceStatus) {
+    kCGImageStatusUnexpectedEOF = -5,
+    kCGImageStatusInvalidData = -4,
+    kCGImageStatusUnknownType = -3,
+    kCGImageStatusReadingHeader = -2,
+    kCGImageStatusIncomplete = -1,
+    kCGImageStatusComplete = 0
+};
+
+IMAGEIO_EXTERN CFArrayRef CGImageSourceCopyTypeIdentifiers(void);
+IMAGEIO_EXTERN CGImageSourceStatus CGImageSourceGetStatus(CGImageSourceRef self);
+
 CF_IMPLICIT_BRIDGING_DISABLED

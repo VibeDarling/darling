@@ -141,3 +141,40 @@ CFDictionaryRef CGImageSourceCopyAuxiliaryDataInfoAtIndex(CGImageSourceRef self,
 {
     return NULL;
 }
+
+// Documented: the uniform type identifiers the image sources support. These are the types of the Onyx2D decoders that
+// O2ImageSource tries, in its order (+newImageSourceWithDataProvider:options:); the types the test reads back from real
+// data of each format keep the two in step. All six are in the list a real Mac returns (macOS 26.1,
+// probe line 54-115, 62 types). The other 56 are formats Darling cannot decode and are not listed: HEIC,
+// HEIF, HEICS, AVIF, AVCI, AVIS, WebP, JPEG 2000, JPEG XL, OpenEXR, DDS, ICO, CUR, PICT, SGI, TGA, PBM, PVR, KTX, KTX2, ASTC,
+// ATX, Radiance, DICOM, MPO, Photoshop, and the camera RAW types (com.adobe.raw-image and the vendor ones).
+CFArrayRef CGImageSourceCopyTypeIdentifiers(void)
+{
+    const void *types[] = {
+        CFSTR("public.png"), CFSTR("public.tiff"), CFSTR("public.jpeg"),
+        CFSTR("com.microsoft.bmp"), CFSTR("com.compuserve.gif"), CFSTR("com.apple.icns")
+    };
+    return CFArrayCreate(NULL, types, sizeof types / sizeof types[0], &kCFTypeArrayCallBacks);
+}
+
+// Documented statuses (CGImageSource.h). No incremental source can be created here (there is no
+// CGImageSourceCreateIncremental), so a source that exists was made from complete data of a recognised type. Observed on a
+// real Mac (macOS 26.1, probe line 122-125): a complete PNG is 0, a PNG cut to half its bytes is 0, a PNG
+// with 8 bytes of junk appended is 0, and NULL is -4 (kCGImageStatusInvalidData). The half and junk cases are Complete there
+// too, so reporting Complete for every live source matches them. Not observed, so not covered: a source over data that is
+// damaged in a way other than those two.
+CGImageSourceStatus CGImageSourceGetStatus(CGImageSourceRef self)
+{
+    return self != NULL ? kCGImageStatusComplete : kCGImageStatusInvalidData;
+}
+
+// The public documentation has neither the prototype nor the meaning. Observed on a real Mac (macOS 26.1,
+// probe line 133-136): the result is 0 for a PNG source in sRGB, in Display P3, in generic RGB and in
+// Display P3 encoded with kCGImageDestinationOptimizeColorForSharing, called with the source alone and with (source, 0). That
+// supports "false" for those, not a rule for when it is true, and it does not settle the arity. GUESS (not observed): false
+// for every other source type and for NULL; bool (CGImageSourceRef) as the prototype, which is why it is not declared in the
+// header. A false answer asks the caller to re-encode, which kCGImageDestinationOptimizeColorForSharing here does not change.
+bool CGImageSourceIsColorOptimizedForSharing(CGImageSourceRef self)
+{
+    return false;
+}
