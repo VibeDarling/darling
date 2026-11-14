@@ -12,6 +12,20 @@ const CFStringRef kCGImageSourceShouldAllowFloat = CFSTR("kCGImageSourceShouldAl
 const CFStringRef kCGImageSourceShouldCache = CFSTR("kCGImageSourceShouldCache");
 const CFStringRef kCGImageSourceThumbnailMaxPixelSize = CFSTR("kCGImageSourceThumbnailMaxPixelSize");
 
+// The value of kCGImageSourceSkipMetadata is its own name: observed on a real Mac (probe line 13) and
+// as WebKit's ImageDecoderCG.cpp defines it. The option is accepted
+// and has no effect: the decoders read metadata only when the properties are asked for.
+const CFStringRef kCGImageSourceSkipMetadata = CFSTR("kCGImageSourceSkipMetadata");
+
+// Observed on a real Mac (macOS 26.1, probe line 2-8): each is its own name, like the option keys above.
+const CFStringRef kCGImageAuxiliaryDataTypeDepth = CFSTR("kCGImageAuxiliaryDataTypeDepth");
+const CFStringRef kCGImageAuxiliaryDataTypeDisparity = CFSTR("kCGImageAuxiliaryDataTypeDisparity");
+const CFStringRef kCGImageAuxiliaryDataTypeAlpha = CFSTR("kCGImageAuxiliaryDataTypeAlpha");
+const CFStringRef kCGImageAuxiliaryDataTypeHDRGainMap = CFSTR("kCGImageAuxiliaryDataTypeHDRGainMap");
+const CFStringRef kCGImageAuxiliaryDataTypeISOGainMap = CFSTR("kCGImageAuxiliaryDataTypeISOGainMap");
+const CFStringRef kCGImageAuxiliaryDataInfoData = CFSTR("kCGImageAuxiliaryDataInfoData");
+const CFStringRef kCGImageAuxiliaryDataInfoDataDescription = CFSTR("kCGImageAuxiliaryDataInfoDataDescription");
+
 @interface _O2ImageSource : O2ImageSource
 @end
 
@@ -119,4 +133,11 @@ CGImageRef CGImageSourceCreateThumbnailAtIndex(CGImageSourceRef self, size_t ind
     }
     O2ImageRelease(image);
     return thumbnail;
+}
+
+// Documented to return NULL when the image has no auxiliary data of the requested type. No decoder here reads auxiliary
+// data (depth, disparity, alpha or gain maps), so for every source, index and type the answer is that there is none.
+CFDictionaryRef CGImageSourceCopyAuxiliaryDataInfoAtIndex(CGImageSourceRef self, size_t index, CFStringRef auxiliaryImageDataType)
+{
+    return NULL;
 }

@@ -39,4 +39,16 @@ IMAGEIO_EXTERN const CFStringRef kCGImageSourceThumbnailMaxPixelSize;
 
 IMAGEIO_EXTERN CGImageRef CGImageSourceCreateThumbnailAtIndex(CGImageSourceRef self, size_t index, CFDictionaryRef options);
 
+IMAGEIO_EXTERN const CFStringRef kCGImageSourceSkipMetadata;
+
+IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataTypeDepth;
+IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataTypeDisparity;
+IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataTypeAlpha;
+IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataTypeHDRGainMap;
+IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataTypeISOGainMap;
+IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataInfoData;
+IMAGEIO_EXTERN const CFStringRef kCGImageAuxiliaryDataInfoDataDescription;
+
+IMAGEIO_EXTERN CFDictionaryRef CGImageSourceCopyAuxiliaryDataInfoAtIndex(CGImageSourceRef self, size_t index, CFStringRef auxiliaryImageDataType);
+
 CF_IMPLICIT_BRIDGING_DISABLED
