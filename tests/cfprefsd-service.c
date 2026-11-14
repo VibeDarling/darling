@@ -23,6 +23,7 @@ static int failures = 0;
 #define CHECK(cond, ...) do { if (!(cond)) { failures++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
 
 static xpc_connection_t conn;
+static char region_name[128];
 
 static xpc_object_t request(int64_t op, const char* domain, bool by_host) {
 	xpc_object_t m = xpc_dictionary_create(NULL, NULL, 0);
@@ -284,10 +285,14 @@ int main(void) {
 		if (dict) CFRelease(dict);
 		CFRelease(d);
 	}
+	// the region is named by the reply (the cache's CoreFoundation opens that name) and the name is per container, not the real daemon's fixed one
+	const char* reply_name = xpc_dictionary_get_string(r, "CFPreferencesShmemName");
+	snprintf(region_name, sizeof(region_name), "%s", reply_name ? reply_name : "");
+	CHECK(reply_name && strncmp(reply_name, "apple.cfprefs.daemonv1-", 23) == 0 && strlen(reply_name) > 23, "the reply names the region '%s', not one specific to this container", reply_name ? reply_name : "(none)");
 	int64_t slot_idx = xpc_dictionary_get_int64(r, "CFPreferencesShmemIndex");
 	uint64_t state1 = xpc_dictionary_get_uint64(r, "CFPreferencesShmemState");
 	xpc_release(r);
-	int sfd = shm_open("apple.cfprefs.daemonv1", O_RDONLY, 0);
+	int sfd = shm_open(region_name, O_RDONLY, 0);
 	uint32_t slot_now = 0xdeadbeef;
 	if (sfd >= 0) {
 		uint32_t* region = mmap(NULL, 16384, PROT_READ, MAP_SHARED, sfd, 0);
@@ -590,8 +595,8 @@ int main(void) {
 	CHECK(stat(path, &fst) == 0 && fst.st_uid == getuid(), "the plist is not owned by the calling user");
 
 	// the shared region is readable by clients but not writable by them (mode 0644, only the daemon writes it)
-	int shm = shm_open("apple.cfprefs.daemonv1", O_RDONLY, 0);
-	CHECK(shm >= 0, "the shared region apple.cfprefs.daemonv1 cannot be opened read-only");
+	int shm = shm_open(region_name, O_RDONLY, 0);
+	CHECK(shm >= 0, "the shared region named by the reply cannot be opened read-only");
 	if (shm >= 0) {
 		struct stat sst;
 		CHECK(fstat(shm, &sst) == 0 && sst.st_size == 16384, "the shared region is not 16384 bytes");
@@ -606,6 +611,7 @@ int main(void) {
 
 	unlink(path);
 	if (failures) return 1;
+	printf("REGION %s\n", region_name);
 	printf("PASS: cfprefsd stand-in answers operations 9, 1 and 5, stores writes, refuses bad domains and acts as the client\n");
 	return 0;
 }
