@@ -75,6 +75,21 @@ static bool string_value_is(const char* path, const char* key, const char* want)
 	return ok;
 }
 
+
+// writes ~/Library/Preferences/<domain>.plist holding one data value of the given size (a binary plist of about that size)
+static void write_blob_plist(const char* domain, size_t bytes) {
+	char p[1024];
+	prefs_path(p, sizeof(p), "", domain);
+	unsigned char* blob = calloc(bytes, 1);
+	CFDataRef data = CFDataCreate(NULL, blob, (CFIndex)bytes);
+	CFStringRef k = CFSTR("blob");
+	CFDictionaryRef dict = CFDictionaryCreate(NULL, (const void**)&k, (const void**)&data, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDataRef out = CFPropertyListCreateData(NULL, dict, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+	FILE* f = fopen(p, "wb");
+	if (f) { fwrite(CFDataGetBytePtr(out), 1, (size_t)CFDataGetLength(out), f); fclose(f); }
+	CFRelease(out); CFRelease(dict); CFRelease(data); free(blob);
+}
+
 int main(void) {
 	char path[1024], byhost_dir[1024], evil[1024];
 	prefs_path(path, sizeof(path), "", TEST_DOMAIN);
@@ -150,6 +165,86 @@ int main(void) {
 		CHECK(xpc_dictionary_get_string(xpc_array_get_value(replies, 2), "CFPreferencesShmemName") != NULL, "batch item 2 has no shared-memory name");
 	}
 	xpc_release(r);
+
+
+	// operation 1 without Key reads the layer: the reply carries the layer dictionary as a bplist00 in CFPreferencesPropertyList, and
+	// CFPreferencesShmemState is the uint32 in the layer's slot of the shared region, which goes up on every write to the layer
+	r = call(request(1, TEST_DOMAIN, false));
+	xpc_object_t pl = xpc_dictionary_get_value(r, "CFPreferencesPropertyList");
+	CHECK(pl && xpc_get_type(pl) == XPC_TYPE_DATA && xpc_data_get_length(pl) > 8 && !memcmp(xpc_data_get_bytes_ptr(pl), "bplist00", 8), "operation 1 read has no bplist00 CFPreferencesPropertyList");
+	if (pl && xpc_get_type(pl) == XPC_TYPE_DATA) {
+		CFDataRef d = CFDataCreate(NULL, xpc_data_get_bytes_ptr(pl), (CFIndex)xpc_data_get_length(pl));
+		CFPropertyListRef dict = CFPropertyListCreateWithData(NULL, d, 0, NULL, NULL);
+		CFStringRef kk = CFSTR("test.int");
+		CHECK(dict && CFGetTypeID(dict) == CFDictionaryGetTypeID() && CFDictionaryGetValue(dict, kk) != NULL, "the delivered plist lacks the key written earlier");
+		if (dict) CFRelease(dict);
+		CFRelease(d);
+	}
+	int64_t slot_idx = xpc_dictionary_get_int64(r, "CFPreferencesShmemIndex");
+	uint64_t state1 = xpc_dictionary_get_uint64(r, "CFPreferencesShmemState");
+	xpc_release(r);
+	int sfd = shm_open("apple.cfprefs.daemonv1", O_RDONLY, 0);
+	uint32_t slot_now = 0xdeadbeef;
+	if (sfd >= 0) {
+		uint32_t* region = mmap(NULL, 16384, PROT_READ, MAP_SHARED, sfd, 0);
+		if (region != MAP_FAILED && slot_idx >= 0 && slot_idx < 4096) { slot_now = region[slot_idx]; munmap(region, 16384); }
+		close(sfd);
+	}
+	CHECK(slot_now == (uint32_t)state1, "the reply state %llu is not the slot value %u", (unsigned long long)state1, slot_now);
+	CHECK(state1 > 0, "a layer that was written has state 0");
+	w = request(1, TEST_DOMAIN, false);
+	xpc_dictionary_set_string(w, "Key", "test.slot"); xpc_dictionary_set_string(w, "Value", "bump");
+	xpc_release(call(w));
+	r = call(request(1, TEST_DOMAIN, false));
+	CHECK(xpc_dictionary_get_uint64(r, "CFPreferencesShmemState") == state1 + 1, "the state did not go up by one after one write (%llu -> %llu)", (unsigned long long)state1, (unsigned long long)xpc_dictionary_get_uint64(r, "CFPreferencesShmemState"));
+	xpc_release(r);
+	// a layer with no file gets the triple only
+	xpc_object_t nofile = request(1, "org.darlinghq.cfprefsd-service-test.nofile", false);
+	r = call(nofile);
+	CHECK(xpc_dictionary_get_string(r, "CFPreferencesShmemName") != NULL && xpc_dictionary_get_value(r, "CFPreferencesPropertyList") == NULL, "a layer without a file did not get the bare triple");
+	xpc_release(r);
+	// batch items are read the same way
+	items = xpc_array_create(NULL, 0);
+	item = request(1, TEST_DOMAIN, false);
+	xpc_array_append_value(items, item); xpc_release(item);
+	b = request(5, TEST_DOMAIN, false);
+	xpc_dictionary_set_value(b, "CFPreferencesMessages", items); xpc_release(items);
+	r = call(b);
+	replies = xpc_dictionary_get_value(r, "CFPreferencesMessages");
+	CHECK(replies && xpc_array_get_count(replies) == 1 && xpc_dictionary_get_value(xpc_array_get_value(replies, 0), "CFPreferencesPropertyList") != NULL, "a batch item read has no CFPreferencesPropertyList");
+	xpc_release(r);
+
+
+	// a reply carries a bounded number of layer bytes: a layer that is too large is not delivered (no CFPreferencesPropertyList, the
+	// bare triple), and in a batch the bytes are budgeted across the items (8 MiB per request): of three 3.5 MB layers the third is left out
+	write_blob_plist("org.darlinghq.cfprefsd-service-test.huge", 9u * 1024 * 1024);
+	r = call(request(1, "org.darlinghq.cfprefsd-service-test.huge", false));
+	CHECK(xpc_dictionary_get_string(r, "CFPreferencesShmemName") != NULL && xpc_dictionary_get_value(r, "CFPreferencesPropertyList") == NULL, "a 9 MB layer was delivered or not answered");
+	xpc_release(r);
+	const char* bigs[3] = { "org.darlinghq.cfprefsd-service-test.big1", "org.darlinghq.cfprefsd-service-test.big2", "org.darlinghq.cfprefsd-service-test.big3" };
+	items = xpc_array_create(NULL, 0);
+	for (int i = 0; i < 3; i++) {
+		write_blob_plist(bigs[i], 3584u * 1024);
+		item = request(1, bigs[i], false);
+		xpc_array_append_value(items, item); xpc_release(item);
+	}
+	b = request(5, TEST_DOMAIN, false);
+	xpc_dictionary_set_value(b, "CFPreferencesMessages", items); xpc_release(items);
+	r = call(b);
+	replies = xpc_dictionary_get_value(r, "CFPreferencesMessages");
+	if (replies && xpc_array_get_count(replies) == 3) {
+		CHECK(xpc_dictionary_get_value(xpc_array_get_value(replies, 0), "CFPreferencesPropertyList") != NULL, "batch budget: item 0 (3.5 MB) was not delivered");
+		CHECK(xpc_dictionary_get_value(xpc_array_get_value(replies, 1), "CFPreferencesPropertyList") != NULL, "batch budget: item 1 (7 MB in total) was not delivered");
+		CHECK(xpc_dictionary_get_value(xpc_array_get_value(replies, 2), "CFPreferencesPropertyList") == NULL, "batch budget: item 2 (10.5 MB in total) was delivered");
+		CHECK(xpc_dictionary_get_string(xpc_array_get_value(replies, 2), "CFPreferencesShmemName") != NULL, "batch budget: item 2 lost its triple");
+	} else {
+		CHECK(0, "the budget batch was not answered with 3 items");
+	}
+	xpc_release(r);
+	{
+		const char* gone[4] = { "huge", "big1", "big2", "big3" };
+		for (int i = 0; i < 4; i++) { char gp[1024]; char dn[128]; snprintf(dn, sizeof(dn), "org.darlinghq.cfprefsd-service-test.%s", gone[i]); prefs_path(gp, sizeof(gp), "", dn); unlink(gp); }
+	}
 
 	// a domain that is not a plain name is refused, nothing is written outside the preferences directory
 	const char* bad[] = { "../evil", "a/b", "..", ".", "" };
