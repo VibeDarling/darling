@@ -361,6 +361,13 @@ int main(void) {
 					xpc_dictionary_set_int64(reply, "darling-caller-uid", (int64_t)caller.uid);
 					xpc_dictionary_set_int64(reply, "darling-caller-gid", (int64_t)caller.gid);
 					xpc_dictionary_set_int64(reply, "darling-caller-pid", (int64_t)caller.pid);
+					// the ids this process holds while it does file work for the caller, and its own when idle (a test checks they differ)
+					uid_t acting_uid = (uid_t)-1;
+					gid_t acting_gid = (gid_t)-1;
+					prefs_store_acting_ids(caller.uid, caller.gid, &acting_uid, &acting_gid);
+					xpc_dictionary_set_int64(reply, "darling-acting-uid", (int64_t)acting_uid);
+					xpc_dictionary_set_int64(reply, "darling-acting-gid", (int64_t)acting_gid);
+					xpc_dictionary_set_int64(reply, "darling-daemon-uid", (int64_t)geteuid());
 				}
 				xpc_connection_send_message(connection, reply);
 				xpc_release(reply);

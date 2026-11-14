@@ -158,15 +158,28 @@ int main(void) {
 	CHECK(string_value_is(path, "test.string", "first"), "value not in the plist at the op 9 path");
 
 	// a second key keeps the first; types round-trip
-	w = request(1, TEST_DOMAIN, false);
-	xpc_dictionary_set_string(w, "Key", "test.int");
-	xpc_dictionary_set_int64(w, "Value", 4242);
-	xpc_release(call(w));
+	// a value that is not a string or a boolean arrives as xpc data holding a bplist00 whose top object is the value (observed): write it that way
+	int64_t forty_two = 4242;
+	CFNumberRef number = CFNumberCreate(NULL, kCFNumberSInt64Type, &forty_two);
+	CFDataRef number_plist = CFPropertyListCreateData(NULL, number, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+	r = write_data_value("test.int", number_plist);
+	CHECK(!is_error(r), "a bplist00 data value was refused");
+	xpc_release(r);
+	CFRelease(number_plist); CFRelease(number);
 	CFTypeRef n = file_value(path, "test.int");
 	int64_t num = 0;
 	CHECK(n && CFGetTypeID(n) == CFNumberGetTypeID() && CFNumberGetValue(n, kCFNumberSInt64Type, &num) && num == 4242, "integer did not round-trip");
 	if (n) CFRelease(n);
 	CHECK(string_value_is(path, "test.string", "first"), "first key lost by the second write");
+
+	// a rewrite keeps the file's mode: a new file is 0600, and a file made 0644 stays 0644
+	struct stat mode_st;
+	CHECK(stat(path, &mode_st) == 0 && (mode_st.st_mode & 0777) == 0600, "a new preferences file is not mode 0600 (%o)", (unsigned)(mode_st.st_mode & 0777));
+	chmod(path, 0644);
+	w = request(1, TEST_DOMAIN, false);
+	xpc_dictionary_set_string(w, "Key", "test.mode"); xpc_dictionary_set_string(w, "Value", "kept");
+	xpc_release(call(w));
+	CHECK(stat(path, &mode_st) == 0 && (mode_st.st_mode & 0777) == 0644, "a rewrite changed the file mode 0644 to %o", (unsigned)(mode_st.st_mode & 0777));
 
 	// Darling's own CFPreferences (a different consumer of the same file) reads it
 	CFStringRef app = CFStringCreateWithCString(NULL, TEST_DOMAIN, kCFStringEncodingUTF8), k = CFSTR("test.string");
@@ -382,6 +395,7 @@ int main(void) {
 		xpc_dictionary_set_string(w, "Key", "test.byhost"); xpc_dictionary_set_string(w, "Value", "no");
 		r = call(w);
 		CHECK(is_error(r), "a write into a directory the client cannot write was not refused");
+		CHECK(xpc_dictionary_get_string(r, "CFPreferencesShmemName") != NULL && xpc_dictionary_get_value(r, "CFPreferencesShmemIndex") != NULL, "a write that failed in the store lost the slot triple");
 		xpc_release(r);
 	}
 	chmod(byhost_dir, 0700);
@@ -434,6 +448,10 @@ int main(void) {
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-uid") == (int64_t)getuid(), "the daemon sees uid %lld, the client is uid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-uid"), (int)getuid());
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-gid") == (int64_t)getgid(), "the daemon sees gid %lld, the client is gid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-gid"), (int)getgid());
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-pid") == (int64_t)getpid(), "the daemon sees pid %lld, the client is pid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-pid"), (int)getpid());
+	// the switch itself: while it works for the caller the daemon holds the caller's ids, which differ from its own (as root, it can switch)
+	CHECK(xpc_dictionary_get_int64(r, "darling-daemon-uid") != (int64_t)getuid(), "the daemon runs as the client's uid, so a missing identity switch would not show");
+	CHECK(xpc_dictionary_get_int64(r, "darling-acting-uid") == (int64_t)getuid(), "the daemon acts as uid %lld for a client of uid %d", (long long)xpc_dictionary_get_int64(r, "darling-acting-uid"), (int)getuid());
+	CHECK(xpc_dictionary_get_int64(r, "darling-acting-gid") == (int64_t)getgid(), "the daemon acts as gid %lld for a client of gid %d", (long long)xpc_dictionary_get_int64(r, "darling-acting-gid"), (int)getgid());
 	xpc_release(r);
 	CHECK(getuid() != 0, "this test must run as a non-root user (it checks that the daemon does not see a zeroed uid)");
 

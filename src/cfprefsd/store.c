@@ -268,11 +268,19 @@ static const char* save_dictionary(const char* path, CFDictionaryRef dictionary)
 		CFRelease(data);
 		return "path too long";
 	}
+	// the replacement keeps the mode of the file it replaces (a new file gets 0600): a rewrite must not change who can read a layer
+	mode_t mode = 0600;
+	struct stat existing;
+	if (lstat(path, &existing) == 0 && S_ISREG(existing.st_mode)) mode = existing.st_mode & 0777;
 	// exclusive and not following links: a stale or planted name is an error, never a redirect
 	int fd = open(temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
 	const char* failure = NULL;
 	if (fd < 0) {
 		failure = "cannot create the temporary preferences file";
+	} else if (fchmod(fd, mode) != 0) {
+		failure = "cannot set the mode of the temporary preferences file";
+		close(fd);
+		unlink(temporary);
 	} else {
 		const uint8_t* bytes = CFDataGetBytePtr(data);
 		CFIndex remaining = CFDataGetLength(data);
@@ -397,6 +405,20 @@ const char* prefs_store_write(xpc_object_t request, uid_t uid, gid_t gid, const 
 	CFRelease(cf_key);
 	if (converted != NULL) CFRelease(converted);
 	return failure;
+}
+
+bool prefs_store_acting_ids(uid_t uid, gid_t gid, uid_t* acting_uid, gid_t* acting_gid) {
+	saved_identity saved;
+	bool ok = assume_identity(uid, gid, &saved);
+	if (ok) {
+		*acting_uid = geteuid();
+		*acting_gid = getegid();
+	}
+	if (!restore_identity(&saved)) {
+		fprintf(stderr, "cfprefsd: cannot restore credentials, aborting\n");
+		abort();
+	}
+	return ok;
 }
 
 xpc_object_t prefs_store_copy_layer(uid_t uid, gid_t gid, const char* path, size_t* budget) {
