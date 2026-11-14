@@ -79,12 +79,8 @@
 // Darling-only: a request carrying this bool true is answered with the caller identity the daemon holds (for tests)
 #define KEY_WHOAMI "darling-whoami"
 
-// [real-Mac] the shared region is 16384 bytes and is named "apple.cfprefs.daemonv1". [observed] the cache's CoreFoundation opens the name the
-// REPLY carries (host strace of a client with a daemon that replied with another name: it opened that name and read through it), so this
-// stand-in names its region "apple.cfprefs.daemonv1-<inode of the container's root>": shm names are one host-wide namespace and every
-// container runs its own daemon, so a fixed name would let each daemon start take the region from another container's daemon.
-#define SHMEM_NAME_PREFIX "apple.cfprefs.daemonv1"
-static char shmem_name[128];
+// [real-Mac] the shared region is 16384 bytes and is named "apple.cfprefs.daemonv1"
+#define SHMEM_NAME "apple.cfprefs.daemonv1"
 #define SHMEM_SIZE 16384
 // [real-Mac, observed on macOS 26.1 with our own client program] slots are 4-byte units addressed by the reply's index (index*4), each
 // layer has its own index, and CFPreferencesShmemState equals the uint32 in that slot: a per-layer generation counter.
@@ -154,37 +150,29 @@ static volatile uint32_t* slots = NULL; // the region mapped read-write by the d
 // else, too small, or still mapped writable), so an existing one is never reused. Unlink, create exclusively (so the object is ours),
 // size it, and check the size and the owner before mapping. False means the daemon must not run.
 static bool shmem_create(void) {
-	// the inode of the container's root directory: different for every prefix, the same for every start of one prefix (so a restart
-	// replaces its own region instead of leaving a new object behind)
-	struct stat root;
-	if (stat("/", &root) != 0) {
-		daemon_log("cannot identify the container (errno %d)", errno);
-		return false;
-	}
-	snprintf(shmem_name, sizeof(shmem_name), SHMEM_NAME_PREFIX "-%llx", (unsigned long long)root.st_ino);
 	// Clients map the region by name, read-only ([observed] a reading client opens it O_RDONLY, a writing client does not open it), and only
 	// read the slot the reply names. So only the daemon may write it: mode 0644, set explicitly because the creation mask would otherwise decide.
-	if (shm_unlink(shmem_name) != 0 && errno != ENOENT) {
-		daemon_log("cannot remove an existing %s (errno %d)", shmem_name, errno);
+	if (shm_unlink(SHMEM_NAME) != 0 && errno != ENOENT) {
+		daemon_log("cannot remove an existing " SHMEM_NAME " (errno %d)", errno);
 		return false;
 	}
-	shmem_fd = shm_open(shmem_name, O_RDWR | O_CREAT | O_EXCL, 0644);
+	shmem_fd = shm_open(SHMEM_NAME, O_RDWR | O_CREAT | O_EXCL, 0644);
 	if (shmem_fd < 0) {
-		daemon_log("cannot create %s exclusively (errno %d)", shmem_name, errno);
+		daemon_log("cannot create " SHMEM_NAME " exclusively (errno %d)", errno);
 		return false;
 	}
 	struct stat st;
 	if (fchmod(shmem_fd, 0644) != 0 || ftruncate(shmem_fd, SHMEM_SIZE) != 0 || fstat(shmem_fd, &st) != 0) {
-		daemon_log("cannot size or restrict %s (errno %d)", shmem_name, errno);
+		daemon_log("cannot size or restrict " SHMEM_NAME " (errno %d)", errno);
 		return false;
 	}
 	if (st.st_size != SHMEM_SIZE || st.st_uid != geteuid()) {
-		daemon_log("%s has size %lld owner %u, expected %d and %u", shmem_name, (long long)st.st_size, (unsigned)st.st_uid, SHMEM_SIZE, (unsigned)geteuid());
+		daemon_log(SHMEM_NAME " has size %lld owner %u, expected %d and %u", (long long)st.st_size, (unsigned)st.st_uid, SHMEM_SIZE, (unsigned)geteuid());
 		return false;
 	}
 	void* mapped = mmap(NULL, SHMEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmem_fd, 0);
 	if (mapped == MAP_FAILED) {
-		daemon_log("cannot map %s (errno %d)", shmem_name, errno);
+		daemon_log("cannot map " SHMEM_NAME " (errno %d)", errno);
 		return false;
 	}
 	slots = mapped;
@@ -265,7 +253,7 @@ static void handle_batch(const caller_t* caller, xpc_object_t request, xpc_objec
 // [real-Mac] the triple; the state is the value of the layer's slot in the shared region
 static void reply_slot(xpc_object_t reply, const char* path) {
 	int64_t index = slot_index_for(path);
-	xpc_dictionary_set_string(reply, KEY_SHMEM_NAME, shmem_name);
+	xpc_dictionary_set_string(reply, KEY_SHMEM_NAME, SHMEM_NAME);
 	xpc_dictionary_set_int64(reply, KEY_SHMEM_INDEX, index);
 	xpc_dictionary_set_uint64(reply, KEY_SHMEM_STATE, slot_value(index));
 }

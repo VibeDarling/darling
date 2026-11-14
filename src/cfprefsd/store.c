@@ -359,6 +359,17 @@ static bool restore_identity(const saved_identity* saved) {
 		geteuid() == saved->euid && getegid() == saved->egid;
 }
 
+// The ids the daemon held the last time it did file work for a caller, read after the switch in prefs_store_write and
+// prefs_store_copy_layer themselves. Only the Darling-only whoami diagnostic reports them, so a test sees that the real write and read
+// paths run under the caller's ids and not merely that the switch helper works.
+static uid_t last_work_uid = (uid_t)-1;
+static gid_t last_work_gid = (gid_t)-1;
+
+void prefs_store_last_work_ids(uid_t* uid, gid_t* gid) {
+	*uid = last_work_uid;
+	*gid = last_work_gid;
+}
+
 // [observed] a value that is not a string or a boolean arrives as xpc data holding a property list in the public bplist00 format
 // whose top-level object is the value (an integer 4242 arrived as 44 bytes of bplist00). Anything else is converted natively.
 static CFTypeRef decode_write_value(xpc_object_t value) {
@@ -403,6 +414,8 @@ const char* prefs_store_write(xpc_object_t request, uid_t uid, gid_t gid, const 
 			abort();
 		}
 	} else {
+		last_work_uid = geteuid();
+		last_work_gid = getegid();
 		if (!make_parent_directories(path)) {
 			failure = "cannot create the preferences directory";
 		} else {
@@ -427,20 +440,6 @@ const char* prefs_store_write(xpc_object_t request, uid_t uid, gid_t gid, const 
 	return failure;
 }
 
-bool prefs_store_acting_ids(uid_t uid, gid_t gid, uid_t* acting_uid, gid_t* acting_gid) {
-	saved_identity saved;
-	bool ok = assume_identity(uid, gid, &saved);
-	if (ok) {
-		*acting_uid = geteuid();
-		*acting_gid = getegid();
-	}
-	if (!restore_identity(&saved)) {
-		fprintf(stderr, "cfprefsd: cannot restore credentials, aborting\n");
-		abort();
-	}
-	return ok;
-}
-
 xpc_object_t prefs_store_copy_layer(uid_t uid, gid_t gid, const char* path, size_t* budget) {
 	xpc_object_t result = NULL;
 	saved_identity saved;
@@ -451,6 +450,8 @@ xpc_object_t prefs_store_copy_layer(uid_t uid, gid_t gid, const char* path, size
 		}
 		return NULL;
 	}
+	last_work_uid = geteuid();
+	last_work_gid = getegid();
 	struct stat st;
 	// absent, empty, not a regular file, or larger than the bytes this reply may still carry: no plist is delivered, and a layer that
 	// is too large is not even parsed (the size is checked before the file is loaded)

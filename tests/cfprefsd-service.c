@@ -559,11 +559,26 @@ int main(void) {
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-gid") == (int64_t)getgid(), "the daemon sees gid %lld, the client is gid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-gid"), (int)getgid());
 	CHECK(xpc_dictionary_get_int64(r, "darling-caller-pid") == (int64_t)getpid(), "the daemon sees pid %lld, the client is pid %d", (long long)xpc_dictionary_get_int64(r, "darling-caller-pid"), (int)getpid());
 	CHECK(xpc_dictionary_get_int64(r, "darling-daemon-uid") != (int64_t)getuid(), "the daemon runs as the client's uid, so a missing identity switch would not show");
-	CHECK(xpc_dictionary_get_int64(r, "darling-acting-uid") == (int64_t)getuid(), "the daemon acts as uid %lld for a client of uid %d", (long long)xpc_dictionary_get_int64(r, "darling-acting-uid"), (int)getuid());
-	CHECK(xpc_dictionary_get_int64(r, "darling-acting-gid") == (int64_t)getgid(), "the daemon acts as gid %lld for a client of gid %d", (long long)xpc_dictionary_get_int64(r, "darling-acting-gid"), (int)getgid());
 	xpc_release(r);
 	CHECK(getuid() != 0, "this test must run as a non-root user (it checks that the daemon does not see a zeroed uid)");
 
+	// the real read and write paths run under the caller's ids: the ids the daemon read inside its last file work (not in a helper)
+	// are the client's, after a read and after a write, while the daemon's own differ
+	for (int path_kind = 0; path_kind < 2; path_kind++) {
+		if (path_kind == 0) {
+			xpc_release(call(request(1, TEST_DOMAIN, false)));
+		} else {
+			w = request(1, TEST_DOMAIN, false);
+			xpc_dictionary_set_string(w, "Key", "test.work"); xpc_dictionary_set_string(w, "Value", "ids");
+			xpc_release(call(w));
+		}
+		who = request(9, TEST_DOMAIN, false);
+		xpc_dictionary_set_bool(who, "darling-whoami", true);
+		r = call(who);
+		CHECK(xpc_dictionary_get_int64(r, "darling-work-uid") == (int64_t)getuid(), "after a %s the daemon's file work ran as uid %lld, the client is uid %d", path_kind == 0 ? "read" : "write", (long long)xpc_dictionary_get_int64(r, "darling-work-uid"), (int)getuid());
+		CHECK(xpc_dictionary_get_int64(r, "darling-work-gid") == (int64_t)getgid(), "after a %s the daemon's file work ran as gid %lld, the client is gid %d", path_kind == 0 ? "read" : "write", (long long)xpc_dictionary_get_int64(r, "darling-work-gid"), (int)getgid());
+		xpc_release(r);
+	}
 
 	// a client cannot talk its way into another identity: a forged uid key is not read, the file is the caller's own
 	w = request(1, TEST_DOMAIN, false);
