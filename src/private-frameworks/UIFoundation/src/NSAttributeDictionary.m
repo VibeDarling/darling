@@ -33,9 +33,14 @@
 
 + (id)newWithDictionary:(NSDictionary *)dictionary
 {
-    NSAttributeDictionary *result = [self alloc];
-    result->_attributes = dictionary ? [dictionary copy] : [NSDictionary new];
-    return result;
+    return [[self alloc] initWithDictionary:dictionary ?: @{}];
+}
+
+// The NSDictionary primitive that -initWithDictionary:, +dictionaryWithObject:forKey: and keyed decoding all funnel into.
+- (id)initWithObjects:(const id [])objects forKeys:(const id <NSCopying> [])keys count:(NSUInteger)count
+{
+    _attributes = [[NSDictionary alloc] initWithObjects:objects forKeys:keys count:count];
+    return self;
 }
 
 - (NSUInteger)count { return [_attributes count]; }

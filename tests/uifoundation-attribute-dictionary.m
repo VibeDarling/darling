@@ -1,6 +1,7 @@
 // UIFoundation's NSAttributeDictionary must answer the two class methods that frameworks outside UIFoundation send it
-// (+emptyAttributeDictionary, +newWithDictionary:) and behave as an NSDictionary. Before this test, both were
-// "unrecognized selector" exceptions (Stickies, Terminal, Audio MIDI Setup, Digital Color Meter on the dyld-cache stage).
+// (+emptyAttributeDictionary, +newWithDictionary:) and behave as an NSDictionary, including the primitive initializer.
+// Before this test, both class methods were "unrecognized selector" exceptions (Stickies, Terminal, Audio MIDI Setup,
+// Digital Color Meter on the dyld-cache stage).
 #import <Foundation/Foundation.h>
 #include <dlfcn.h>
 #include <stdio.h>
@@ -37,10 +38,30 @@ int main(void)
         NSUInteger seen = 0;
         for (id key in made) { (void)key; seen++; }
         expect(seen == 2, "fast enumeration visits every key");
+        id same = [made copy];
+        expect(same == made, "copy returns the same immutable instance");
+        [same release];
         [made release];
+        NSMutableDictionary *mutableSource = [NSMutableDictionary dictionaryWithDictionary:source];
+        NSDictionary *isolated = [c performSelector:@selector(newWithDictionary:) withObject:mutableSource];
+        [mutableSource setObject:@"x" forKey:@"later"];
+        expect([isolated count] == 2, "mutating the source after newWithDictionary: does not change the result");
+        [isolated release];
         NSDictionary *none = [c performSelector:@selector(newWithDictionary:) withObject:nil];
         expect([none count] == 0, "newWithDictionary:nil gives an empty dictionary");
         [none release];
+
+        // The NSDictionary primitive -initWithObjects:forKeys:count: must exist: these three paths funnel into it.
+        NSDictionary *viaInit = [[c alloc] initWithDictionary:source];
+        expect([viaInit isEqualToDictionary:source], "-initWithDictionary: copies the entries");
+        [viaInit release];
+        NSDictionary *viaFactory = [c dictionaryWithObject:@"v" forKey:@"k"];
+        expect([viaFactory count] == 1 && [[viaFactory objectForKey:@"k"] isEqual:@"v"], "+dictionaryWithObject:forKey: works");
+        NSDictionary *attrs = [c performSelector:@selector(newWithDictionary:) withObject:source];
+        NSData *archived = [NSKeyedArchiver archivedDataWithRootObject:attrs];
+        NSDictionary *decoded = [NSKeyedUnarchiver unarchiveObjectWithData:archived];
+        expect([decoded isEqualToDictionary:source], "a keyed archive round trip keeps the entries");
+        [attrs release];
     }
     if (failures) return 1;
     printf("PASS\n");
