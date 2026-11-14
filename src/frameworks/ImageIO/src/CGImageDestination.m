@@ -8,6 +8,13 @@ const CFStringRef kCGImageDestinationLossyCompressionQuality=(CFStringRef)@"kCGI
 const CFStringRef kCGImageDestinationBackgroundColor=(CFStringRef)@"kCGImageDestinationBackgroundColor";
 const CFStringRef kCGImageDestinationDPI=(CFStringRef)@"kCGImageDestinationDPI";
 
+// Observed on a real Mac (macOS 26.1, probe line 10-12): the key's own name, like its siblings above.
+// The options are accepted and have no effect: the destination reads no option
+// except the ones above, so the image keeps its size and color space and no gain map is ever written.
+const CFStringRef kCGImageDestinationImageMaxPixelSize = CFSTR("kCGImageDestinationImageMaxPixelSize");
+const CFStringRef kCGImageDestinationOptimizeColorForSharing = CFSTR("kCGImageDestinationOptimizeColorForSharing");
+const CFStringRef kCGImageDestinationPreserveGainMap = CFSTR("kCGImageDestinationPreserveGainMap");
+
 CFTypeID CGImageDestinationGetTypeID(void) {
    return O2ImageDestinationGetTypeID();
 }

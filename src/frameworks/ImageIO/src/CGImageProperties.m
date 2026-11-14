@@ -44,3 +44,53 @@ const CFStringRef kCGImageMetadataNamespaceExif = CFSTR("http://ns.adobe.com/exi
 const CFStringRef kCGImageMetadataPrefixExif = CFSTR("exif");
 const CFStringRef kCGImagePropertyPNGAuthor = CFSTR("Author");
 const CFStringRef kCGImagePropertyPNGDescription = CFSTR("Description");
+
+// Observed on a real Mac (macOS 26.1, probe line 14-51): the public
+// documentation names these keys and their meaning, not their strings. Each dictionary key is the key name without its
+// kCGImageProperty<Dictionary> prefix, and each dictionary is "{Name}", except the four IPTC Ext keys: the probe shows
+// DigitalSourceType and GPSAltitude/GPSLatitude/GPSLongitude, without "Ext" and "ExtLocation" (lines 37-40).
+
+// Image dimensions, depth, pixel format and color model
+const CFStringRef kCGImagePropertyWidth = CFSTR("Width");
+const CFStringRef kCGImagePropertyHeight = CFSTR("Height");
+const CFStringRef kCGImagePropertyDepth = CFSTR("Depth");
+const CFStringRef kCGImagePropertyPixelFormat = CFSTR("PixelFormat");
+const CFStringRef kCGImagePropertyColorModel = CFSTR("ColorModel");
+const CFStringRef kCGImagePropertyColorModelRGB = CFSTR("RGB");
+const CFStringRef kCGImagePropertyColorModelGray = CFSTR("Gray");
+const CFStringRef kCGImagePropertyColorModelCMYK = CFSTR("CMYK");
+
+// GPS dictionary and the position keys
+const CFStringRef kCGImagePropertyGPSDictionary = CFSTR("{GPS}");
+const CFStringRef kCGImagePropertyGPSLatitude = CFSTR("Latitude");
+const CFStringRef kCGImagePropertyGPSLatitudeRef = CFSTR("LatitudeRef");
+const CFStringRef kCGImagePropertyGPSLongitude = CFSTR("Longitude");
+const CFStringRef kCGImagePropertyGPSLongitudeRef = CFSTR("LongitudeRef");
+
+// Exif keys
+const CFStringRef kCGImagePropertyExifDateTimeOriginal = CFSTR("DateTimeOriginal");
+const CFStringRef kCGImagePropertyExifOffsetTimeOriginal = CFSTR("OffsetTimeOriginal");
+const CFStringRef kCGImagePropertyExifUserComment = CFSTR("UserComment");
+
+// HEICS dictionary and its timing keys
+const CFStringRef kCGImagePropertyHEICSDictionary = CFSTR("{HEICS}");
+const CFStringRef kCGImagePropertyHEICSDelayTime = CFSTR("DelayTime");
+const CFStringRef kCGImagePropertyHEICSUnclampedDelayTime = CFSTR("UnclampedDelayTime");
+
+// IPTC keys
+const CFStringRef kCGImagePropertyIPTCCity = CFSTR("City");
+const CFStringRef kCGImagePropertyIPTCCredit = CFSTR("Credit");
+const CFStringRef kCGImagePropertyIPTCSubLocation = CFSTR("SubLocation");
+const CFStringRef kCGImagePropertyIPTCExtDigitalSourceType = CFSTR("DigitalSourceType");
+const CFStringRef kCGImagePropertyIPTCExtLocationGPSAltitude = CFSTR("GPSAltitude");
+const CFStringRef kCGImagePropertyIPTCExtLocationGPSLatitude = CFSTR("GPSLatitude");
+const CFStringRef kCGImagePropertyIPTCExtLocationGPSLongitude = CFSTR("GPSLongitude");
+
+// TIFF keys
+const CFStringRef kCGImagePropertyTIFFArtist = CFSTR("Artist");
+const CFStringRef kCGImagePropertyTIFFCopyright = CFSTR("Copyright");
+const CFStringRef kCGImagePropertyTIFFDocumentName = CFSTR("DocumentName");
+const CFStringRef kCGImagePropertyTIFFImageDescription = CFSTR("ImageDescription");
+
+// Apple maker note dictionary
+const CFStringRef kCGImagePropertyMakerAppleDictionary = CFSTR("{MakerApple}");
