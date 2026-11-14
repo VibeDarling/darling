@@ -98,9 +98,13 @@ static uint64_t scan_object(bplist_scan* scan, uint64_t index, int depth) {
 	return total;
 }
 
-// True when the bytes are not a bplist00 at all (the XML formats cannot share objects) or are one within the limits above.
+// True when the bytes cannot be a binary plist (the XML and text formats cannot share objects) or are one within the limits above.
+// The reader accepts "bplist0" followed by ANY one character as the magic (CFBinaryPList.c, __CFBinaryPlistGetTopLevelInfo: "SnowLeopard
+// will parse bplist0?"), so everything that starts with "bplist0" is scanned, and anything else that starts with "bplist" is refused
+// rather than waved through as an unknown format.
 static bool plist_bytes_within_limits(const uint8_t* bytes, size_t length) {
-	if (length < 8 || memcmp(bytes, "bplist00", 8) != 0) return true;
+	if (length < 6 || memcmp(bytes, "bplist", 6) != 0) return true;
+	if (length < 7 || bytes[6] != '0') return false;
 	if (length < 8 + 32) return false;
 	const uint8_t* trailer = bytes + length - 32;
 	bplist_scan scan = { bytes, 0, trailer[6], trailer[7], read_big_endian(trailer + 8, 8), NULL, NULL };

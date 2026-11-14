@@ -93,12 +93,12 @@ static void write_blob_plist(const char* domain, size_t bytes) {
 	CFRelease(out); CFRelease(dict); CFRelease(data); free(blob);
 }
 
-// A bplist00 whose top object is an array of depth `depth`: each level is an array holding the level below TWICE (by reference), the
+// A bplist0<version> (the reader accepts any character after "bplist0") whose top object is an array of depth `depth`: each level is an array holding the level below TWICE (by reference), the
 // bottom is the integer 0. It is 8 + 2 + 3 * depth + depth + 1 + 32 bytes and expands to 2^(depth + 1) - 1 objects.
-static CFDataRef dag_bplist(int depth) {
+static CFDataRef dag_bplist(int depth, char version) {
 	unsigned char b[512];
 	size_t n = 0;
-	memcpy(b, "bplist00", 8); n = 8;
+	memcpy(b, "bplist00", 8); b[7] = (unsigned char)version; n = 8;
 	unsigned char offsets[130];
 	offsets[0] = (unsigned char)n; b[n++] = 0x10; b[n++] = 0x00;
 	for (int level = 1; level <= depth; level++) {
@@ -299,12 +299,12 @@ int main(void) {
 
 	// a few bytes must not expand into a huge write: a bplist whose objects refer to the level below twice (depth 22 is 8 million
 	// objects when read) is refused quickly and nothing of it is written; the same shape at depth 10 (2047 objects) is accepted
-	CFDataRef shallow = dag_bplist(10);
+	CFDataRef shallow = dag_bplist(10, '0');
 	r = write_data_value("test.dag.ok", shallow);
 	CHECK(!is_error(r), "a shared-reference plist of 2047 objects was refused");
 	xpc_release(r);
 	CFRelease(shallow);
-	CFDataRef bomb = dag_bplist(22);
+	CFDataRef bomb = dag_bplist(22, '0');
 	struct timespec started;
 	clock_gettime(CLOCK_MONOTONIC, &started);
 	r = write_data_value("test.dag.bomb", bomb);
@@ -319,6 +319,27 @@ int main(void) {
 	CFTypeRef bomb_ok = file_value(path, "test.dag.ok");
 	CHECK(bomb_ok != NULL, "the accepted shared-reference plist is not in the file");
 	if (bomb_ok) CFRelease(bomb_ok);
+	// the reader takes "bplist0" plus ANY character as the magic: the same bomb under "bplist01" is refused in the same way, and a header
+	// that starts "bplist" but is not "bplist0?" is refused instead of passed on unscanned
+	{
+		CFDataRef bomb01 = dag_bplist(22, '1');
+		clock_gettime(CLOCK_MONOTONIC, &started);
+		r = write_data_value("test.dag.bomb01", bomb01);
+		took = seconds_since(started);
+		CHECK(is_error(r), "the 8 million object plist with the magic bplist01 was not refused");
+		CHECK(took < 3.0, "refusing the bplist01 bomb took %.1f s (it must be refused before it is read)", took);
+		xpc_release(r);
+		CFRelease(bomb01);
+		CFDataRef odd = dag_bplist(10, '0');
+		unsigned char odd_bytes[512];
+		CFDataGetBytes(odd, CFRangeMake(0, CFDataGetLength(odd)), odd_bytes);
+		memcpy(odd_bytes, "bplist1x", 8);
+		CFDataRef odd_data = CFDataCreate(NULL, odd_bytes, CFDataGetLength(odd));
+		r = write_data_value("test.dag.odd", odd_data);
+		CHECK(is_error(r), "a value with the unknown binary magic bplist1x was not refused");
+		xpc_release(r);
+		CFRelease(odd_data); CFRelease(odd);
+	}
 	// a value larger than a layer may be (8 MiB) is refused too, and a plist that was already refused leaves the daemon answering
 	{
 		size_t big_bytes = 9u * 1024 * 1024;
