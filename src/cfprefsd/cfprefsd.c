@@ -29,8 +29,11 @@
 //   [open-src]  open-source CF (src/external/corefoundation, CFPreferences.c): where preference files live
 //   GUESS / NEEDS-REAL-MAC: no permitted source; the choice is ours and only its effect on the client was observed.
 //
-// Known gap: a client of the cache's CoreFoundation never asks this daemon for values, and reads back "none" even for a value it just
-// wrote and for a plist this daemon wrote. How a real daemon delivers values is NEEDS-REAL-MAC (mac-followup/darling_probe_cfprefs.c in the notes).
+// Reads: a client of the cache's CoreFoundation never asks for values separately. It sends operation 1 without Key (alone or as items of
+// a batch) and takes the layer's dictionary from the reply key CFPreferencesPropertyList (a bplist00 in xpc data), together with the
+// slot triple whose state tells it when its copy is out of date (observed on macOS 26.1 with our own client program, see the PR notes).
+// A real daemon refused our hand-built write requests ("Path not accessible"); the requests the cache's CoreFoundation itself sends are
+// accepted here.
 
 #include "paths.h"
 #include "store.h"
@@ -40,6 +43,7 @@
 #include <xpc/xpc.h>
 
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <stdarg.h>
@@ -75,9 +79,11 @@
 // [real-Mac] the shared region is 16384 bytes and is named "apple.cfprefs.daemonv1"
 #define SHMEM_NAME "apple.cfprefs.daemonv1"
 #define SHMEM_SIZE 16384
-// GUESS: 8-byte slots; the real layout of the region is not known. We never write into it (a real daemon's slots did not change
-// across two writes, [real-Mac]), so clients always see state 0.
-#define SHMEM_SLOTS (SHMEM_SIZE / 8)
+// [real-Mac, observed on macOS 26.1 with our own client program] slots are 4-byte units addressed by the reply's index (index*4), each
+// layer has its own index, and CFPreferencesShmemState equals the uint32 in that slot: a per-layer generation counter.
+#define SHMEM_SLOTS (SHMEM_SIZE / 4)
+// [real-Mac, same source] an extra reply key holding the layer's current dictionary as a bplist00 in xpc data; omitted for a layer with no file
+#define KEY_PLIST "CFPreferencesPropertyList"
 
 enum {
 	// [real-Mac] with no extra keys: reply is the shared-region triple; [observed] with Key (+ Value): a write
@@ -93,6 +99,9 @@ extern const char* xpc_type_get_name(xpc_type_t type);
 
 // A batch holds the requests of one CFPreferences call: 13 items were observed. The cap bounds the work one message can cause.
 #define MAX_BATCH_ITEMS 64
+// The bytes of layer plists one request (a single operation or a whole batch) may put into its reply. Once spent, further items are
+// answered without CFPreferencesPropertyList, so the client sees no values for them. The limits of a real daemon are unknown (NEEDS-REAL-MAC).
+#define REPLY_BYTE_BUDGET (8u * 1024 * 1024)
 
 static bool verbose = false;
 
@@ -132,32 +141,58 @@ static void log_request(uid_t uid, xpc_object_t message, const char* tag) {
 }
 
 static int shmem_fd = -1;
+static volatile uint32_t* slots = NULL; // the region mapped read-write by the daemon only; NULL when it could not be mapped
 
-static void shmem_create(void) {
-	// The region only has to exist and have the observed size: clients map it by name, read-only ([observed] a reading client opens it
-	// O_RDONLY, a writing client does not open it; [real-Mac] its slot bytes did not change across two writes). So only the daemon may write it:
-	// mode 0644, set explicitly because the creation mask and an older, more permissive region of the same name would otherwise leave it writable.
-	shmem_fd = shm_open(SHMEM_NAME, O_RDWR | O_CREAT, 0644);
-	if (shmem_fd < 0) {
-		daemon_log("shm_open of " SHMEM_NAME " failed");
-		return;
+// Creates the shared region afresh: another process on the host may have made /dev/shm/apple.cfprefs.daemonv1 first (owned by someone
+// else, too small, or still mapped writable), so an existing one is never reused. Unlink, create exclusively (so the object is ours),
+// size it, and check the size and the owner before mapping. False means the daemon must not run.
+static bool shmem_create(void) {
+	// Clients map the region by name, read-only ([observed] a reading client opens it O_RDONLY, a writing client does not open it), and only
+	// read the slot the reply names. So only the daemon may write it: mode 0644, set explicitly because the creation mask would otherwise decide.
+	if (shm_unlink(SHMEM_NAME) != 0 && errno != ENOENT) {
+		daemon_log("cannot remove an existing " SHMEM_NAME " (errno %d)", errno);
+		return false;
 	}
-	if (fchmod(shmem_fd, 0644) != 0) {
-		daemon_log("cannot restrict " SHMEM_NAME " to mode 0644");
+	shmem_fd = shm_open(SHMEM_NAME, O_RDWR | O_CREAT | O_EXCL, 0644);
+	if (shmem_fd < 0) {
+		daemon_log("cannot create " SHMEM_NAME " exclusively (errno %d)", errno);
+		return false;
 	}
 	struct stat st;
-	if (fstat(shmem_fd, &st) == 0 && st.st_size < SHMEM_SIZE && ftruncate(shmem_fd, SHMEM_SIZE) != 0) {
-		daemon_log("sizing " SHMEM_NAME " failed");
+	if (fchmod(shmem_fd, 0644) != 0 || ftruncate(shmem_fd, SHMEM_SIZE) != 0 || fstat(shmem_fd, &st) != 0) {
+		daemon_log("cannot size or restrict " SHMEM_NAME " (errno %d)", errno);
+		return false;
 	}
+	if (st.st_size != SHMEM_SIZE || st.st_uid != geteuid()) {
+		daemon_log(SHMEM_NAME " has size %lld owner %u, expected %d and %u", (long long)st.st_size, (unsigned)st.st_uid, SHMEM_SIZE, (unsigned)geteuid());
+		return false;
+	}
+	void* mapped = mmap(NULL, SHMEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmem_fd, 0);
+	if (mapped == MAP_FAILED) {
+		daemon_log("cannot map " SHMEM_NAME " (errno %d)", errno);
+		return false;
+	}
+	slots = mapped;
+	return true;
 }
 
-// GUESS: a stable slot per plist path (FNV-1a), so the same layer always gets the same index. The real numbering is unknown.
+// GUESS: a stable slot per plist path (FNV-1a), so the same layer always gets the same index. The real numbering is unknown. Two layers
+// can share a slot: that only makes a client reload a layer that did not change.
 static int64_t slot_index_for(const char* path) {
 	uint32_t hash = 2166136261u;
 	for (; *path != '\0'; ++path) {
 		hash = (hash ^ (uint8_t)*path) * 16777619u;
 	}
 	return (int64_t)(hash % SHMEM_SLOTS);
+}
+
+static uint32_t slot_value(int64_t index) {
+	return slots != NULL && index >= 0 && index < SHMEM_SLOTS ? __atomic_load_n(&slots[index], __ATOMIC_ACQUIRE) : 0;
+}
+
+// the layer's generation counter goes up on every write to it
+static void slot_bump(int64_t index) {
+	if (slots != NULL && index >= 0 && index < SHMEM_SLOTS) __atomic_add_fetch(&slots[index], 1, __ATOMIC_RELEASE);
 }
 
 static void reply_error(xpc_object_t reply, const char* text) {
@@ -184,11 +219,11 @@ static bool credentials_present(pid_t pid, uid_t uid, gid_t gid) {
 	return pid > 0 && uid != (uid_t)-1 && gid != (gid_t)-1;
 }
 
-static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, bool in_batch);
+static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, bool in_batch, size_t* budget);
 
 // op 5: reply holds one reply per request item. [observed] items can be null (the client leaves a slot empty): answered with null.
 // A batch cannot hold a batch (the recursion would be unbounded) and holds at most MAX_BATCH_ITEMS items.
-static void handle_batch(const caller_t* caller, xpc_object_t request, xpc_object_t reply) {
+static void handle_batch(const caller_t* caller, xpc_object_t request, xpc_object_t reply, size_t* budget) {
 	xpc_object_t items = xpc_dictionary_get_value(request, KEY_MESSAGES);
 	if (items == NULL || xpc_get_type(items) != XPC_TYPE_ARRAY) {
 		reply_error(reply, "cfprefsd stand-in: batch without CFPreferencesMessages");
@@ -201,7 +236,7 @@ static void handle_batch(const caller_t* caller, xpc_object_t request, xpc_objec
 	xpc_object_t replies = xpc_array_create(NULL, 0);
 	xpc_array_apply(items, ^bool(size_t index, xpc_object_t item) {
 		(void)index;
-		xpc_object_t one = xpc_get_type(item) == XPC_TYPE_DICTIONARY ? handle_one(caller, item, true) : xpc_null_create();
+		xpc_object_t one = xpc_get_type(item) == XPC_TYPE_DICTIONARY ? handle_one(caller, item, true, budget) : xpc_null_create();
 		xpc_array_append_value(replies, one);
 		xpc_release(one);
 		return true;
@@ -210,13 +245,15 @@ static void handle_batch(const caller_t* caller, xpc_object_t request, xpc_objec
 	xpc_release(replies);
 }
 
+// [real-Mac] the triple; the state is the value of the layer's slot in the shared region
 static void reply_slot(xpc_object_t reply, const char* path) {
+	int64_t index = slot_index_for(path);
 	xpc_dictionary_set_string(reply, KEY_SHMEM_NAME, SHMEM_NAME);
-	xpc_dictionary_set_int64(reply, KEY_SHMEM_INDEX, slot_index_for(path));
-	xpc_dictionary_set_uint64(reply, KEY_SHMEM_STATE, 0);
+	xpc_dictionary_set_int64(reply, KEY_SHMEM_INDEX, index);
+	xpc_dictionary_set_uint64(reply, KEY_SHMEM_STATE, slot_value(index));
 }
 
-static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, bool in_batch) {
+static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, bool in_batch, size_t* budget) {
 	xpc_object_t reply = xpc_dictionary_create(NULL, NULL, 0);
 	if (!caller->verified) {
 		reply_error(reply, "cfprefsd stand-in: the caller's identity could not be verified");
@@ -232,7 +269,7 @@ static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, boo
 		if (in_batch) {
 			reply_error(reply, "cfprefsd stand-in: a batch cannot contain a batch");
 		} else {
-			handle_batch(caller, request, reply);
+			handle_batch(caller, request, reply, budget);
 		}
 		return reply;
 	}
@@ -261,8 +298,17 @@ static xpc_object_t handle_one(const caller_t* caller, xpc_object_t request, boo
 			reply_error(reply, failure);
 			return reply;
 		}
+		slot_bump(slot_index_for(path));
+		reply_slot(reply, path);
+		return reply;
 	}
+	// [real-Mac] a read: the triple plus the layer's dictionary as a bplist00 in xpc data, left out for a layer with no file
 	reply_slot(reply, path);
+	xpc_object_t plist = prefs_store_copy_layer(caller->uid, caller->gid, path, budget);
+	if (plist != NULL) {
+		xpc_dictionary_set_value(reply, KEY_PLIST, plist);
+		xpc_release(plist);
+	}
 	return reply;
 }
 
@@ -270,7 +316,9 @@ int main(void) {
 	verbose = getenv(LOG_ENV) != NULL && strcmp(getenv(LOG_ENV), "0") != 0;
 	// launchd's stdout/stderr redirection is unreliable in the prefix, so own the log file (as the libxpc test service does)
 	freopen(LOG_PATH, "a", stderr);
-	shmem_create();
+	if (!shmem_create()) {
+		return 1; // fail loud: a daemon without a trustworthy region must not answer
+	}
 	daemon_log("started as euid %u egid %u", (unsigned)geteuid(), (unsigned)getegid());
 
 	// One serial queue: writes are read-modify-write on files and run under the caller's identity, which is process-wide.
@@ -294,7 +342,8 @@ int main(void) {
 				caller.pid = xpc_connection_get_pid(connection);
 				caller.verified = credentials_present(caller.pid, caller.uid, caller.gid);
 				if (verbose) log_request(caller.uid, message, caller.verified ? "request" : "unverified request");
-				xpc_object_t answer = handle_one(&caller, message, false);
+				size_t budget = REPLY_BYTE_BUDGET;
+				xpc_object_t answer = handle_one(&caller, message, false, &budget);
 				xpc_dictionary_apply(answer, ^bool(const char* key, xpc_object_t value) {
 					xpc_dictionary_set_value(reply, key, value);
 					return true;

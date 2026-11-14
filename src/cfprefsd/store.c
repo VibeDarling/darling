@@ -302,3 +302,36 @@ const char* prefs_store_write(xpc_object_t request, uid_t uid, gid_t gid, const 
 	if (converted != NULL) CFRelease(converted);
 	return failure;
 }
+
+xpc_object_t prefs_store_copy_layer(uid_t uid, gid_t gid, const char* path, size_t* budget) {
+	xpc_object_t result = NULL;
+	saved_identity saved;
+	if (!assume_identity(uid, gid, &saved)) {
+		if (!restore_identity(&saved)) {
+			fprintf(stderr, "cfprefsd: cannot restore credentials after a failed identity switch, aborting\n");
+			abort();
+		}
+		return NULL;
+	}
+	struct stat st;
+	// absent, empty, not a regular file, or larger than the bytes this reply may still carry: no plist is delivered, and a layer that
+	// is too large is not even parsed (the size is checked before the file is loaded)
+	if (lstat(path, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0 && (uint64_t)st.st_size <= *budget) {
+		const char* failure = NULL;
+		CFMutableDictionaryRef dictionary = load_dictionary(path, &failure);
+		if (dictionary != NULL) {
+			CFDataRef data = CFPropertyListCreateData(kCFAllocatorDefault, dictionary, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+			if (data != NULL && (uint64_t)CFDataGetLength(data) <= *budget) {
+				result = xpc_data_create(CFDataGetBytePtr(data), (size_t)CFDataGetLength(data));
+				*budget -= (size_t)CFDataGetLength(data);
+			}
+			if (data != NULL) CFRelease(data);
+			CFRelease(dictionary);
+		}
+	}
+	if (!restore_identity(&saved)) {
+		fprintf(stderr, "cfprefsd: cannot restore credentials, aborting\n");
+		abort();
+	}
+	return result;
+}
